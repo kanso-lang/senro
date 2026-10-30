@@ -1,0 +1,4 @@
+error[derive]: `destory` is not an action: name it index, new, create, show, edit, update or destroy
+  --> ./posts.kso:4:8
+   4 | pub fn destory _
+              ^

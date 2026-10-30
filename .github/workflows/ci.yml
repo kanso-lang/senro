@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Pinned, as kq pins it: a senro pull request is tested against a fixed
+      # compiler, so its failures are its own, and moving the pin is a pull
+      # request of its own whose diff is the compiler and nothing else.
+      - name: build the pinned kanso toolchain
+        run: |
+          git clone https://github.com/kanso-lang/kanso /tmp/kanso
+          cd /tmp/kanso && git checkout "$(cat $GITHUB_WORKSPACE/.kanso-version)"
+          cargo build --release
+      - name: specs (checks, derived table, kata's views, error goldens)
+        run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh

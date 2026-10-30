@@ -1,0 +1,119 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+type hit
+  action
+  kind
+  id
+
+# A server for an app's route table: one connection at a time, each request
+# looked up by its method and path and handed to the action with the
+# database. An action answers an effect that yields the response.
+pub fn serve at routes db
+  net/listen at .> (l -> net/port l .> (p -> opened l p routes db))
+
+fn opened l p routes db
+  print "senro on port {p}" .> (_ -> served l routes db)
+
+fn served l routes db
+  net/accept l
+    .> (c -> net/read c .> (raw -> answered c routes db (http/parsed raw)))
+    .> (_ -> served l routes db)
+
+fn answered c routes db req
+  routed (matched routes req.method req.path) req db
+    .> (r -> net/write c (http/rendered r))
+    .> (_ -> net/close_conn c)
+
+# A request's route: its own path first, then the path with the segment after
+# the module's name read as `:id`, so /entries/3 and /entries/3/edit find
+# GET /entries/:id and GET /entries/:id/edit.
+pub fn matched routes method path
+  whole = routes["{method} {path}"]
+  return found whole "" if whole != none
+  parts = text/split path "/"
+  return none if length parts < 3
+  head = list/to_list (list/take parts 2)
+  tail = list/to_list (list/drop parts 3)
+  pattern = text/join (list/concat (push head ":id") tail) "/"
+  found routes["{method} {pattern}"] parts[3]
+
+fn found none _
+  none
+
+fn found row id
+  took row["action"] row["id"] id
+
+fn took none none _
+  none
+
+fn took none _ _
+  none
+
+fn took _ none _
+  none
+
+fn took action kind id
+  hit action kind id
+
+fn routed none _ _
+  effect http/not_found
+
+fn routed (hit action kind id) req db
+  called action kind id req db
+
+# An `:id` the action annotates as an int reaches it as one, and a segment
+# that is not a number is not that route.
+fn called action "int" id req db
+  numbered action (text/to_int id) req db
+
+fn called action "any" id req db
+  action req db id
+
+fn called action _ _ req db
+  action req db
+
+fn numbered _ none _ _
+  effect http/not_found
+
+fn numbered action n req db
+  action req db n
+
+# A form posted as application/x-www-form-urlencoded, as a map from each
+# field's name to its value. A field the form did not send reads as "".
+pub fn form body
+  pairs = text/split body "&"
+  list/fold pairs {} (acc pair -> field acc (text/split pair "="))
+
+fn field acc parts
+  return acc if length parts < 2
+  put acc (decoded parts[1]) (decoded parts[2])
+
+pub fn value f name
+  given f[name]
+
+fn given none
+  ""
+
+fn given v
+  v
+
+# `+` is a space, and `%` and two hex digits are one byte.
+fn decoded s
+  bytes = list/to_list (text/bytes (text/join (text/split s "+") " "))
+  text/utf8 (unescaped bytes 1 [])
+
+fn unescaped bs at acc
+  return acc if at < 1 or at > length bs
+  return unescaped bs (at + 1) (push acc bs[at]) if bs[at] != 37
+  return acc if at + 2 > length bs
+  byte = hex bs[at + 1] * 16 + hex bs[at + 2]
+  unescaped bs (at + 3) (push acc byte)
+
+fn hex c
+  return c - 48 if c >= 48 and c <= 57
+  return c - 55 if c >= 65 and c <= 70
+  return c - 87 if c >= 97 and c <= 102
+  0

@@ -1,0 +1,4 @@
+error[derive]: `GET /posts/:id` and `GET /posts/new` (posts/new) answer the same request: annotate `id` as `int` so a word is not taken for an id
+  --> ./posts.kso:4:8
+   4 | pub fn show _ id
+              ^
