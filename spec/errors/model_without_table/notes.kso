@@ -1,0 +1,5 @@
+pub type memo
+  body
+
+pub fn shown m
+  m.body

@@ -1,0 +1,4 @@
+error[derive]: `bdoy` is not a column of `notes`
+  --> ./notes.kso:1:10
+   1 | pub type note
+                ^
