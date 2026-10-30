@@ -1,0 +1,4 @@
+error[derive]: `posts/shwo` names no route
+  --> ./main.kso:8:8
+   8 | print (routes/path_to "posts/shwo")
+              ^

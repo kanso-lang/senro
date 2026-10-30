@@ -1,0 +1,8 @@
+import "../../../routes"
+import "./home"
+import "./posts"
+
+derive routes/rest
+
+# A link written in the entry is checked like one in a module.
+print (routes/path_to "posts/shwo")
