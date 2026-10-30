@@ -75,6 +75,28 @@ wide = 1000000000000000000
 pub fn connect host at user database password
   net/dial host at .> (c -> started c user database password)
 
+# The same login over TLS, as a hosted server asks for. Postgres starts TLS
+# inside the plain connection: the client sends an SSLRequest, the server
+# answers one byte, `S` to go ahead, and the handshake runs on the same
+# socket. The server's certificate is checked for `host` against the
+# machine's trusted roots.
+pub fn connect_tls host at user database password
+  net/dial host at
+    .> (c -> asked c host)
+    .> (c -> started c user database password)
+
+fn asked c host
+  net/write c (text/to_bytes ssl_request)
+    .> (_ -> net/read_bytes c)
+    .> (b -> agreed c host b)
+
+fn agreed c host b
+  return err "`{host}` does not take TLS connections" if text/utf8 b != "S"
+  net/secured c host
+
+# Length 8, then the code 80877103 that asks for TLS.
+ssl_request = [0 0 0 8 4 210 22 47]
+
 # A statement and its values, sent apart: Parse carries the SQL with $1, $2
 # where the values go, and Bind carries the values, so nothing a user typed is
 # ever read as SQL.
