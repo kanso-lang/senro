@@ -1,0 +1,10 @@
+import "../../../routes"
+import "./home"
+import "./posts"
+
+derive routes/rest
+
+print (posts/show "" 3)
+  .> (_ -> print (posts/index ""))
+  .> (_ -> print (routes/path_to "posts/show" 7))
+  .> (_ -> print (routes/path_to "home/index"))

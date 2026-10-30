@@ -1,0 +1,4 @@
+error[derive]: `posts/show` takes an id: path_to "posts/show" id
+  --> ./posts.kso:8:17
+   8 |   "every post: {routes/path_to "posts/show"}"
+                       ^

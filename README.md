@@ -29,6 +29,11 @@ because it lives in this repository.
   and its name place it: `posts/index` answers GET /posts, `posts/show` GET
   /posts/:id. Any other pub function is refused where it is declared, and
   two routes that can answer the same request are refused at the later one.
+  `routes/path_to post` answers a record's show path, through an arm the
+  derivation writes into the module that declares the record.
+  `routes/path_to "posts/index"` and `routes/path_to "posts/show" 3` name the
+  route by its action. A name that is no route, or an id where the route
+  takes none, is refused at the call.
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
@@ -46,5 +51,6 @@ KANSO=/path/to/kanso sh spec.sh
 `.kanso-version` pins the compiler CI builds. The specs check every module
 and example, compare the guestbook's derived schema and routes with
 `spec/guestbook.derived`, compare each view kata writes with the file beside
-its template, and hold each app under `spec/errors` to the refusal its
+its template, run each app under `spec/runs` on both engines against its
+`.stdout` golden, and hold each app under `spec/errors` to the refusal its
 `.stderr` golden records. `SPEC_WRITE=1` rewrites the goldens.

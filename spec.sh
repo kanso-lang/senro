@@ -5,7 +5,8 @@
 #
 # Every module and example checks clean; the guestbook derives the schema and
 # route table its golden holds; kata compiles each view to the file beside it;
-# and each app under spec/errors is refused with the message its golden holds.
+# each app under spec/runs prints its golden on both engines; and each app
+# under spec/errors is refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -47,6 +48,28 @@ for slim in examples/guestbook/views/*.slim; do
     bad "$kso is not what kata writes from $slim"
     printf '%s\n' "$got" | diff "$kso" -
   fi
+done
+
+note "== each app under spec/runs prints its golden, natively and interpreted"
+for d in spec/runs/*/; do
+  name=$(basename "$d")
+  want="spec/runs/$name.stdout"
+  for engine in native interp; do
+    if [ "$engine" = interp ]; then
+      got=$(cd "$d" && "$KANSO" run . --interp 2>&1)
+    else
+      got=$(cd "$d" && "$KANSO" run . 2>&1)
+    fi
+    if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+      printf '%s\n' "$got" > "$want"
+    fi
+    if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+      note "ok: $name ($engine)"
+    else
+      bad "$name ($engine)"
+      printf '%s\n' "$got" | diff "$want" -
+    fi
+  done
 done
 
 note "== each app under spec/errors is refused as its golden says"
