@@ -1,0 +1,6 @@
+import "../../../models"
+import "./notes"
+
+derive models/tables
+
+print "{schema}"

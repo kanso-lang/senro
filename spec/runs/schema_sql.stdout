@@ -1,0 +1,2 @@
+["id integer NOT NULL" "body text NOT NULL" "seen boolean" "title character varying(80)" "made timestamp with time zone DEFAULT now()"]
+["id integer NOT NULL" "note_id integer" "label text"]

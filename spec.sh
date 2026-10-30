@@ -75,7 +75,8 @@ done
 
 note "== each app under spec/db says what its golden says against Postgres"
 # These connect to a Postgres that trusts 127.0.0.1:54329, as CI's service
-# does. SENRO_NO_DB=1 skips them and says so.
+# does, and that serves TLS with spec/tls's certificate for localhost, whose
+# authority they trust. SENRO_NO_DB=1 skips them and says so.
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/db (SENRO_NO_DB=1)"
 else
@@ -84,9 +85,9 @@ else
     want="spec/db/$name.out"
     for engine in native interp; do
       if [ "$engine" = interp ]; then
-        got=$(cd "$d" && "$KANSO" run . --interp 2>&1)
+        got=$(cd "$d" && SSL_CERT_FILE="$here/spec/tls/ca.pem" "$KANSO" run . --interp 2>&1)
       else
-        got=$(cd "$d" && "$KANSO" run . 2>&1)
+        got=$(cd "$d" && SSL_CERT_FILE="$here/spec/tls/ca.pem" "$KANSO" run . 2>&1)
       fi
       if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
         printf '%s\n' "$got" > "$want"

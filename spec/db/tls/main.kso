@@ -1,0 +1,10 @@
+import "../../../pg"
+
+# Postgres serves TLS with spec/tls's certificate for localhost, and spec.sh
+# trusts the authority that signed it. The server says whether this session
+# is encrypted.
+asked = "select ssl from pg_stat_ssl where pid = pg_backend_pid()"
+
+pg/connect_tls "localhost" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db asked)
+  .> (r -> print "the session is encrypted: {r.rows}")

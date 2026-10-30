@@ -1,0 +1,5 @@
+# A model whose fields are columns the dump makes and the migration does not.
+pub type note
+  id
+  body
+  title

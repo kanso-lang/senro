@@ -1,0 +1,8 @@
+import "../../../models"
+import "./migrations"
+import "./notes"
+
+derive models/tables
+
+print "{schema["notes"]}"
+print "{schema["tags"]}"
