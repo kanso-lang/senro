@@ -1,0 +1,19 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+
+derive models/tables
+
+# The live tables disagree with the migrations every way the comparison
+# reads: `body` is an int, `seen` refuses a null, `title` is missing, `extra`
+# is a column no migration makes, and `tags` was never made.
+live = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec;
+  create table notes (id serial, body int not null, seen bool not null, extra text)
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db live .> (_ -> models/compared db schema))
+  .> (_ -> print "the database agrees")

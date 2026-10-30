@@ -12,4 +12,5 @@ derive routes/rest
 made = models/made schema
 
 pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
-  .> (db -> pg/run db made .> (_ -> web/serve 3000 routes db))
+  .> (db -> pg/run db made .> (_ -> models/compared db schema))
+  .> (db -> web/serve 3000 routes db)

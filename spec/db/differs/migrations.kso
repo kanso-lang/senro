@@ -1,0 +1,15 @@
+import "../../../models"
+
+pub all = [notes tags]
+
+notes = models/create_table "notes" [id body seen title]
+
+tags = models/create_table "tags" [id]
+
+id = models/column "id" "serial"
+
+body = models/column "body" "text not null"
+
+seen = models/column "seen" "bool"
+
+title = models/column "title" "varchar(80)"

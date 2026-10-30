@@ -5,8 +5,9 @@
 #
 # Every module and example checks clean; the guestbook derives the schema and
 # route table its golden holds; kata compiles each view to the file beside it;
-# each app under spec/runs prints its golden on both engines; and each app
-# under spec/errors is refused with the message its golden holds.
+# each app under spec/runs prints its golden on both engines; each app under
+# spec/db, run against a live Postgres, prints its golden on both engines; and
+# each app under spec/errors is refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -71,6 +72,34 @@ for d in spec/runs/*/; do
     fi
   done
 done
+
+note "== each app under spec/db says what its golden says against Postgres"
+# These connect to a Postgres that trusts 127.0.0.1:54329, as CI's service
+# does. SENRO_NO_DB=1 skips them and says so.
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/db (SENRO_NO_DB=1)"
+else
+  for d in spec/db/*/; do
+    name=$(basename "$d")
+    want="spec/db/$name.out"
+    for engine in native interp; do
+      if [ "$engine" = interp ]; then
+        got=$(cd "$d" && "$KANSO" run . --interp 2>&1)
+      else
+        got=$(cd "$d" && "$KANSO" run . 2>&1)
+      fi
+      if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+        printf '%s\n' "$got" > "$want"
+      fi
+      if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+        note "ok: $name ($engine)"
+      else
+        bad "$name ($engine)"
+        printf '%s\n' "$got" | diff "$want" -
+      fi
+    done
+  done
+fi
 
 note "== each app under spec/errors is refused as its golden says"
 for d in spec/errors/*/; do

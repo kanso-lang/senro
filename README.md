@@ -35,7 +35,11 @@ because it lives in this repository.
   route by its action. A name that is no route, or an id where the route
   takes none, is refused at the call.
 - `models`: the schema, folded at compile time from the app's migrations,
-  and the check of each model's fields against its table's columns.
+  and the check of each model's fields against its table's columns. As the
+  app starts, `models/compared db schema` reads the live tables and answers
+  the session when they agree with the schema, or an err naming every column
+  whose name, type or nullness differs and every table that is missing.
+  Defaults and constraints are not compared.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
 - `web`: serves the route table and decodes a posted form.
@@ -52,5 +56,6 @@ KANSO=/path/to/kanso sh spec.sh
 and example, compare the guestbook's derived schema and routes with
 `spec/guestbook.derived`, compare each view kata writes with the file beside
 its template, run each app under `spec/runs` on both engines against its
-`.stdout` golden, and hold each app under `spec/errors` to the refusal its
+`.stdout` golden, run each app under `spec/db` the same way against a
+Postgres that trusts 127.0.0.1:54329 (`SENRO_NO_DB=1` skips them), and hold each app under `spec/errors` to the refusal its
 `.stderr` golden records. `SPEC_WRITE=1` rewrites the goldens.

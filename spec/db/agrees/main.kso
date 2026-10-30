@@ -1,0 +1,21 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+
+derive models/tables
+
+# Tables made from the migrations agree with them. The comparison runs twice,
+# because its shadow tables have to be gone before the next one makes them.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+made = models/made schema
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> models/compared db schema)
+  .> (db -> models/compared db schema)
+  .> (_ -> print "the database agrees")

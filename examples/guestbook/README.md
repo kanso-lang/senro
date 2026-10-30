@@ -10,7 +10,10 @@ kanso derived examples/guestbook  # the schema and route table derived
 ```
 
 - `main.kso` connects, creates each table the schema names if it is
-  missing, and serves the route table that `derive routes/rest` declares.
+  missing, compares the database's tables with the schema it was compiled
+  with, and serves the route table that `derive routes/rest` declares. A
+  table that differs, say one an older build made with another column, stops
+  the app before it serves anything, with each difference named.
 - `migrations.kso` keeps the schema as the changes that built it, as a pub
   constant. `derive models/tables` folds them into `schema` while the app
   compiles, and refuses a record type whose table is missing or whose field
