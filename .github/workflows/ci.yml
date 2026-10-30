@@ -30,5 +30,20 @@ jobs:
           git clone https://github.com/kanso-lang/kanso /tmp/kanso
           cd /tmp/kanso && git checkout "$(cat $GITHUB_WORKSPACE/.kanso-version)"
           cargo build --release
+      # The service starts before the checkout, so it learns its certificate
+      # here: spec/tls's localhost certificate, then ssl on and a reload.
+      - name: Postgres serves TLS with the test certificate
+        run: |
+          id=${{ job.services.postgres.id }}
+          dir=/var/lib/postgresql
+          docker cp spec/tls/localhost.pem "$id:$dir/server.crt"
+          docker cp spec/tls/localhost.key "$id:$dir/server.key"
+          docker exec "$id" chown postgres "$dir/server.crt" "$dir/server.key"
+          docker exec "$id" chmod 600 "$dir/server.key"
+          docker exec -u postgres "$id" psql \
+            -c "alter system set ssl_cert_file = '$dir/server.crt'" \
+            -c "alter system set ssl_key_file = '$dir/server.key'" \
+            -c "alter system set ssl = on" \
+            -c "select pg_reload_conf()"
       - name: specs (checks, derived table, kata's views, runs, database, errors)
         run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh

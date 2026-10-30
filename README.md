@@ -46,6 +46,9 @@ because it lives in this repository.
   psql, which reads the lines Postgres's protocol does not.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
+  `pg/connect_tls` asks the server for TLS inside the connection, as Postgres
+  expects, and checks its certificate against the machine's trusted roots
+  (`SSL_CERT_FILE` names others).
 - `web`: serves the route table and decodes a posted form.
 - `kata`: Slim-style templates compiled to kanso functions. `bin/kata` is its
   command line; see `kata/README.md`.
