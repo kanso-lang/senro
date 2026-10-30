@@ -1,0 +1,5 @@
+pub fn new _
+  "a blank form"
+
+pub fn show _ id
+  "post {id}"

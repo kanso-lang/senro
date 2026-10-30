@@ -1,0 +1,381 @@
+import "std/base64"
+import "std/bits"
+import "std/list"
+import "std/math"
+import "std/net"
+import "std/sha256"
+import "std/text"
+
+# A Postgres client written against the wire protocol, version 3.0. Every
+# message after the first is a type byte, a four-byte length that counts
+# itself, and a body. A reply ends with ReadyForQuery, so a reader collects
+# messages until one of those arrives and then makes sense of the list.
+#
+# Values travel as text, and a column's type oid says how to read one: ints
+# and bools become kanso's own, a NULL becomes none, and anything this client
+# does not know yet stays the string Postgres sent.
+pub type session
+  conn
+
+pub type result
+  columns
+  rows
+  command
+
+type message
+  kind
+  body
+
+# SQL's NULL as a parameter. A list cannot hold none, so a statement's values
+# name this instead.
+type nothing
+  marker
+
+# What a reader took from a buffer and where the next field starts.
+type taken
+  value
+  next
+
+# The whole messages found so far, where the unread bytes begin, and whether
+# the last message ended the reply.
+type gathered
+  messages
+  rest
+  finished
+
+type column
+  name
+  oid
+
+# A SCRAM exchange so far: the connection, the password, the client's first
+# message without its header, and the server's first message.
+type exchange
+  conn
+  password
+  bare
+  server
+
+# What a SCRAM client sends in its final message, and the signature it
+# expects the server to answer with.
+type proven
+  final
+  proof
+  server
+
+pub null = nothing 0
+
+unchallenged = err "the server's challenge is not one SCRAM-SHA-256 sends"
+
+# Two draws below this make a nonce of about 120 bits.
+wide = 1000000000000000000
+
+# A password of "" is for a server that trusts the connection, as Docker's
+# development images do. Any other password is sent by SCRAM-SHA-256, which
+# never puts the password itself on the wire.
+pub fn connect host at user database password
+  net/dial host at .> (c -> started c user database password)
+
+# A statement and its values, sent apart: Parse carries the SQL with $1, $2
+# where the values go, and Bind carries the values, so nothing a user typed is
+# ever read as SQL.
+pub fn query s sql params
+  net/write s.conn (extended sql params)
+    .> (_ -> replies s.conn ready?)
+    .> answered
+
+# A statement with no values, sent whole. Schema changes and anything else
+# that takes no parameters can go this way, several statements at once.
+pub fn run s sql
+  net/write s.conn (text/to_bytes (framed 81 (cstring sql)))
+    .> (_ -> replies s.conn ready?)
+    .> answered
+
+fn extended sql params
+  parse = framed 80 (list/concat (cstring "") (list/concat (cstring sql) [0 0]))
+  binding = framed 66 (bound params)
+  describe = framed 68 (list/concat [80] (cstring ""))
+  execute = framed 69 (list/concat (cstring "") (be32 0))
+  sync = framed 83 []
+  steps = [parse binding describe execute sync]
+  text/to_bytes (list/fold steps [] (acc step -> list/concat acc step))
+
+fn bound params
+  each = list/fold params [] (acc v -> list/concat acc (encoded v))
+  counted = list/concat (be16 (length params)) each
+  list/concat [0 0 0 0] (list/concat counted [0 0])
+
+# A value as Postgres reads one in text format: its length, then its bytes,
+# with a length of -1 standing for NULL.
+fn encoded true
+  sized (text/bytes "t")
+
+fn encoded false
+  sized (text/bytes "f")
+
+fn encoded _:nothing
+  [255 255 255 255]
+
+fn encoded v:string
+  sized (text/bytes v)
+
+fn encoded v
+  sized (text/bytes "{v}")
+
+fn sized bs
+  list/concat (be32 (length bs)) bs
+
+pub fn close s
+  net/write s.conn (text/to_bytes (framed 88 []))
+    .> (_ -> net/close_conn s.conn)
+
+fn started c user database password
+  wanted = list/concat (setting "user" user) (setting "database" database)
+  body = list/concat (be32 196608) (list/concat wanted [0])
+  net/write c (text/to_bytes (list/concat (be32 (length body + 4)) body))
+    .> (_ -> replies c opened?)
+    .> (ms -> admitted c password ms)
+
+fn setting name value
+  list/concat (cstring name) (cstring value)
+
+# A startup ends at ReadyForQuery, at an error, or at a request for a
+# password this client cannot answer yet.
+fn opened? m
+  m.kind == 90 or m.kind == 69 or asks_password? m
+
+fn asks_password? m
+  m.kind == 82 and be32_at m.body 1 != 0
+
+fn ready? m
+  m.kind == 90
+
+fn admitted c password ms
+  refused = list/find ms (m -> m.kind == 69)
+  return failure refused.body if refused != none
+  request = list/find ms asks_password?
+  return session c if request == none
+  authenticated c password (be32_at request.body 1)
+
+# SCRAM-SHA-256, RFC 5802 and 7677, which is what Postgres asks for by
+# default. Method 10 is the server naming the mechanisms it accepts.
+fn authenticated c password 10
+  math/random wide .> (a -> math/random wide .> (b -> nonced c password a b))
+
+fn nonced c password a b
+  scram c password "{a}{b}"
+
+fn authenticated _ _ method
+  err "the server asks for password method {method}; this client speaks SCRAM"
+
+fn scram c password nonce
+  first_bare = "n=,r={nonce}"
+  first = text/bytes "n,,{first_bare}"
+  counted = list/concat (be32 (length first)) first
+  body = list/concat (cstring "SCRAM-SHA-256") counted
+  net/write c (text/to_bytes (framed 112 body))
+    .> (_ -> replies c challenged?)
+    .> (ms -> challenged c password first_bare ms)
+
+fn challenged? m
+  m.kind == 82 or m.kind == 69
+
+fn ended? m
+  m.kind == 90 or m.kind == 69
+
+fn challenged c password first_bare ms
+  refused = list/find ms (m -> m.kind == 69)
+  return failure refused.body if refused != none
+  challenge = list/find ms (m -> m.kind == 82)
+  server_first = text/utf8 (slice challenge.body 5 (length challenge.body - 4))
+  attrs = attributes server_first
+  first = exchange c password first_bare server_first
+  asked first attrs attrs["r"]
+
+# The server's first message: its nonce, the salt, and the rounds. A
+# challenge missing any of the three is not one SCRAM-SHA-256 sends.
+fn asked _ _ none
+  unchallenged
+
+fn asked first attrs r
+  salted first attrs r attrs["s"]
+
+fn salted _ _ _ none
+  unchallenged
+
+fn salted first attrs r s
+  rounded first r s attrs["i"]
+
+fn rounded _ _ _ none
+  unchallenged
+
+fn rounded first r s i
+  base64/decode! s .> (salt -> text/to_int! i .> (n -> answered first r salt n))
+
+fn answered first r salt times
+  proved = proof first r (list/to_list salt) times
+  answer = text/bytes "{proved.final},p={base64/encode proved.proof}"
+  net/write first.conn (text/to_bytes (framed 112 answer))
+    .> (_ -> replies first.conn ended?)
+    .> (ms -> concluded first.conn proved.server ms)
+
+# The keys RFC 5802 derives from the password, and the message both sides
+# sign: the client's first message, the server's, and the client's final one
+# without its proof.
+fn proof first r salt times
+  key = sha256/pbkdf2 (text/bytes first.password) salt times 32
+  client_key = sha256/hmac key (text/bytes "Client Key")
+  stored = sha256/digest client_key
+  final = "c=biws,r={r}"
+  signed = text/bytes "{first.bare},{first.server},{final}"
+  signature = sha256/hmac stored signed
+  server_key = sha256/hmac key (text/bytes "Server Key")
+  server = base64/encode (sha256/hmac server_key signed)
+  proven final (text/to_bytes (xored client_key signature 1 [])) server
+
+fn attributes s
+  list/fold (text/split s ",") {} (acc p -> put acc (key_of p) (after p))
+
+fn key_of p
+  text/slice p 1 1
+
+fn after p
+  text/slice p 3 (length p)
+
+fn xored a b at acc
+  return acc if at < 1 or at > length a or at > length b
+  xored a b (at + 1) (push acc (bits/xor a[at] b[at]))
+
+# The server proves it knew the password too: its final message carries a
+# signature only a holder of the salted password could make.
+fn concluded c server ms
+  refused = list/find ms (m -> m.kind == 69)
+  return failure refused.body if refused != none
+  final = list/find ms (m -> m.kind == 82 and be32_at m.body 1 == 12)
+  return err "the server never proved it knew the password" if final == none
+  verdict = text/utf8 (slice final.body 5 (length final.body - 4))
+  return session c if verdict == "v={server}"
+  err "the server's proof does not match; this is not the server you think"
+
+# An error's body is a run of fields, each a code byte and a string, ending
+# in a zero. The human-readable one has the code M.
+fn failure body
+  err (said body 1)
+
+fn said body at
+  return "the server refused without a message" if body[at] == 0
+  text = cstring_at body (at + 1)
+  return text.value if body[at] == 77
+  said body text.next
+
+fn answered ms
+  refused = list/find ms (m -> m.kind == 69)
+  return failure refused.body if refused != none
+  columns = described ms
+  rows = list/to_list (list/map (picked ms 68) (m -> row columns m.body))
+  names = list/to_list (list/map columns (k -> k.name))
+  result names rows (completed ms)
+
+fn picked ms kind
+  list/select ms (m -> m.kind == kind)
+
+fn completed ms
+  tagged = list/find ms (m -> m.kind == 67)
+  return "" if tagged == none
+  (cstring_at tagged.body 1).value
+
+fn described ms
+  head = list/find ms (m -> m.kind == 84)
+  return [] if head == none
+  fields head.body 3 (be16_at head.body 1) []
+
+fn fields _ _ 0 acc
+  acc
+
+fn fields body at left acc
+  name = cstring_at body at
+  oid = be32_at body (name.next + 6)
+  more = list/concat acc [(column name.value oid)]
+  fields body (name.next + 18) (left - 1) more
+
+fn row columns body
+  cells columns body 3 {}
+
+fn cells columns body at acc
+  return acc if length columns == 0
+  k = list/first columns
+  size = be32_at body at
+  rest = list/to_list (list/drop columns 1)
+  return cells rest body (at + 4) (put acc k.name none) if size > 2147483647
+  raw = text/utf8 (slice body (at + 4) size)
+  cells rest body (at + 4 + size) (put acc k.name (typed k.oid raw))
+
+fn typed 16 raw
+  raw == "t"
+
+fn typed 20 raw
+  text/to_int raw
+
+fn typed 21 raw
+  text/to_int raw
+
+fn typed 23 raw
+  text/to_int raw
+
+fn typed _ raw
+  raw
+
+# Reading. A read is whatever the network delivered, which may be part of a
+# message or several of them, so the bytes left over are carried into the
+# next read.
+fn replies c done?
+  reading c done? [] []
+
+fn reading c done? buf ms
+  net/read_bytes c .> (more -> landed c done? buf ms more)
+
+fn landed c done? buf ms more
+  return err "the server closed the connection" if length more == 0
+  whole = list/to_list (list/concat buf more)
+  g = split_off whole 1 ms done?
+  return g.messages if g.finished
+  reading c done? (slice whole g.rest (length whole - g.rest + 1)) g.messages
+
+fn split_off buf at ms done?
+  left = length buf - at + 1
+  return gathered ms at false if left < 5
+  size = be32_at buf (at + 1)
+  return gathered ms at false if left < size + 1
+  m = message buf[at] (slice buf (at + 5) (size - 4))
+  more = list/concat ms [m]
+  return gathered more (at + size + 1) true if done? m
+  split_off buf (at + size + 1) more done?
+
+# Bytes, written big-endian as the protocol has them.
+fn framed kind body
+  list/to_list (list/concat [kind] (list/concat (be32 (length body + 4)) body))
+
+fn be32 n
+  [(n / 16777216 % 256) (n / 65536 % 256) (n / 256 % 256) (n % 256)]
+
+fn be32_at bs at
+  bs[at] * 16777216 + bs[at + 1] * 65536 + bs[at + 2] * 256 + bs[at + 3]
+
+fn be16 n
+  [(n / 256 % 256) (n % 256)]
+
+fn be16_at bs at
+  bs[at] * 256 + bs[at + 1]
+
+fn cstring s
+  list/concat (text/bytes s) [0]
+
+fn cstring_at bs at
+  end = zero_from bs at
+  taken (text/utf8 (slice bs at (end - at))) (end + 1)
+
+fn zero_from bs at
+  return at if bs[at] == 0
+  zero_from bs (at + 1)
+
+fn slice bs from n
+  list/to_list (list/take (list/drop bs (from - 1)) n)

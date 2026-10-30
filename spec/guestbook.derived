@@ -1,0 +1,2 @@
+schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
+routes = { "GET /":{ "action":home/index "id":"" } "GET /entries":{ "action":entries/index "id":"" } "POST /entries":{ "action":entries/create "id":"" } }    # routes/rest
