@@ -1,0 +1,4 @@
+# `bdoy` is no column of the `notes` the dump makes.
+pub type note
+  id
+  bdoy

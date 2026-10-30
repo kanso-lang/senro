@@ -1,0 +1,23 @@
+import "../../../models"
+import "../../../pg"
+
+derive models/tables
+
+# The tables a `schema.sql` describes, made the way psql would load the dump,
+# agree with the schema read from it: each column's definition, `integer NOT
+# NULL` and `timestamp with time zone DEFAULT now()` among them, makes the
+# same column in a shadow table as in the real one.
+live = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec;
+  create table notes (id serial primary key, body text not null,
+    seen boolean, title varchar(80), made timestamptz default now());
+  create table tags (id serial primary key,
+    note_id integer references notes(id), label text)
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db live .> (_ -> db))
+  .> (db -> models/compared db schema)
+  .> (_ -> print "the database agrees with schema.sql")

@@ -31,6 +31,12 @@ type column_def
   name
   kind
 
+# How far `dumped` has read: the tables so far, and the one whose columns the
+# next lines hold, or "" between tables.
+type reading
+  schema
+  table
+
 pub fn create_table name columns
   new_table name columns
 
@@ -46,10 +52,19 @@ pub fn drop_column table name
 pub fn column name kind
   column_def name kind
 
+# An app whose migrations need SQL the fold cannot read, such as a trigger,
+# checks in `pg_dump --schema-only` output as `schema.sql` beside its entry,
+# and the schema is read from that instead.
 pub fn tables p
-  schema = list/fold (migrations_of p) {} applied
+  schema = schema_of p p.files["schema.sql"]
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   list/concat [(derive/declare "schema" "schema" schema)] refused
+
+fn schema_of p none
+  list/fold (migrations_of p) {} applied
+
+fn schema_of _ sql
+  dumped sql
 
 fn migrations_of p
   found = list/select p.modules (m -> m.name == "migrations")
@@ -119,6 +134,38 @@ fn missing origin table
 
 fn stray origin table f
   derive/refuse origin "`{f}` is not a column of `{table}`"
+
+# A dump's tables, each as `CREATE TABLE public.notes (` with a column to a
+# line until `);`. Each column keeps its whole definition, as a migration's
+# column does, and a table constraint is not a column.
+fn dumped sql
+  lines = text/split sql "\n"
+  (list/fold lines (reading {} "") read).schema
+
+fn read r line
+  return opened r (table_named line) if created? line
+  return reading r.schema "" if r.table != "" and text/starts_with? line ")"
+  return r if r.table == "" or text/starts_with? (text/trim line) "CONSTRAINT"
+  columns = list/concat (held r.schema r.table) [(unlisted (text/trim line))]
+  reading (put r.schema r.table columns) r.table
+
+fn created? line
+  logged = text/starts_with? line "CREATE TABLE "
+  logged or text/starts_with? line "CREATE UNLOGGED TABLE "
+
+fn opened r table
+  reading (put r.schema table []) table
+
+fn unlisted c
+  return c if not text/ends_with? c ","
+  text/slice c 1 (length c - 1)
+
+# `CREATE TABLE public.notes (` names `notes`, with any quotes taken off.
+fn table_named line
+  head = plain (text/split line " (")[1]
+  words = text/split head " "
+  parts = text/split (plain words[length words]) "."
+  text/join (text/split (plain parts[length parts]) "\"") ""
 
 # The inflector: enough English for table names.
 pub fn plural word

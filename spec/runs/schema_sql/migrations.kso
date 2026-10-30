@@ -1,0 +1,9 @@
+import "../../../models"
+
+# The dump beside the entry is read instead of these, so this migration,
+# which would make a different `notes`, is not the schema.
+pub all = [stale]
+
+stale = models/create_table "notes" [only]
+
+only = models/column "only" "text"

@@ -39,7 +39,11 @@ because it lives in this repository.
   app starts, `models/compared db schema` reads the live tables and answers
   the session when they agree with the schema, or an err naming every column
   whose name, type or nullness differs and every table that is missing.
-  Defaults and constraints are not compared.
+  Defaults and constraints are not compared. An app whose migrations need SQL
+  the fold cannot read, such as a trigger, checks in `pg_dump --schema-only`
+  output as `schema.sql` beside its entry, and the schema is read from its
+  `CREATE TABLE` blocks instead of the migrations. The dump is loaded with
+  psql, which reads the lines Postgres's protocol does not.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
 - `web`: serves the route table and decodes a posted form.
