@@ -1,0 +1,4 @@
+error[derive]: `posts/index` takes no id
+  --> ./posts.kso:8:17
+   8 |   "every post: {routes/path_to "posts/index" 3}"
+                       ^

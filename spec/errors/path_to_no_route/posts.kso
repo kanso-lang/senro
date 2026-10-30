@@ -1,0 +1,11 @@
+import "../../../routes"
+
+pub type post
+  id
+  title
+
+pub fn index _
+  "every post: {routes/path_to "posts/shwo" 3}"
+
+pub fn show _ id:int
+  "post {id}"

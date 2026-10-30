@@ -1,0 +1,7 @@
+import "../../../routes"
+import "./home"
+import "./posts"
+
+derive routes/rest
+
+print (posts/index "")

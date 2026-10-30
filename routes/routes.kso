@@ -27,13 +27,82 @@ type clashes
 # The table maps each route to its action and to what its `:id` segment
 # takes: "int" when the action annotates `id` as an int, "any" when it takes
 # any segment, and "" when the route has no `:id`.
+#
+# It also writes a `path_to` arm for each record type declared in a module
+# that has a `show` action, and refuses a `path_to` whose route name is no
+# route or whose id does not match the route.
 pub fn rest p
   placed = list/fold p.modules [] (acc m -> list/concat acc (routes_of m))
   rows = list/fold placed {} (acc r -> put acc (spelled r) (row r))
   odd = list/fold p.modules [] (acc m -> list/concat acc (strays m))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
-  list/concat (list/concat declared odd) clashing.out
+  arms = list/fold p.modules [] (acc m -> list/concat acc (arms_of m))
+  links = list/fold p.modules [] (acc m -> list/concat acc (links_of m placed))
+  told = list/concat (list/concat declared odd) clashing.out
+  list/concat (list/concat told arms) links
+
+# How a page names a route. `path_to post` finds the show route of a record by
+# its type, through the arm `rest` writes into the module that declares it.
+# `path_to "posts/index"` and `path_to "posts/show" 3` name a route by its
+# action, and the id fills `:id`.
+pub fn path_to name:string
+  filled name ""
+
+pub fn path_to name:string id
+  filled name "{id}"
+
+fn filled name id
+  parts = text/split name "/"
+  return err "`{name}` names no route" if length parts != 2
+  path_in (path_of parts[1] parts[2]) name id
+
+fn path_in none name _
+  err "`{name}` names no route"
+
+fn path_in (place _ path) _ id
+  text/join (text/split path ":id") id
+
+fn arms_of m
+  return [] if not list/any? m.functions (f -> f.name == "show")
+  list/to_list (list/map m.records (r -> arm_for m.name r.name))
+
+fn arm_for m t
+  body = "\"/{m}/\{x.id}\""
+  derive/define "{m}/{t}" "fn routes/path_to x:{t}\n  {body}\n"
+
+# A `path_to` that names its route by a string is checked here, at the call:
+# the name must be a route, and the route takes an id exactly when its path
+# has `:id`.
+fn links_of m placed
+  links = list/select m.calls (c -> c.callee == "routes/path_to")
+  list/fold links [] (acc c -> list/concat acc (named c c.strings[1] placed))
+
+# A first argument that is not a string written whole is the record form,
+# which dispatch checks.
+fn named _ none _
+  []
+
+fn named _ "" _
+  []
+
+fn named c name placed
+  found = list/to_list (list/select placed (r -> r.origin == name))
+  return [(derive/refuse_call c "`{name}` names no route")] if length found == 0
+  r = found[1]
+  id_fits (r.id != "") (length c.arguments == 2) c name
+
+fn id_fits true true _ _
+  []
+
+fn id_fits false false _ _
+  []
+
+fn id_fits true false c name
+  [(derive/refuse_call c "`{name}` takes an id: path_to \"{name}\" id")]
+
+fn id_fits false true c name
+  [(derive/refuse_call c "`{name}` takes no id")]
 
 fn spelled r
   "{r.method} {r.path}"
