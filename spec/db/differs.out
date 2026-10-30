@@ -4,4 +4,4 @@ error[endpoint]: unhandled err reached the executor: "the database differs from 
   `notes.seen` takes a null in the migrations and not in the database
   `notes` has no column `title`
   no table `tags`"
-  born in models/verdict at ../../../models/models.kso:215
+  born in models/verdict at ../../../models/models.kso:262
