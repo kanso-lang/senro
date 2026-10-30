@@ -1,3 +1,4 @@
+import "../pg"
 import "std/derive"
 import "std/list"
 import "std/text"
@@ -150,3 +151,108 @@ fn making table none
 
 fn making table columns
   "create table if not exists {table} ({text/join columns ", "})"
+
+# The comparison an app runs as it starts: the live database's tables against
+# the schema it was compiled with. Each table in `schema` is made again as a
+# temporary shadow from the same column definitions, so Postgres reads `serial`
+# and `int` and `varchar(80)` the way it read them when the real table was
+# made, and the catalog then compares the two column by column: names, types
+# and whether each takes a null. Defaults and constraints are not compared.
+# The session comes back when they agree, so `.>` carries it on to the server;
+# a difference is an err naming each one, and the app does not start.
+pub fn compared db schema
+  pg/run db (shadows schema)
+    .> (_ -> pg/run db differences)
+    .> (r -> pg/run db (unshadowed schema) .> (_ -> verdict db r.rows))
+
+shadowed = "senro_expected_"
+
+fn shadows schema
+  each = list/map (keys schema) (t -> shadow t schema[t])
+  text/join (list/to_list each) "; "
+
+fn shadow table none
+  "create temporary table {shadowed}{table} ()"
+
+fn shadow table columns
+  "create temporary table {shadowed}{table} ({text/join columns ", "})"
+
+fn unshadowed schema
+  each = list/map (keys schema) (t -> "drop table {shadowed}{t}")
+  text/join (list/to_list each) "; "
+
+differences = """
+  with expected as (
+    select substr(c.relname, 16) as tab, a.attname::text as col,
+      format_type(a.atttypid, a.atttypmod) as kind, a.attnotnull as required
+    from pg_attribute a join pg_class c on c.oid = a.attrelid
+    where c.relnamespace = pg_my_temp_schema() and c.relkind = 'r'
+      and starts_with(c.relname, 'senro_expected_')
+      and a.attnum > 0 and not a.attisdropped
+  ), live as (
+    select c.relname::text as tab, a.attname::text as col,
+      format_type(a.atttypid, a.atttypmod) as kind, a.attnotnull as required
+    from pg_attribute a join pg_class c on c.oid = a.attrelid
+    where c.relnamespace = current_schema()::regnamespace and c.relkind = 'r'
+      and c.relname in (select tab from expected)
+      and a.attnum > 0 and not a.attisdropped
+  )
+  select coalesce(e.tab, l.tab) as tab, coalesce(e.col, l.col) as col,
+    e.kind as expected, l.kind as live,
+    e.required as expected_required, l.required as live_required,
+    exists (select 1 from live x where x.tab = coalesce(e.tab, l.tab)) as found
+  from expected e full join live l on e.tab = l.tab and e.col = l.col
+  where e.col is null or l.col is null or e.kind <> l.kind
+    or e.required <> l.required
+  order by 1, 2
+"""
+
+fn verdict db rows
+  return db if length rows == 0
+  told = list/to_list (list/map rows difference)
+  unique = list/fold told [] (acc d -> once acc d)
+  lines = text/join (list/to_list (list/map unique (d -> "  {d}"))) "\n"
+  err "{differs}\n{lines}"
+
+differs = "the database differs from the schema this app was compiled with:"
+
+fn once acc d
+  return acc if list/any? acc (seen -> seen == d)
+  list/concat acc [d]
+
+# A side the full join found nothing on reads "" for its kind.
+fn difference r
+  at = plain r["tab"]
+  col = plain r["col"]
+  kind = plain r["expected"]
+  live = plain r["live"]
+  return "no table `{at}`" if not holds? r["found"]
+  return "`{at}` has a column `{col}` no migration makes" if kind == ""
+  return "`{at}` has no column `{col}`" if live == ""
+  return typed "{at}.{col}" kind live if live != kind
+  required = nullness (holds? r["expected_required"])
+  "`{at}.{col}` {required} in the migrations and not in the database"
+
+fn plain none
+  ""
+
+fn plain s
+  s
+
+fn holds? true
+  true
+
+fn holds? none
+  false
+
+fn holds? _
+  false
+
+fn typed at expected live
+  "`{at}` is {live} in the database and {expected} in the migrations"
+
+fn nullness true
+  "is not null"
+
+fn nullness _
+  "takes a null"

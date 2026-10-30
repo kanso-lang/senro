@@ -7,6 +7,18 @@ on:
 jobs:
   spec:
     runs-on: ubuntu-latest
+    # spec/db runs its apps against this server, which trusts every login as
+    # the guestbook's development setup does.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -18,5 +30,5 @@ jobs:
           git clone https://github.com/kanso-lang/kanso /tmp/kanso
           cd /tmp/kanso && git checkout "$(cat $GITHUB_WORKSPACE/.kanso-version)"
           cargo build --release
-      - name: specs (checks, derived table, kata's views, error goldens)
+      - name: specs (checks, derived table, kata's views, runs, database, errors)
         run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh

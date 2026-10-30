@@ -1,0 +1,7 @@
+error[endpoint]: unhandled err reached the executor: "the database differs from the schema this app was compiled with:
+  `notes.body` is integer in the database and text in the migrations
+  `notes` has a column `extra` no migration makes
+  `notes.seen` takes a null in the migrations and not in the database
+  `notes` has no column `title`
+  no table `tags`"
+  born in models/verdict at ../../../models/models.kso:215
