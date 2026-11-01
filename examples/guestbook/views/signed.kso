@@ -2,15 +2,19 @@
 
 pub fn signed signatures
   joined [
-    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>"
-    "Guestbook</title></head><body><h1>Guestbook</h1><form method=\"post\" "
-    "action=\"/entries\"><input name=\"name\" placeholder=\"your name\">"
-    "<input name=\"message\" placeholder=\"say something\"><button>"
-    # signed.slim:14
-    "Sign</button></form><ul>{each signatures (e -> signed_14 e)}</ul></body>"
-    "</html>"
+    "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
+    "comes next.</p></header><form method=\"post\" action=\"/entries\">"
+    "<input name=\"name\" placeholder=\"your name\" required=\"required\">"
+    "<textarea name=\"message\" placeholder=\"say something\" "
+    "required=\"required\"></textarea><button>Sign</button></form><ol "
+    # signed.slim:10
+    "class=\"entries\">{each signatures (e -> signed_10 e)}</ol>"
   ]
 
-fn signed_14 e
-  # signed.slim:16, 17
-  "<li><strong>{escape e.name}</strong> wrote {escape e.message}</li>"
+fn signed_10 e
+  joined [
+    # signed.slim:12
+    "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
+    # signed.slim:13
+    "{escape e.name}</p></li>"
+  ]

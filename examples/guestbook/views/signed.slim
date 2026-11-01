@@ -1,17 +1,13 @@
 - locals signatures
-doctype html
-html
-  head
-    meta charset="utf-8"
-    title Guestbook
-  body
-    h1 Guestbook
-    form method="post" action="/entries"
-      input name="name" placeholder="your name"
-      input name="message" placeholder="say something"
-      button Sign
-    ul
-      - for e in signatures
-        li
-          strong = e.name
-          |  wrote #{e.message}
+header
+  h1 Guestbook
+  p.lede Leave a line for whoever comes next.
+form method="post" action="/entries"
+  input name="name" placeholder="your name" required="required"
+  textarea name="message" placeholder="say something" required="required"
+  button Sign
+ol.entries
+  - for e in signatures
+    li
+      p.message = e.message
+      p.who = e.name

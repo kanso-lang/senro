@@ -2,6 +2,7 @@ import "../pg"
 import "std/list"
 import "std/net"
 import "std/net/http"
+import "std/os"
 import "std/text"
 
 type hit
@@ -72,8 +73,26 @@ fn took _ none _
 fn took action kind id
   hit action kind id
 
-fn routed none _ _
+# A GET no route answers is looked for under `public/`, beside the app, the
+# way a stylesheet or an image is served. A path that climbs out of it, or a
+# file that is not there, is a 404.
+fn routed none req _
+  return effect http/not_found if req.method != "GET"
+  return effect http/not_found if length (text/split req.path "..") > 1
+  os/read_file "public{req.path}" .> (got -> served_file req.path got)
+
+fn served_file path body:string
+  effect (http/page ["content-type: {kind_of path}"] body)
+
+fn served_file _ _
   effect http/not_found
+
+fn kind_of path
+  return "text/css; charset=utf-8" if text/ends_with? path ".css"
+  return "text/html; charset=utf-8" if text/ends_with? path ".html"
+  return "image/svg+xml" if text/ends_with? path ".svg"
+  return "text/javascript; charset=utf-8" if text/ends_with? path ".js"
+  "text/plain; charset=utf-8"
 
 fn routed (hit action kind id) req db
   called action kind id req db

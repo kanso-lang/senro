@@ -31,7 +31,7 @@ newest = "select name, message from signatures order by id desc"
 
 fn shown rows
   signed = list/to_list (list/map rows signature_of)
-  http/html_page (views/signed signed)
+  http/html_page (views/layout "Guestbook" (views/signed signed))
 
 fn signature_of row
   signature (models/cell row "name") (models/cell row "message")
