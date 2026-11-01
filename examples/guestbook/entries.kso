@@ -1,4 +1,3 @@
-import "../../models"
 import "../../pg"
 import "../../web"
 import "./views"
@@ -6,7 +5,8 @@ import "std/list"
 import "std/net/http"
 
 # A signature as the `signatures` table stores it. senro/models checks each
-# field against the table's columns.
+# field against the table's columns and writes `signature_from`, which builds
+# one from a row.
 pub type signature
   name
   message
@@ -37,7 +37,7 @@ added = "insert into signatures (name, message) values ($1, $2)"
 newest = "select name, message from signatures order by id desc"
 
 fn shown rows s
-  signed = list/to_list (list/map rows signature_of)
+  signed = list/to_list (list/map rows signature_from)
   page = views/signed signed (said s["name"]) (said s["flash"])
   r = http/html_page (views/layout "Guestbook" page)
   effect (web/kept r secret (put s "flash" ""))
@@ -47,6 +47,3 @@ fn said none
 
 fn said v
   v
-
-fn signature_of row
-  signature (models/cell row "name") (models/cell row "message")

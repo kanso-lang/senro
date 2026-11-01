@@ -1,0 +1,9 @@
+import "../../../models"
+
+pub all = [notes]
+
+notes = models/create_table "notes" [id title]
+
+id = models/column "id" "serial"
+
+title = models/column "title" "text"
