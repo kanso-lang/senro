@@ -1,3 +1,4 @@
+import "../pg"
 import "std/list"
 import "std/net"
 import "std/net/http"
@@ -8,24 +9,37 @@ type hit
   kind
   id
 
-# A server for an app's route table: one connection at a time, each request
-# looked up by its method and path and handed to the action with the
-# database. An action answers an effect that yields the response.
-pub fn serve at routes db
-  net/listen at .> (l -> net/port l .> (p -> opened l p routes db))
+# A server for an app's route table. Each connection is answered in a fiber
+# of its own beside the one that accepts the next, so a slow request holds up
+# nobody else. A request is looked up by its method and path and handed to
+# the action with a database session of its own, which `connect` opens and
+# the request closes when it is done; sessions are not shared, because two
+# requests' queries would interleave on one socket. An action answers an
+# effect that yields the response.
+pub fn serve at routes connect
+  net/listen at .> (l -> net/port l .> (p -> opened l p routes connect))
 
-fn opened l p routes db
-  print "senro on port {p}" .> (_ -> served l routes db)
+fn opened l p routes connect
+  print "senro on port {p}" .> (_ -> served l routes connect)
 
-fn served l routes db
-  net/accept l
-    .> (c -> net/read c .> (raw -> answered c routes db (http/parsed raw)))
-    .> (_ -> served l routes db)
+fn served l routes connect
+  net/accept l .> (c -> forked l c routes connect)
 
-fn answered c routes db req
-  routed (matched routes req.method req.path) req db
-    .> (r -> net/write c (http/rendered r))
+fn forked l c routes connect
+  answered c routes connect
+  served l routes connect
+
+fn answered c routes connect
+  net/read c .> (raw -> heard c routes connect (http/parsed raw))
+
+fn heard c routes connect req
+  action = matched routes req.method req.path
+  connect
+    .> (db -> routed action req db .> (r -> sent c db r))
     .> (_ -> net/close_conn c)
+
+fn sent c db r
+  net/write c (http/rendered r) .> (_ -> pg/close db)
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
