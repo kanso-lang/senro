@@ -35,7 +35,10 @@ because it lives in this repository.
   route by its action. A name that is no route, or an id where the route
   takes none, is refused at the call.
 - `models`: the schema, folded at compile time from the app's migrations,
-  and the check of each model's fields against its table's columns. As the
+  and the check of each model's fields against its table's columns. Each
+  model gets a reader in its own module, `signature_from row`, which builds a
+  `signature` from a row a query answered, taking each field from the column
+  of the same name, or "" when the row has none. As the
   app starts, `models/compared db schema` reads the live tables and answers
   the session when they agree with the schema, or an err naming every column
   whose name, type or nullness differs and every table that is missing.

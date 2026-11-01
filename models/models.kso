@@ -69,7 +69,9 @@ pub fn column name kind
 pub fn tables p
   schema = schema_of p p.files["schema.sql"]
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
-  list/concat [(derive/declare "schema" "schema" schema)] refused
+  given = list/fold p.modules [] (acc m -> list/concat acc (readers m schema))
+  declared = [(derive/declare "schema" "schema" schema)]
+  list/concat (list/concat declared refused) given
 
 fn schema_of p none
   list/fold (migrations_of p) {} applied
@@ -139,6 +141,29 @@ fn checked origin table fields columns
   names = list/to_list (list/map columns name_of)
   unknown = list/select fields (f -> not list/any? names (n -> n == f))
   list/to_list (list/map unknown (f -> stray origin table f))
+
+# Each model with a table gets a reader in its own module, named after it:
+# `signature_from row` builds a `signature` from a row a query answered,
+# taking each field from the column of that name, or "" when the row has no
+# such column. A module can pass the reader to `list/map` like any function
+# it wrote (kanso#2265).
+fn readers m schema
+  list/fold m.records [] (acc r -> list/concat acc (reader m r schema))
+
+fn reader m r schema
+  written m r schema[plural r.name]
+
+fn written _ _ none
+  []
+
+fn written m r _
+  t = r.name
+  cells = list/map r.fields (f -> "  {f} = {t}_cell row[\"{f}\"]")
+  built = "  {t} {text/join r.fields " "}"
+  lines = list/concat (list/to_list cells) [built]
+  reads = "pub fn {t}_from row\n{text/join lines "\n"}\n"
+  blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
+  [(derive/define m.name reads) (derive/define m.name blank)]
 
 fn missing origin table
   derive/refuse origin "no table `{table}` in the schema the migrations build"

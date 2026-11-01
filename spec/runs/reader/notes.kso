@@ -1,0 +1,11 @@
+import "std/list"
+
+# A model, and a list built from rows with the reader senro/models writes for
+# it. A row without a `title` reads as "".
+pub type note
+  id
+  title
+
+pub fn titles rows
+  read = list/to_list (list/map rows note_from)
+  list/to_list (list/map read (n -> "{n.id}: [{n.title}]"))

@@ -1,2 +1,13 @@
 schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
+# in entries, by models/tables
+pub fn signature_from row
+  name = signature_cell row["name"]
+  message = signature_cell row["message"]
+  signature name message
+# in entries, by models/tables
+fn signature_cell none
+  ""
+
+fn signature_cell v
+  v
 routes = { "GET /":{ "action":home/index "id":"" } "GET /entries":{ "action":entries/index "id":"" } "POST /entries":{ "action":entries/create "id":"" } }    # routes/rest
