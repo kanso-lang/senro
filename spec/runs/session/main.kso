@@ -1,0 +1,17 @@
+import "../../../web"
+import "./cookies"
+import "std/net/http"
+
+# A session set on a response comes back from the request that carries its
+# cookie; a cookie signed under another secret, or one whose map was changed
+# after signing, reads as an empty session.
+secret = "a spec's secret"
+
+answered = web/kept (http/text_page "ok") secret { "name":"ada" }
+
+value = cookies/sealed_from (http/rendered answered)
+
+print "kept: {web/session (cookies/asked value) secret}"
+print "another secret: {web/session (cookies/asked value) "not the app's"}"
+print "map changed: {web/session (cookies/asked (cookies/forged value)) secret}"
+print "no cookie: {web/session (http/parsed "GET / HTTP/1.1\r\n\r\n") secret}"

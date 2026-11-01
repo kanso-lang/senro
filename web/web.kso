@@ -1,8 +1,11 @@
 import "../pg"
+import "std/base64"
+import "std/json"
 import "std/list"
 import "std/net"
 import "std/net/http"
 import "std/os"
+import "std/sha256"
 import "std/text"
 
 type hit
@@ -118,6 +121,57 @@ fn numbered action n req db
 # post ends without leaving a page that posts again when reloaded.
 pub fn redirect path
   http/respond 303 ["location: {path}"] ""
+
+# A session is a map of strings the browser keeps in a cookie and sends back
+# with each request. The cookie holds the map as JSON beside an HMAC-SHA-256
+# of it under the app's secret, so a session the browser altered, or one no
+# secret of this app signed, reads as an empty map.
+pub fn session req secret
+  verified (cookie req.headers["cookie"] "senro") secret
+
+# The response, with `held` kept as the session the next request reads.
+pub fn kept r secret held
+  sealed = sealed_of secret held
+  line = "set-cookie: senro={sealed}; Path=/; HttpOnly; SameSite=Lax"
+  http/respond r.status (push r.headers line) r.body
+
+fn sealed_of secret held
+  body = base64/encode (text/bytes (json/encode held))
+  "{body}.{signature secret body}"
+
+fn signature secret body
+  base64/encode (sha256/hmac (text/bytes secret) (text/bytes body))
+
+fn cookie none _
+  ""
+
+fn cookie header name
+  pairs = list/to_list (list/map (text/split header ";") text/trim)
+  wanted = list/to_list (list/select pairs (p -> text/starts_with? p "{name}="))
+  return "" if length wanted == 0
+  text/join (list/to_list (list/drop (text/split wanted[1] "=") 1)) "="
+
+fn verified "" _
+  {}
+
+fn verified sealed secret
+  parts = text/split sealed "."
+  return {} if length parts != 2
+  return {} if signature secret parts[1] != parts[2]
+  opened (base64/decode parts[1])
+
+fn opened none
+  {}
+
+# A signed cookie holds JSON this app wrote, which is always a map.
+fn opened raw
+  read_back (json/decode (text/utf8 (list/to_list raw)))
+
+fn read_back none
+  {}
+
+fn read_back m
+  m
 
 # A form posted as application/x-www-form-urlencoded, as a map from each
 # field's name to its value. A field the form did not send reads as "".

@@ -1,9 +1,11 @@
-- locals signatures
+- locals signatures name flash
 header
   h1 Guestbook
   p.lede Leave a line for whoever comes next.
+- if flash != ""
+  p.flash = flash
 form method="post" action="/entries"
-  input name="name" placeholder="your name" required="required"
+  input name="name" placeholder="your name" required="required" value=name
   textarea name="message" placeholder="say something" required="required"
   button Sign
 ol.entries
