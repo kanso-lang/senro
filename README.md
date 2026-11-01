@@ -53,7 +53,9 @@ because it lives in this repository.
   expects, and checks its certificate against the machine's trusted roots
   (`SSL_CERT_FILE` names others).
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. It serves files under the app's `public/`, answers
+  decodes a posted form. An action that fails is answered with a 500, its
+  reason goes to standard error, and the server keeps serving; a failure the
+  app expects is a value its action answers, not an err. It serves files under the app's `public/`, answers
   `web/redirect`, and keeps a session in a signed cookie (`web/session` and
   `web/kept`).
 - `kata`: Slim-style templates compiled to kanso functions. `bin/kata` is its

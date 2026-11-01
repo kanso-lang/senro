@@ -1,5 +1,6 @@
 import "../pg"
 import "std/base64"
+import "std/io"
 import "std/json"
 import "std/list"
 import "std/net"
@@ -39,8 +40,23 @@ fn answered c routes connect
 fn heard c routes connect req
   action = matched routes req.method req.path
   connect
-    .> (db -> routed action req db .> (r -> sent c db r))
+    .> (db -> answered_by action req db .> (r -> sent c db r))
     .> (_ -> net/close_conn c)
+
+# An action that fails is the app's failure, born in another hako, so the
+# server may rescue it: the reason goes to standard error, the browser gets a
+# 500, and the connection is closed as any other is. The server goes on
+# accepting. A failure an app expects is a value its action answers, so what
+# reaches here is one it did not plan for.
+fn answered_by none req db
+  routed none req db
+
+fn answered_by action req db
+  routed action req db .? failed
+
+fn failed u
+  io/write_err "senro: a request failed: {u.reason}\n"
+    .> (_ -> effect (http/respond 500 [] "Internal Server Error\n"))
 
 fn sent c db r
   net/write c (http/rendered r) .> (_ -> pg/close db)
