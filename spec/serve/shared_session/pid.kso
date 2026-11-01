@@ -1,0 +1,9 @@
+import "../../../pg"
+import "std/net/http"
+
+# The Postgres backend serving this request's session.
+pub fn index _ db
+  pg/query db "select pg_backend_pid()" [] .> shown
+
+fn shown rows
+  effect (http/text_page "{rows}")

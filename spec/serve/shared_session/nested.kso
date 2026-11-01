@@ -1,0 +1,28 @@
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Asks the same server for /pid twice, one request after the other. A server
+# that dials a session for each request answers two backends; one that lends
+# sessions from a pool hands the second request the session the first gave
+# back.
+pub fn index _ _
+  pid .> (first -> pid .> (second -> compared first second))
+
+fn compared first second
+  effect (http/text_page "same session: {first == second}")
+
+pid = net/dial "127.0.0.1" 54403 .> asked
+
+fn asked c
+  net/write c asking .> (_ -> net/read c) .> (raw -> told c raw)
+
+asking = "GET /pid HTTP/1.1\r\nhost: localhost\r\n\r\n"
+
+fn told c raw
+  net/close_conn c .> (_ -> effect (body raw))
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  parts[2]

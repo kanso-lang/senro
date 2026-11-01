@@ -1,4 +1,3 @@
-import "../pg"
 import "std/base64"
 import "std/io"
 import "std/json"
@@ -6,6 +5,7 @@ import "std/list"
 import "std/net"
 import "std/net/http"
 import "std/os"
+import "std/pool"
 import "std/sha256"
 import "std/text"
 
@@ -17,30 +17,42 @@ type hit
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
 # nobody else. A request is looked up by its method and path and handed to
-# the action with a database session of its own, which `connect` opens and
-# the request closes when it is done; sessions are not shared, because two
-# requests' queries would interleave on one socket. An action answers an
-# effect that yields the response.
+# the action with a database session, which it borrows from a pool of
+# `sessions` that `connect` opened when the server started. Two requests
+# never hold one session at once, because their queries would interleave on
+# its socket; a request that finds every session lent waits for one to come
+# back. An action answers an effect that yields the response.
 pub fn serve at routes connect
-  net/listen at .> (l -> net/port l .> (p -> opened l p routes connect))
+  pool/make sessions
+    .> (dbs -> filled dbs connect sessions .> (_ -> listened at routes dbs))
 
-fn opened l p routes connect
-  print "senro on port {p}" .> (_ -> served l routes connect)
+sessions = 4
 
-fn served l routes connect
-  net/accept l .> (c -> forked l c routes connect)
+fn filled _ _ 0
+  effect 0
 
-fn forked l c routes connect
-  answered c routes connect
-  served l routes connect
+fn filled dbs connect n
+  connect .> (db -> pool/give dbs db) .> (_ -> filled dbs connect (n - 1))
 
-fn answered c routes connect
-  net/read c .> (raw -> heard c routes connect (http/parsed raw))
+fn listened at routes dbs
+  net/listen at .> (l -> net/port l .> (p -> opened l p routes dbs))
 
-fn heard c routes connect req
+fn opened l p routes dbs
+  print "senro on port {p}" .> (_ -> served l routes dbs)
+
+fn served l routes dbs
+  net/accept l .> (c -> forked l c routes dbs)
+
+fn forked l c routes dbs
+  answered c routes dbs
+  served l routes dbs
+
+fn answered c routes dbs
+  net/read c .> (raw -> heard c routes dbs (http/parsed raw))
+
+fn heard c routes dbs req
   action = matched routes req.method req.path
-  connect
-    .> (db -> answered_by action req db .> (r -> sent c db r))
+  pool/with dbs (db -> answered_by action req db .> (r -> sent c r))
     .> (_ -> net/close_conn c)
 
 # An action that fails is the app's failure, born in another hako, so the
@@ -58,8 +70,8 @@ fn failed u
   io/write_err "senro: a request failed: {u.reason}\n"
     .> (_ -> effect (http/respond 500 [] "Internal Server Error\n"))
 
-fn sent c db r
-  net/write c (http/rendered r) .> (_ -> pg/close db)
+fn sent c r
+  net/write c (http/rendered r)
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
