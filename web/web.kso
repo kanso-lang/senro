@@ -1,6 +1,11 @@
+import "../pg"
+import "std/base64"
+import "std/json"
 import "std/list"
 import "std/net"
 import "std/net/http"
+import "std/os"
+import "std/sha256"
 import "std/text"
 
 type hit
@@ -8,24 +13,37 @@ type hit
   kind
   id
 
-# A server for an app's route table: one connection at a time, each request
-# looked up by its method and path and handed to the action with the
-# database. An action answers an effect that yields the response.
-pub fn serve at routes db
-  net/listen at .> (l -> net/port l .> (p -> opened l p routes db))
+# A server for an app's route table. Each connection is answered in a fiber
+# of its own beside the one that accepts the next, so a slow request holds up
+# nobody else. A request is looked up by its method and path and handed to
+# the action with a database session of its own, which `connect` opens and
+# the request closes when it is done; sessions are not shared, because two
+# requests' queries would interleave on one socket. An action answers an
+# effect that yields the response.
+pub fn serve at routes connect
+  net/listen at .> (l -> net/port l .> (p -> opened l p routes connect))
 
-fn opened l p routes db
-  print "senro on port {p}" .> (_ -> served l routes db)
+fn opened l p routes connect
+  print "senro on port {p}" .> (_ -> served l routes connect)
 
-fn served l routes db
-  net/accept l
-    .> (c -> net/read c .> (raw -> answered c routes db (http/parsed raw)))
-    .> (_ -> served l routes db)
+fn served l routes connect
+  net/accept l .> (c -> forked l c routes connect)
 
-fn answered c routes db req
-  routed (matched routes req.method req.path) req db
-    .> (r -> net/write c (http/rendered r))
+fn forked l c routes connect
+  answered c routes connect
+  served l routes connect
+
+fn answered c routes connect
+  net/read c .> (raw -> heard c routes connect (http/parsed raw))
+
+fn heard c routes connect req
+  action = matched routes req.method req.path
+  connect
+    .> (db -> routed action req db .> (r -> sent c db r))
     .> (_ -> net/close_conn c)
+
+fn sent c db r
+  net/write c (http/rendered r) .> (_ -> pg/close db)
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
@@ -58,8 +76,26 @@ fn took _ none _
 fn took action kind id
   hit action kind id
 
-fn routed none _ _
+# A GET no route answers is looked for under `public/`, beside the app, the
+# way a stylesheet or an image is served. A path that climbs out of it, or a
+# file that is not there, is a 404.
+fn routed none req _
+  return effect http/not_found if req.method != "GET"
+  return effect http/not_found if length (text/split req.path "..") > 1
+  os/read_file "public{req.path}" .> (got -> served_file req.path got)
+
+fn served_file path body:string
+  effect (http/page ["content-type: {kind_of path}"] body)
+
+fn served_file _ _
   effect http/not_found
+
+fn kind_of path
+  return "text/css; charset=utf-8" if text/ends_with? path ".css"
+  return "text/html; charset=utf-8" if text/ends_with? path ".html"
+  return "image/svg+xml" if text/ends_with? path ".svg"
+  return "text/javascript; charset=utf-8" if text/ends_with? path ".js"
+  "text/plain; charset=utf-8"
 
 fn routed (hit action kind id) req db
   called action kind id req db
@@ -80,6 +116,62 @@ fn numbered _ none _ _
 
 fn numbered action n req db
   action req db n
+
+# A 303 to `path`: the browser asks for it with a GET, which is how a form
+# post ends without leaving a page that posts again when reloaded.
+pub fn redirect path
+  http/respond 303 ["location: {path}"] ""
+
+# A session is a map of strings the browser keeps in a cookie and sends back
+# with each request. The cookie holds the map as JSON beside an HMAC-SHA-256
+# of it under the app's secret, so a session the browser altered, or one no
+# secret of this app signed, reads as an empty map.
+pub fn session req secret
+  verified (cookie req.headers["cookie"] "senro") secret
+
+# The response, with `held` kept as the session the next request reads.
+pub fn kept r secret held
+  sealed = sealed_of secret held
+  line = "set-cookie: senro={sealed}; Path=/; HttpOnly; SameSite=Lax"
+  http/respond r.status (push r.headers line) r.body
+
+fn sealed_of secret held
+  body = base64/encode (text/bytes (json/encode held))
+  "{body}.{signature secret body}"
+
+fn signature secret body
+  base64/encode (sha256/hmac (text/bytes secret) (text/bytes body))
+
+fn cookie none _
+  ""
+
+fn cookie header name
+  pairs = list/to_list (list/map (text/split header ";") text/trim)
+  wanted = list/to_list (list/select pairs (p -> text/starts_with? p "{name}="))
+  return "" if length wanted == 0
+  text/join (list/to_list (list/drop (text/split wanted[1] "=") 1)) "="
+
+fn verified "" _
+  {}
+
+fn verified sealed secret
+  parts = text/split sealed "."
+  return {} if length parts != 2
+  return {} if signature secret parts[1] != parts[2]
+  opened (base64/decode parts[1])
+
+fn opened none
+  {}
+
+# A signed cookie holds JSON this app wrote, which is always a map.
+fn opened raw
+  read_back (json/decode (text/utf8 (list/to_list raw)))
+
+fn read_back none
+  {}
+
+fn read_back m
+  m
 
 # A form posted as application/x-www-form-urlencoded, as a map from each
 # field's name to its value. A field the form did not send reads as "".

@@ -1,0 +1,11 @@
+# written by kata from layout.slim: edit the template, not this file
+
+pub fn layout title body
+  joined [
+    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta "
+    "name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+    # layout.slim:7
+    "<title>{escape title}</title><link rel=\"stylesheet\" "
+    # layout.slim:11
+    "href=\"/site.css\"></head><body><main>{body}</main></body></html>"
+  ]

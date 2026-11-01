@@ -1,0 +1,20 @@
+import "std/net/http"
+import "std/text"
+
+# A request carrying `v` as its senro cookie, beside one the app did not set.
+pub fn asked v
+  http/parsed "GET / HTTP/1.1\r\ncookie: theme=dark; senro={v}\r\n\r\n"
+
+# The senro cookie's value in a rendered response, as a browser would keep it.
+pub fn sealed_from rendered
+  after = text/split rendered "senro="
+  return "" if length after < 2
+  rest = text/split after[2] ";"
+  return "" if length rest < 1
+  rest[1]
+
+# The same signature over a different map: {"name":"eve"}.
+pub fn forged sealed
+  parts = text/split sealed "."
+  return "" if length parts < 2
+  "eyJuYW1lIjoiZXZlIn0=.{parts[2]}"

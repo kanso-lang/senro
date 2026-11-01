@@ -1,16 +1,27 @@
 # written by kata from signed.slim: edit the template, not this file
 
-pub fn signed signatures
+pub fn signed signatures name flash
   joined [
-    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>"
-    "Guestbook</title></head><body><h1>Guestbook</h1><form method=\"post\" "
-    "action=\"/entries\"><input name=\"name\" placeholder=\"your name\">"
-    "<input name=\"message\" placeholder=\"say something\"><button>"
-    # signed.slim:14
-    "Sign</button></form><ul>{each signatures (e -> signed_14 e)}</ul></body>"
-    "</html>"
+    "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
+    # signed.slim:5
+    "comes next.</p></header>{if (flash != "") (signed_5 flash) ""}<form "
+    "method=\"post\" action=\"/entries\"><input name=\"name\" "
+    # signed.slim:8
+    "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
+    "<textarea name=\"message\" placeholder=\"say something\" "
+    "required=\"required\"></textarea><button>Sign</button></form><ol "
+    # signed.slim:12
+    "class=\"entries\">{each signatures (e -> signed_12 e)}</ol>"
   ]
 
-fn signed_14 e
-  # signed.slim:16, 17
-  "<li><strong>{escape e.name}</strong> wrote {escape e.message}</li>"
+fn signed_5 flash
+  # signed.slim:6
+  "<p class=\"flash\">{escape flash}</p>"
+
+fn signed_12 e
+  joined [
+    # signed.slim:14
+    "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
+    # signed.slim:15
+    "{escape e.name}</p></li>"
+  ]

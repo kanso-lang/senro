@@ -49,7 +49,10 @@ because it lives in this repository.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres
   expects, and checks its certificate against the machine's trusted roots
   (`SSL_CERT_FILE` names others).
-- `web`: serves the route table and decodes a posted form.
+- `web`: serves the route table, each connection in a fiber of its own, and
+  decodes a posted form. It serves files under the app's `public/`, answers
+  `web/redirect`, and keeps a session in a signed cookie (`web/session` and
+  `web/kept`).
 - `kata`: Slim-style templates compiled to kanso functions. `bin/kata` is its
   command line; see `kata/README.md`.
 

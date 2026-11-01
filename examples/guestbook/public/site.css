@@ -1,0 +1,104 @@
+:root {
+  --paper: #fbf8f1;
+  --ink: #2b2a27;
+  --muted: #7a756b;
+  --rule: #e6dfd0;
+  --accent: #9c4a2f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.6 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+main {
+  max-width: 38rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.25rem 4rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: normal;
+  letter-spacing: 0.01em;
+}
+
+.lede {
+  margin: 0.25rem 0 2rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+form {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: inherit;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+textarea { min-height: 5.5rem; resize: vertical; }
+
+input:focus, textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--accent);
+}
+
+button {
+  justify-self: start;
+  padding: 0.5rem 1.4rem;
+  font: inherit;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+.entries {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0;
+}
+
+.entries li {
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.message { margin: 0; white-space: pre-wrap; }
+
+.who {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.who::before { content: "— "; }
+
+.flash {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  color: #3d5a2a;
+  background: #eef4e6;
+  border-left: 3px solid #7a9a5e;
+  border-radius: 3px;
+}

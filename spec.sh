@@ -6,7 +6,8 @@
 # Every module and example checks clean; the guestbook derives the schema and
 # route table its golden holds; kata compiles each view to the file beside it;
 # each app under spec/runs prints its golden on both engines; each app under
-# spec/db, run against a live Postgres, prints its golden on both engines; and
+# spec/db, run against a live Postgres, prints its golden on both engines; each
+# app under spec/serve, served and asked over HTTP, answers its golden; and
 # each app under spec/errors is refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
@@ -98,6 +99,48 @@ else
         bad "$name ($engine)"
         printf '%s\n' "$got" | diff "$want" -
       fi
+    done
+  done
+fi
+
+note "== each app under spec/serve answers its golden, natively and interpreted"
+# Each is served and asked for /nested with curl. Its answer is another
+# request to the same server, made while the first waits, so a server that
+# answers one connection at a time hangs and the request times out. These
+# use Postgres for their sessions, so SENRO_NO_DB=1 skips them too.
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/serve (SENRO_NO_DB=1)"
+else
+  for d in spec/serve/*/; do
+    name=$(basename "$d")
+    want="spec/serve/$name.out"
+    port=$(sed -n 's/^web\/serve \([0-9]*\) .*/\1/p' "$d/main.kso")
+    for engine in native interp; do
+      flag=""
+      [ "$engine" = interp ] && flag=--interp
+      log=$(mktemp)
+      (cd "$d" && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+      server=$!
+      tries=0
+      while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+        sleep 0.1
+        tries=$((tries + 1))
+      done
+      got=$(curl -s -m 10 "http://127.0.0.1:$port/nested")
+      pkill -P "$server" 2>/dev/null
+      kill "$server" 2>/dev/null
+      wait "$server" 2>/dev/null
+      if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+        printf '%s\n' "$got" > "$want"
+      fi
+      if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+        note "ok: $name ($engine)"
+      else
+        bad "$name ($engine)"
+        printf '%s\n' "$got" | diff "$want" -
+        cat "$log"
+      fi
+      rm -f "$log"
     done
   done
 fi

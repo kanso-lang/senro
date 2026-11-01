@@ -27,12 +27,20 @@ kanso derived examples/guestbook  # the schema and route table derived
   Two routes that can answer the same request are refused at the later one:
   `entries/show` taking `id` beside `entries/new` is an error until `id` is
   annotated `id:int`.
-- `../../web` serves the table, one connection at a time, and decodes a posted
-  form. A path whose segment after the module names no route is tried as
-  `:id`, and an `id:int` action is handed the number or answers 404.
+- `../../web` serves the table and decodes a posted form. Each connection is
+  answered in a fiber of its own with a database connection of its own, so a
+  slow request holds up nobody else. A path whose segment after the module
+  names no route is tried as `:id`, and an `id:int` action is handed the
+  number or answers 404. A path under `public/` is served as a file, which is
+  where the stylesheet comes from.
+- After a signature is stored, `entries/create` answers a redirect to the
+  list, so reloading the page does not post the form again. It keeps the
+  signer's name and a one-time notice in a session, a cookie signed with
+  HMAC-SHA-256, and the form comes back with the name filled in. A cookie
+  whose signature does not match reads as an empty session.
 - `entries.kso` declares the `signature` model, stores one with a
   parameterized insert, so what a visitor types is stored as text and never
   read as SQL, and renders the list.
-- `views/signed.slim` is the page, compiled by kata to `views/signed.kso`.
-  It reads the `signature` records `entries.kso` builds by their fields,
-  which needs no import.
+- `views/signed.slim` is the page, compiled by kata to `views/signed.kso`,
+  and `views/layout.slim` the frame around it. It reads the `signature`
+  records `entries.kso` builds by their fields, which needs no import.
