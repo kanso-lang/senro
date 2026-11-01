@@ -1,3 +1,4 @@
+import "../../models"
 import "../../pg"
 import "../../web"
 import "./views"
@@ -14,11 +15,12 @@ pub fn index _ db
   listed db
 
 # The form's two fields go to Postgres as parameters, so what a visitor
-# types is stored as text and never read as SQL.
+# types is stored as text and never read as SQL. The answer sends the browser
+# back to the list, so reloading it does not sign the book again.
 pub fn create req db
   f = web/form req.body
   wanted = [(web/value f "name") (web/value f "message")]
-  pg/query db added wanted .> (_ -> listed db)
+  pg/query db added wanted .> (_ -> effect (web/redirect "/"))
 
 added = "insert into signatures (name, message) values ($1, $2)"
 
@@ -28,13 +30,8 @@ fn listed db
 newest = "select name, message from signatures order by id desc"
 
 fn shown rows
-  http/html_page (views/signed (list/to_list (list/map rows read)))
+  signed = list/to_list (list/map rows signature_of)
+  http/html_page (views/signed signed)
 
-fn read row
-  signature (text_of row["name"]) (text_of row["message"])
-
-fn text_of none
-  ""
-
-fn text_of v
-  v
+fn signature_of row
+  signature (models/cell row "name") (models/cell row "message")

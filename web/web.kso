@@ -95,6 +95,11 @@ fn numbered _ none _ _
 fn numbered action n req db
   action req db n
 
+# A 303 to `path`: the browser asks for it with a GET, which is how a form
+# post ends without leaving a page that posts again when reloaded.
+pub fn redirect path
+  http/respond 303 ["location: {path}"] ""
+
 # A form posted as application/x-www-form-urlencoded, as a map from each
 # field's name to its value. A field the form did not send reads as "".
 pub fn form body

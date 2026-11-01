@@ -49,6 +49,17 @@ pub fn rename_column table from to
 pub fn drop_column table name
   dropped_column table name
 
+# A row's value for `name`, or "" when the row has no such column: what a
+# model's reader passes to its constructor for each field.
+pub fn cell row name
+  present_cell row[name]
+
+fn present_cell none
+  ""
+
+fn present_cell v
+  v
+
 pub fn column name kind
   column_def name kind
 
