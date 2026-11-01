@@ -1,0 +1,28 @@
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Asks the same server for the page that fails, then for one that does not:
+# a server that died with the first answers neither, and one that hung up
+# without a response answers the first with nothing.
+pub fn index _ _
+  asked "/broken" .> (first -> asked "/plain" .> (then -> said first then))
+
+fn asked path
+  net/dial "127.0.0.1" 54402 .> (c -> sent c path)
+
+fn sent c path
+  net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn said first then
+  effect (http/text_page "broken: {status first}; plain: {body then}")
+
+fn status raw
+  (text/split raw "\r\n")[1]
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  parts[2]

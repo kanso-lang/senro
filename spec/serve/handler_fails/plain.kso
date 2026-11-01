@@ -1,0 +1,4 @@
+import "std/net/http"
+
+pub fn index _ _
+  effect (http/text_page "plain")
