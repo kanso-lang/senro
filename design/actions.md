@@ -59,25 +59,47 @@ a state, which a policy has to check again anyway.)
 ## Policies
 
 Today the pantry's star toggles whichever item id the state names, so a
-crafted request can star any item. That is the gap policies close. A write
-passes a policy, written in the model's module as plain functions in
-Pundit's shape:
+crafted request can star any item. Policies close that gap, and they need a
+viewer first.
+
+**The viewer.** An app signs a visitor in by keeping their id in the session
+(`web/signed_in r secret id`), and `web/components` takes the app's secret
+so the server can read it back. An action that asks for `viewer` is handed
+that id, or "" for a visitor who has not signed in. Nothing in the request
+body can name a viewer.
+
+**A policy is a function in the model's module**, in Pundit's shape, named
+for the write it allows:
 
 ```
-pub fn update? viewer item
-  item.owner == viewer.id
+pub fn update? viewer entry
+  entry.author == viewer
+
+pub fn destroy? viewer entry
+  entry.author == viewer
 ```
 
-The model's write functions call the policy and answer `forbidden`, a value
-that becomes a 403, when it says no. The models derivation refuses to
-compile a model that a server action writes when the model has no policy
-for that write, so a missing check is a compile error rather than an open
-door. Reads follow later as a scope: `pub fn visible viewer` names the rows
-a viewer may see, and the model's readers apply it.
+**Writes go through the model.** The models derivation writes, for each model
+with a policy, the writes that policy allows: `entries/updated viewer db id
+changes` reads the row, asks `update?`, and either writes the changes or
+answers `forbidden`, a value the server answers as a 403. `entries/destroyed
+viewer db id` does the same with `destroy?`. A model with no `update?` gets
+no `updated`, so there is no unchecked path to call.
+
+**A server action may not write around its model.** kata refuses a server
+action that calls `pg/query` or `pg/run` itself, at the call, and says to
+write through the model. The check reads the action's own calls, so a helper
+could still hide one; the convention and the refusal together make the
+checked path the easy one.
+
+Reads follow the same pattern later: `pub fn visible? viewer entry` decides
+what a viewer may see, and the model's readers drop the rest.
 
 ## Order of work
 
 1. Server actions: placement by parameters, the closed table, the page
    header. (Built.)
-2. Policies on writes, and the refusal of a written model without one.
-3. Read scopes.
+2. The viewer, policies, the model's checked writes, and the refusal of a
+   server action that writes around its model. The guestbook gets sign-in
+   by name and a delete button only an entry's author can use.
+3. Read policies.
