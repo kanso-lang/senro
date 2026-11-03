@@ -1,0 +1,4 @@
+error[derive]: `posts/edit` takes no id, but other actions in `posts` do: give each one an id, or none
+  --> ./posts.kso:1:8
+   1 | pub fn edit _ _
+              ^

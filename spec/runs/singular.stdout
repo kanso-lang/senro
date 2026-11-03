@@ -1,0 +1,6 @@
+["GET /posts" "GET /posts/:id" "GET /profile" "GET /profile/edit" "PATCH /profile"]
+/profile
+/profile/edit
+/posts/4
+your profile is at /profile
+true

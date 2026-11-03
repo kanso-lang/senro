@@ -33,7 +33,15 @@ because it lives in this repository.
   derivation writes into the module that declares the record.
   `routes/path_to "posts/index"` and `routes/path_to "posts/show" 3` name the
   route by its action. A name that is no route, or an id where the route
-  takes none, is refused at the call.
+  takes none, is refused at the call. A module whose member actions (`show`,
+  `edit`, `update`, `destroy`) take no `id` is a singular resource:
+  `profile/show` answers GET /profile, and the module has no `index`. An app
+  that must keep old URLs declares `pub legacy_route_aliases` in one of its
+  modules, mapping each old path to the action now answering it, as in
+  `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308
+  redirect to its action's route, and an alias that names no route, disagrees
+  with it about `:id`, or overlaps another route is refused. `web/moved_to`
+  answers where a request `web/matched` found is redirected.
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a

@@ -1,0 +1,13 @@
+import "../../../routes"
+import "../../../web"
+import "./entries"
+import "./legacy"
+import "std/list"
+
+derive routes/rest
+
+print (list/sort (keys routes))
+  .> (_ -> print (web/moved_to (web/matched routes "GET" "/signbook")))
+  .> (_ -> print (web/moved_to (web/matched routes "GET" "/entry/5")))
+  .> (_ -> print (web/moved_to (web/matched routes "POST" "/sign")))
+  .> (_ -> print "[{web/moved_to (web/matched routes "GET" "/entries")}]")

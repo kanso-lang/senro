@@ -1,0 +1,5 @@
+pub legacy_route_aliases = {
+  "GET /entry/:id":"entries/show"
+  "GET /signbook":"entries/index"
+  "POST /sign":"entries/create"
+}

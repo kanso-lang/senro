@@ -1,0 +1,14 @@
+import "../../../routes"
+import "../../../web"
+import "./posts"
+import "./profile"
+import "std/list"
+
+derive routes/rest
+
+print (list/sort (keys routes))
+  .> (_ -> print (routes/path_to "profile/show"))
+  .> (_ -> print (routes/path_to "profile/edit"))
+  .> (_ -> print (routes/path_to "posts/show" 4))
+  .> (_ -> print (profile/show "" ""))
+  .> (_ -> print (web/matched routes "GET" "/profile/edit" != none))
