@@ -67,8 +67,12 @@ await row(1).locator("button.plus").click();
 await settled(`document.querySelectorAll(".items li .count")[1].textContent == "1"`);
 await row(1).locator("button.minus").click();
 await settled(`document.querySelectorAll(".items li .count")[1].textContent == "0"`);
+// A count at nought stays there, so nothing on the page changes to wait for.
+// The page keeps a stream open for live changes, so the network is never
+// idle either; the wait is for the answer to the request itself.
+const floored = page.waitForResponse((r) => r.request().method() === "POST");
 await row(1).locator("button.minus").click();
-await page.waitForLoadState("networkidle");
+await floored;
 await said("counted");
 
 await row(1).locator("a.name").click();
