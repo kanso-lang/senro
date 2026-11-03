@@ -1,4 +1,4 @@
-- locals title body
+takes title body
 doctype html
 html
   head

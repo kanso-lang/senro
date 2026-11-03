@@ -1,3 +1,4 @@
+import "../../kata"
 import "../../models"
 import "../../pg"
 import "../../routes"
@@ -5,7 +6,9 @@ import "../../web"
 import "./entries"
 import "./home"
 import "./migrations"
+import "./views"
 
+derive kata/views
 derive models/tables
 derive routes/rest
 

@@ -61,9 +61,10 @@ senro speaks to Postgres over the wire protocol, in a client written in kanso
 
 ## Templates compile
 
-Views are Slim-like templates (kanso#2178), and kata compiles each one to
-kanso. A template is checked like any other code: a misspelled field is
-refused at the line that reads it.
+Views are `.kata` templates, and kata compiles each one to a kanso function
+while the app compiles (kanso#2178, kanso#2280). A template is a file of its
+own, with no generated source beside it, and it is checked like any other
+code: a misspelled field is refused at the line that reads it.
 
 ## Expected outcomes are values
 

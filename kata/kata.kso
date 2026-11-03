@@ -58,18 +58,17 @@ type origin
   name
   file
 
-# The generated source for template `name`, read from `file`, whose text is
-# `src`. The first line may declare the template's locals, which become the
+# The kanso source for template `name`, read from `file`, whose text is
+# `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
 pub fn compiled name file src
   rows = rows_of src
-  declared = locals_of rows
+  declared = takes_of rows
   from = if (length declared == 0) 1 2
   o = origin name file
   w = walk rows from (length rows + 1) declared o (woven [] [])
   main = emitted "pub fn {name} {params_of declared}" w.units o
-  heading = "# written by kata from {file}: edit the template, not this file"
-  "{text/join (list/concat [heading main] w.helpers) "\n\n"}\n"
+  "{text/join (push w.helpers main) "\n\n"}\n"
 
 fn rows_of src
   numbered (text/split src "\n") 1 []
@@ -87,11 +86,11 @@ fn spaces cs i
   return i - 1 if i < 1 or length cs < i
   if (cs[i] == " ") (spaces cs (i + 1)) (i - 1)
 
-fn locals_of rows
+fn takes_of rows
   return [] if length rows < 1
   first_body = rows[1].body
-  return [] if not text/starts_with? first_body "- locals "
-  words (after first_body 9)
+  return [] if not text/starts_with? first_body "takes "
+  words (after first_body 6)
 
 fn words s
   list/to_list (list/select (text/split s " ") (w -> w != ""))
@@ -122,12 +121,12 @@ fn block_end rows j stop d
 fn step rows r i last stop scope o acc
   b = r.body
   at = r.line
-  return stepped acc last if text/starts_with? b "/"
+  return stepped acc last if b == "#" or text/starts_with? b "# "
   doctype = lit acc "<!DOCTYPE html>" at
   return stepped doctype last if b == "doctype html"
-  if_line = text/starts_with? b "- if "
+  if_line = text/starts_with? b "if "
   return branched rows r i last stop scope o acc if if_line
-  for_line = text/starts_with? b "- for "
+  for_line = text/starts_with? b "for "
   return stepped (looped rows r i last scope o acc) last if for_line
   raw_line = text/starts_with? b "== "
   return stepped (spliced acc (raw (after b 3)) at) last if raw_line
@@ -136,8 +135,8 @@ fn step rows r i last stop scope o acc
   return stepped (texted acc (after b 2) at) last if text/starts_with? b "| "
   stepped (tagged rows r i last scope o acc) last
 
-# `- if` takes the rows indented under it. An `- else if` at its own depth
-# right after them chains another test, and an `- else` takes what is left.
+# `if` takes the rows indented under it. An `else if` at its own depth right
+# after them chains another test, and an `else` takes what is left.
 fn branched rows r i last stop scope o acc
   f = forked_at rows r i last stop scope o
   helpers = list/concat acc.helpers f.helpers
@@ -145,7 +144,7 @@ fn branched rows r i last stop scope o acc
   stepped (woven (push acc.units hole) helpers) f.next
 
 fn forked_at rows r i last stop scope o
-  from = if (text/starts_with? r.body "- else if ") 10 5
+  from = if (text/starts_with? r.body "else if ") 8 3
   yes = helper rows (i + 1) last scope o r.line
   head = "if {wrapped (after r.body from)} {wrapped yes.call}"
   kind = follower rows last r
@@ -164,17 +163,17 @@ fn follower rows j r
   return "" if j < 1 or length rows < j
   return "" if rows[j].depth != r.depth
   b = rows[j].body
-  return "else" if b == "- else"
-  if (text/starts_with? b "- else if ") "else if" ""
+  return "else" if b == "else"
+  if (text/starts_with? b "else if ") "else if" ""
 
 fn rows_line rows j
   return 0 if j < 1 or length rows < j
   rows[j].line
 
-# `- for x in xs` writes the rows under it once for each element of `xs`,
+# `for x in xs` writes the rows under it once for each element of `xs`,
 # with `x` in scope.
 fn looped rows r i last scope o acc
-  ws = words (after r.body 6)
+  ws = words (after r.body 4)
   return acc if length ws < 3
   name = ws[1]
   over = text/join (list/to_list (list/drop ws 2)) " "
@@ -248,17 +247,23 @@ fn spaced? cs i modes
   return spaced? cs next (push modes "text") if c == "\""
   spaced? cs next modes
 
-# Text with `#\{expr}` in it: the markup is copied and each expression is
-# escaped into the page.
+# Text with `{expr}` in it, as a kanso string has: the markup is copied and
+# each expression is escaped into the page. `\{` is a brace.
 fn texted acc s at
-  pieces = text/split s "#\{"
+  parts = text/split s "\\\{"
+  return acc if length parts < 1
+  start = holed acc parts[1] at
+  list/fold (list/drop parts 1) start (a p -> holed (lit a "\{" at) p at)
+
+fn holed acc s at
+  pieces = text/split s "\{"
   return acc if length pieces < 1
   start = lit acc pieces[1] at
   list/fold (list/drop pieces 1) start (a p -> interpolated a p at)
 
 fn interpolated acc p at
   halves = text/split p "}"
-  return lit acc "#\{{p}" at if length halves < 2
+  return lit acc "\{{p}" at if length halves < 2
   tail = text/join (list/to_list (list/drop halves 1)) "}"
   lit (spliced acc (escaped halves[1]) at) tail at
 
@@ -320,7 +325,7 @@ fn attributes rest classes acc at
   shut = lit (spliced opened (escaped word) at) "\"" at
   attributes (after value (length word)) left shut at
 
-# A quoted value is text, with `#\{expr}` holes like any other.
+# A quoted value is text, with `{expr}` holes like any other.
 fn lettered value classes acc at
   pieces = text/split (after value 1) "\""
   return acc if length pieces < 1

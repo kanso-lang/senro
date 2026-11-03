@@ -1,0 +1,8 @@
+import "../../../kata"
+import "./views"
+
+derive kata/views
+
+print (views/page "Shelf" (views/shelf ["Dune" "Emma"] "<all>"))
+print (views/shelf [] "")
+print (views/shelf ["Dune"] "")

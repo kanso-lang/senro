@@ -1,7 +1,7 @@
 # senro
 
 A web framework for kanso: routes and models by convention, checked at compile
-time, with Postgres and Slim-style templates.
+time, with Postgres and templates that compile to kanso.
 
 ## Using it
 
@@ -75,8 +75,8 @@ because it lives in this repository.
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never
   reloads. A field the visitor is typing in keeps what they typed.
-- `kata`: Slim-style templates compiled to kanso functions. `bin/kata` is its
-  command line; see `kata/README.md`.
+- `kata`: `.kata` templates, compiled to kanso functions while the app
+  compiles; see `kata/README.md`.
 
 ## Specs
 

@@ -1,3 +1,57 @@
+# in views, by kata/views
+import "std/list"
+import "std/text"
+
+fn escape x
+  s = "{x}"
+  amp = text/join (text/split s "&") "&amp;"
+  lt = text/join (text/split amp "<") "&lt;"
+  gt = text/join (text/split lt ">") "&gt;"
+  quot = text/join (text/split gt "\"") "&quot;"
+  text/join (text/split quot "'") "&#39;"
+
+fn each xs f
+  text/join (list/to_list (list/map xs f)) ""
+
+fn joined parts
+  text/join parts ""
+# in views, by kata/views
+pub fn layout title body
+  joined [
+    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta "
+    "name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+    # layout.kata:7
+    "<title>{escape title}</title><link rel=\"stylesheet\" "
+    "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
+    # layout.kata:12
+    "</head><body><main>{body}</main></body></html>"
+  ]
+# in views, by kata/views
+fn signed_5 flash
+  # signed.kata:6
+  "<p class=\"flash\">{escape flash}</p>"
+
+fn signed_12 e
+  joined [
+    # signed.kata:14
+    "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
+    # signed.kata:15
+    "{escape e.name}</p></li>"
+  ]
+
+pub fn signed signatures name flash
+  joined [
+    "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
+    # signed.kata:5
+    "comes next.</p></header>{if (flash != "") (signed_5 flash) ""}<form "
+    "method=\"post\" action=\"/entries\"><input name=\"name\" "
+    # signed.kata:8
+    "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
+    "<textarea name=\"message\" placeholder=\"say something\" "
+    "required=\"required\"></textarea><button>Sign</button></form><ol "
+    # signed.kata:12
+    "class=\"entries\">{each signatures (e -> signed_12 e)}</ol>"
+  ]
 schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in entries, by models/tables
 pub fn signature_from row
