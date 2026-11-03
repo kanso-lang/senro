@@ -2,4 +2,4 @@
 # app's page loads, which are built from it.
 *.ll
 browser.wasm
-public/senro/
+**/public/senro/
