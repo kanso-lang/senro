@@ -91,7 +91,7 @@ browser and produce exactly what the server would have.
 A page's first request answers HTML, rendered on the server, so it shows at
 once and works without a script. The browser then loads the app's views as
 WASM. After that a link or a form asks the server only for the data its views
-need, in a compact encoding rather than markup, and the browser renders the
+need, in a compact encoding, and the browser renders the
 views itself and morphs the page in place. The app's author never writes
 client code, and the two renderings cannot drift apart, because they are the
 same program. Firefox is the first browser this is tuned for.
