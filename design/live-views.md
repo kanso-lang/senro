@@ -41,13 +41,40 @@ script morphs as in step 1. Spec: for each view in the guestbook, the HTML
 the browser's module renders from the JSON equals the HTML the server
 renders, byte for byte.
 
+## Dynamic parts
+
+Clay's refinement: every page renders on the server and arrives as HTML, and
+only the parts that are dynamic wait for the app. A dynamic part, such as a
+map that pans or a list that filters as you type, is a component written in
+kanso against senro's own DOM library, which wraps what the browser offers so
+that app code never touches JavaScript. The server renders each component's
+first state into the page, so it shows at once. When the views module arrives
+the component starts handling events in the browser.
+
+Until then the component is inert, and senro says so: it gives the page one
+hook for that state, so an app can show a line such as "application loading,
+one moment" and let it disappear when the module starts. A page with no
+dynamic parts never waits for anything.
+
+The views module is keyed by the app's version and kept in the browser's
+Cache Storage, so a visitor downloads it once per deploy. A visitor who comes
+back gets the cached module before the page has finished parsing.
+
+## Reaching JavaScript
+
+A component will want a JavaScript library now and then, a charting or
+mapping library in particular. That needs a way for kanso code in the browser
+to call into JavaScript and be called back, which is a question about the
+language itself (an effect or builtin kind that only the browser engine
+answers). It goes to Clay as its own issue when a component first needs it.
+
 ## Open edges, decided as they come
 
 - Morphing: a small morph written for senro, or idiomorph vendored. Prefer
   the smaller one that keeps the spec's byte-for-byte check.
 - Encoding: JSON first; a binary encoding only if a measurement says the
   JSON is the cost.
-- Caching: the views module is fingerprinted and cached forever. A deploy that
-  changes a view changes the fingerprint, and the script reloads the page
+- Caching: the views module is fingerprinted by the app's version. A deploy
+  that changes it changes the fingerprint, and the script reloads the page
   once.
 - Firefox is the browser this is tuned and tested in first.
