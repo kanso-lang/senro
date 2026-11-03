@@ -58,6 +58,12 @@ adds, counts, renames and removes things on a shelf without a page reload.
   output as `schema.sql` beside its entry, and the schema is read from its
   `CREATE TABLE` blocks instead of the migrations. The dump is loaded with
   psql, which reads the lines Postgres's protocol does not.
+  A model's module may also declare policies, `update?` and `destroy?`,
+  each taking the viewer and the row. The derivation describes each model
+  with an `id` as a value (`signature_model`), and `models/updated` and
+  `models/destroyed` take it, read the row, ask the policy and write only on
+  a yes, answering `web/denied` or `web/absent` otherwise. A model with no
+  such policy cannot be written this way.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres

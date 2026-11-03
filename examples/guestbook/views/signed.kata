@@ -1,4 +1,4 @@
-takes signatures name flash
+takes signatures name flash removals
 header
   h1 Guestbook
   p.lede Leave a line for whoever comes next.
@@ -13,3 +13,4 @@ ol.entries
     li
       p.message = e.message
       p.who = e.name
+      == removals["{e.id}"]

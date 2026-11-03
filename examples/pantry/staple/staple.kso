@@ -1,0 +1,24 @@
+import "../../../models"
+import "../stock"
+
+# Whether an item is a staple, one the pantry keeps stocked. The state is the
+# item's id and its flag. The action asks for the viewer and a database
+# session, so it runs on the server, and it writes the flag through the
+# item's model, whose policy decides whether this viewer may.
+pub fn toggled viewer db s
+  next = not staple? s["staple"]
+  changes = { "staple":"{next}" }
+  models/updated viewer db stock/item_model s["id"] changes
+    .> (w -> settled s next w)
+
+fn settled s next w
+  if (models/refused? w) w (put s "staple" next)
+
+fn staple? none
+  false
+
+fn staple? true
+  true
+
+fn staple? _
+  false

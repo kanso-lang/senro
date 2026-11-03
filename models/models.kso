@@ -1,4 +1,5 @@
 import "../pg"
+import "../web"
 import "std/derive"
 import "std/list"
 import "std/text"
@@ -163,7 +164,112 @@ fn written m r _
   lines = list/concat (list/to_list cells) [built]
   reads = "pub fn {t}_from row\n{text/join lines "\n"}\n"
   blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
-  [(derive/define m.name reads) (derive/define m.name blank)]
+  given = [(derive/define m.name reads) (derive/define m.name blank)]
+  list/concat given (guarded m r)
+
+# Each model with an `id` gets a value describing it, `signature_model`: a
+# map of its table, its columns, its reader, and each policy its module
+# declares. `models/updated` and `models/destroyed` take that value, so a
+# write reads the row, asks the policy and writes only when it says yes, and
+# a model whose module declares no `destroy?` cannot be destroyed this way.
+fn guarded m r
+  return [] if not list/any? r.fields (f -> f == "id")
+  t = r.name
+  names = list/to_list (list/map r.fields (f -> "\"{f}\""))
+  base = [
+    "\"table\":\"{plural t}\""
+    "\"columns\":[{text/join names " "}]"
+    "\"read\":{t}_from"
+  ]
+  policies = list/select ["update?" "destroy?"] (p -> declares? m p)
+  said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
+  all = list/to_list (list/sort (list/concat base (list/to_list said)))
+  [(derive/define m.name (model_value t all))]
+
+fn declares? m name
+  list/any? m.functions (f -> f.name == name)
+
+# On one line when it fits in kanso's 80 columns, and an entry to a line when
+# it does not, as the formatter asks.
+fn model_value t pairs
+  line = "pub {t}_model = \{ {text/join pairs " "} }"
+  return "{line}\n" if length line <= 80
+  "pub {t}_model = \{\n  {text/join pairs "\n  "}\n}\n"
+
+# A write through a model, checked by its policy. The row is read by its id,
+# and `web/absent` answers for one that is not there; the policy is asked
+# about it as it stands, and `web/denied` answers a no, or a model with no
+# such policy. The server answers a server action that answers either as a
+# 404 or a 403. `updated` answers the row as the change leaves it and
+# `destroyed` the row as it was.
+# Whether a write answered a refusal, `web/denied` or `web/absent`, rather
+# than the row it wrote.
+pub fn refused? w
+  web/refused? w
+
+# A state the browser sent may name no id at all, which is a row not there.
+pub fn updated _ _ _ none _
+  effect web/absent
+
+pub fn updated viewer db model id changes
+  read model db id .> (row -> update_found viewer db model changes row)
+
+fn update_found _ _ _ _ none
+  effect web/absent
+
+fn update_found viewer db model changes row
+  was = row_read model["read"] row
+  return effect web/denied if not allowed? model["update"] viewer was
+  now = list/fold (keys changes) row (acc k -> put acc k changes[k])
+  cols = column_list model["columns"]
+  pg/update_by_id db (table_of model["table"]) cols "{id_of row}" changes
+    .> (_ -> effect (row_read model["read"] now))
+
+pub fn destroyed _ _ _ none
+  effect web/absent
+
+pub fn destroyed viewer db model id
+  read model db id .> (row -> destroy_found viewer db model row)
+
+fn destroy_found _ _ _ none
+  effect web/absent
+
+fn destroy_found viewer db model row
+  was = row_read model["read"] row
+  return effect web/denied if not allowed? model["destroy"] viewer was
+  table = table_of model["table"]
+  pg/delete_by_id db table "{id_of row}" .> (_ -> effect was)
+
+fn read model db id
+  cols = column_list model["columns"]
+  pg/row_by_id db (table_of model["table"]) cols id .> (r -> effect r.rows[1])
+
+fn id_of row
+  row["id"]
+
+fn allowed? none _ _
+  false
+
+fn allowed? policy viewer was
+  policy viewer was
+
+fn row_read none row
+  row
+
+fn row_read f row
+  f row
+
+fn table_of none
+  ""
+
+fn table_of t
+  t
+
+fn column_list none
+  []
+
+fn column_list cols
+  cols
 
 fn missing origin table
   derive/refuse origin "no table `{table}` in the schema the migrations build"

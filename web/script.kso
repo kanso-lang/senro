@@ -181,7 +181,8 @@ script = """
     let app = null;
 
     const ready = (async () => \{
-      if (!document.querySelector("[data-component]")) return;
+      const here = "[data-component]:not([data-runs=server])";
+      if (!document.querySelector(here)) return;
       const [r, a] = await Promise.all([
         WebAssembly.compileStreaming(fetch("/senro/runtime.wasm")),
         WebAssembly.compileStreaming(fetch("/senro/app.wasm")),
@@ -269,17 +270,35 @@ script = """
       return new TextDecoder().decode(all);
     };
 
+    // A component whose actions need the server posts its state there, and
+    // the server answers the same way the module does. What the action
+    // changed on the server may show elsewhere on the page too, so the page
+    // then refreshes the rest of itself.
+    const posted = async (root, action) => \{
+      const r = await fetch("/senro/act/" + root.dataset.component, \{
+        method: "POST",
+        headers: \{ "senro-page": self },
+        body: action + "\\n" + root.dataset.state,
+      });
+      return r.ok ? r.text() : null;
+    };
+
     const acted = async (root, action) => \{
-      await ready;
-      if (!app) return;
+      const server = root.dataset.runs === "server";
+      if (!server) await ready;
+      if (!server && !app) return;
       const event = [root.dataset.component, action, root.dataset.state];
-      const answer = await ran(event.join("\\n"));
+      const answer = server
+        ? await posted(root, action)
+        : await ran(event.join("\\n"));
+      if (answer === null) return;
       const html = answer.slice(answer.indexOf("\\n") + 1);
       const next = new DOMParser().parseFromString(html, "text/html");
       const drawn = next.body.firstElementChild;
       if (!drawn) return;
       attributes(root, drawn);
       children(root, drawn);
+      if (server) refresh();
     };
 
     addEventListener("click", (e) => \{

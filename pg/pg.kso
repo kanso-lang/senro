@@ -105,6 +105,27 @@ pub fn query s sql params
     .> (_ -> replies s.conn ready?)
     .> answered
 
+# A model's row by its id, read whole: the answer's rows hold it, or none
+# when no row has that id. `columns` are the model's fields, which the models
+# derivation checked against the table, so only they are named in the SQL.
+pub fn row_by_id s table columns id
+  query s "select {text/join columns ", "} from {table} where id = $1" ["{id}"]
+
+# Writes `changes`, a map from a field to its new value, into the row with
+# `id`. A key that is not one of `columns` is left out, so the SQL names only
+# the model's own fields, and every value goes as a parameter.
+pub fn update_by_id s table columns id changes
+  named = list/select (keys changes) (k -> list/any? columns (c -> c == k))
+  cols = list/to_list named
+  sets = list/fold cols [] (acc c -> push acc "{c} = ${length acc + 1}")
+  given = list/to_list (list/map cols (c -> "{changes[c]}"))
+  at = length cols + 1
+  sql = "update {table} set {text/join sets ", "} where id = ${at}"
+  query s sql (push given "{id}")
+
+pub fn delete_by_id s table id
+  query s "delete from {table} where id = $1" ["{id}"]
+
 # A statement with no values, sent whole. Schema changes and anything else
 # that takes no parameters can go this way, several statements at once.
 pub fn run s sql

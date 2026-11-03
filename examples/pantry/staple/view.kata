@@ -1,0 +1,5 @@
+takes s
+if s["staple"]
+  button.staple.on on-click=toggled aria-label="stop keeping stocked" ★
+else
+  button.staple on-click=toggled aria-label="keep stocked" ☆

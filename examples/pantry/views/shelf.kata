@@ -1,4 +1,4 @@
-takes items editing total planner
+takes items editing total planner stars
 header
   h1 Pantry
   p.lede {total} things on the shelf, counted as you go.
@@ -11,6 +11,7 @@ if length items == 0
 ul.items
   for i in items
     li id="item-{i.id}"
+      == stars["{i.id}"]
       if "{i.id}" == editing
         form.rename method="post" action="/items/{i.id}"
           input type="hidden" name="_method" value="PATCH"

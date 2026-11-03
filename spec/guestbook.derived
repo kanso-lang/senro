@@ -1,3 +1,40 @@
+# in removal, by kata/views
+import "std/json"
+import "std/list"
+import "std/text"
+
+fn escape x
+  s = "{x}"
+  amp = text/join (text/split s "&") "&amp;"
+  lt = text/join (text/split amp "<") "&lt;"
+  gt = text/join (text/split lt ">") "&gt;"
+  quot = text/join (text/split gt "\"") "&quot;"
+  text/join (text/split quot "'") "&#39;"
+
+fn each xs f
+  text/join (list/to_list (list/map xs f)) ""
+
+fn joined parts
+  text/join parts ""
+# in removal, by kata/views
+pub fn view_body id
+  joined [
+    # view.kata:2
+    "<button data-on-click=\"removed\" aria-label=\"remove entry {escape id}"
+    "\" class=\"remove\">×</button>"
+  ]
+
+pub fn view id
+  kata_state = escape (json/encode id)
+  kata_inside = view_body id
+  kata_open = "<div data-component=\"removal\" data-runs=\"server\""
+  "{kata_open} data-state=\"{kata_state}\">{kata_inside}</div>"
+# in removal, by kata/views
+pub fn act "removed" kata_given state
+  removed kata_given.viewer kata_given.db state
+
+pub fn act _ _ _
+  none
 # in views, by kata/views
 import "std/list"
 import "std/text"
@@ -31,15 +68,15 @@ fn signed_5 flash
   # signed.kata:6
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_12 e
+fn signed_12 removals e
   joined [
     # signed.kata:14
     "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
-    # signed.kata:15
-    "{escape e.name}</p></li>"
+    # signed.kata:15, 16
+    "{escape e.name}</p>{removals["{e.id}"]}</li>"
   ]
 
-pub fn signed signatures name flash
+pub fn signed signatures name flash removals
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # signed.kata:5
@@ -50,18 +87,26 @@ pub fn signed signatures name flash
     "<textarea name=\"message\" placeholder=\"say something\" "
     "required=\"required\"></textarea><button>Sign</button></form><ol "
     # signed.kata:12
-    "class=\"entries\">{each signatures (e -> signed_12 e)}</ol>"
+    "class=\"entries\">{each signatures (e -> signed_12 removals e)}</ol>"
   ]
 schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
-# in entries, by models/tables
+# in signatures, by models/tables
 pub fn signature_from row
+  id = signature_cell row["id"]
   name = signature_cell row["name"]
   message = signature_cell row["message"]
-  signature name message
-# in entries, by models/tables
+  signature id name message
+# in signatures, by models/tables
 fn signature_cell none
   ""
 
 fn signature_cell v
   v
+# in signatures, by models/tables
+pub signature_model = {
+  "columns":["id" "name" "message"]
+  "destroy":destroy?
+  "read":signature_from
+  "table":"signatures"
+}
 routes = { "GET /":{ "action":home/index "id":"" } "GET /entries":{ "action":entries/index "id":"" } "POST /entries":{ "action":entries/create "id":"" } }    # routes/rest

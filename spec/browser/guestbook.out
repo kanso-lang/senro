@@ -5,3 +5,6 @@ flash: Thank you for signing, Ada.
 newest entry: signed without a reload, by Ada
 name field: Ada
 message field: ""
+remove buttons only on Ada's entries: true
+newest entry after Ada removes hers: from Bob, by Bob
+Ada asking to remove Bob's entry: 403

@@ -1,15 +1,10 @@
 import "../../pg"
 import "../../web"
+import "./removal"
+import "./signatures"
 import "./views"
 import "std/list"
 import "std/net/http"
-
-# A signature as the `signatures` table stores it. senro/models checks each
-# field against the table's columns and writes `signature_from`, which builds
-# one from a row.
-pub type signature
-  name
-  message
 
 # The session remembers who signed last, to fill in the form for them, and
 # carries a thank-you across the redirect that follows a signature; the page
@@ -19,28 +14,38 @@ pub fn index req db
   pg/query db newest [] .> (r -> shown r.rows s)
 
 # A development secret. A deployed guestbook signs its sessions with its own.
-secret = "the guestbook's development secret"
+pub secret = "the guestbook's development secret"
 
 # The form's two fields go to Postgres as parameters, so what a visitor
 # types is stored as text and never read as SQL. The answer sends the browser
-# back to the list, so reloading it does not sign the book again.
+# back to the list, so reloading it does not sign the book again. Signing
+# signs the visitor in under the name they signed with, which is what lets
+# them remove their own entries.
 pub fn create req db
   f = web/form req.body
   name = web/value f "name"
   s = put (web/session req secret) "name" name
   thanked = put s "flash" "Thank you for signing, {name}."
-  back = web/kept (web/redirect "/") secret thanked
+  back = web/signed_in (web/redirect "/") secret thanked name
   pg/query db added [name (web/value f "message")] .> (_ -> effect back)
 
 added = "insert into signatures (name, message) values ($1, $2)"
 
-newest = "select name, message from signatures order by id desc"
+newest = "select id, name, message from signatures order by id desc"
 
 fn shown rows s
-  signed = list/to_list (list/map rows signature_from)
-  page = views/signed signed (said s["name"]) (said s["flash"])
+  signed = list/to_list (list/map rows signatures/signature_from)
+  who = said s["viewer"]
+  removals = list/fold signed {} (m e -> put m "{e.id}" (removal_of e who))
+  page = views/signed signed (said s["name"]) (said s["flash"]) removals
   r = http/html_page (views/layout "Guestbook" page)
   effect (web/kept r secret (put s "flash" ""))
+
+# Each entry's remove button, drawn only for the person who signed it. The
+# policy is what stops anyone else; the button is a convenience.
+fn removal_of e who
+  return "" if e.name != who
+  removal/view e.id
 
 fn said none
   ""
