@@ -1,0 +1,102 @@
+# The page script senro serves at /senro.js. A layout that loads it gets
+# pages that update in place: a link followed or a form sent on the app's own
+# origin is fetched, and the page it answers is morphed into the live one.
+script = """
+  // senro's page script. A link followed or a form sent on this origin is
+  // fetched, and the page it answers is morphed into the live one, so the
+  // browser never reloads. A field being typed in keeps what was typed.
+  (() => \{
+    const visit = async (url, init, pushed) => \{
+      const r = await fetch(url, init);
+      const kind = r.headers.get("content-type") || "";
+      if (!kind.startsWith("text/html")) return plain(r, init);
+      const next = new DOMParser().parseFromString(await r.text(), "text/html");
+      const moved = r.url !== location.href;
+      if (pushed && moved) history.pushState(null, "", r.url);
+      document.title = next.title;
+      morph(document.body, next.body);
+      if (pushed && moved) scrollTo(0, 0);
+    };
+
+    // An answer that is not a page is shown as the browser would show it. A
+    // GET is simply followed; anything else was sent once already, so its
+    // answer is shown in place rather than asked for again.
+    const plain = async (r, init) => \{
+      if (!init.method) return location.assign(r.url);
+      const pre = document.createElement("pre");
+      pre.textContent = await r.text();
+      document.body.replaceChildren(pre);
+    };
+
+    const morph = (from, to) => \{
+      if (from.nodeType !== to.nodeType || from.nodeName !== to.nodeName) \{
+        from.replaceWith(document.importNode(to, true));
+      } else if (from.nodeType === Node.ELEMENT_NODE) \{
+        attributes(from, to);
+        children(from, to);
+        field(from, to);
+      } else if (from.nodeValue !== to.nodeValue) \{
+        from.nodeValue = to.nodeValue;
+      }
+    };
+
+    const attributes = (from, to) => \{
+      for (const a of [...from.attributes]) \{
+        if (!to.hasAttribute(a.name)) from.removeAttribute(a.name);
+      }
+      for (const a of [...to.attributes]) \{
+        const same = from.getAttribute(a.name) === a.value;
+        if (!same) from.setAttribute(a.name, a.value);
+      }
+    };
+
+    const children = (from, to) => \{
+      const had = [...from.childNodes];
+      const wanted = [...to.childNodes];
+      wanted.forEach((w, i) => \{
+        if (i < had.length) morph(had[i], w);
+        else from.appendChild(document.importNode(w, true));
+      });
+      had.slice(wanted.length).forEach((h) => h.remove());
+    };
+
+    // A field's value lives apart from its markup once someone has typed in
+    // it, so it is set from the answer, unless it is the one with focus.
+    const field = (from, to) => \{
+      if (from === document.activeElement) return;
+      if (from.localName === "input" || from.localName === "textarea") \{
+        if (from.value !== to.value) from.value = to.value;
+      }
+    };
+
+    const ours = (url) => url.origin === location.origin;
+
+    addEventListener("click", (e) => \{
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest("a[href]");
+      if (!a || a.target || a.hasAttribute("download")) return;
+      const url = new URL(a.href);
+      if (!ours(url)) return;
+      if (url.hash && url.pathname === location.pathname) return;
+      e.preventDefault();
+      visit(url.href, \{}, true);
+    });
+
+    addEventListener("submit", (e) => \{
+      const form = e.target;
+      const url = new URL(form.action);
+      if (e.defaultPrevented || !ours(url)) return;
+      e.preventDefault();
+      const data = new URLSearchParams(new FormData(form, e.submitter));
+      if (form.method === "get") \{
+        url.search = data;
+        visit(url.href, \{}, true);
+      } else \{
+        visit(url.href, \{ method: "POST", body: data }, true);
+      }
+    });
+
+    addEventListener("popstate", () => visit(location.href, \{}, false));
+  })();
+"""

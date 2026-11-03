@@ -70,7 +70,11 @@ because it lives in this repository.
   error, and the server keeps serving. A failure the app expects should be a
   value its action answers. It serves files under the app's `public/`,
   answers `web/redirect`, and keeps a session in a signed cookie
-  (`web/session` and `web/kept`).
+  (`web/session` and `web/kept`). It also serves senro's page script at
+  `/senro.js`. A layout that loads it gets pages that update in place: a
+  link followed or a form sent on the app's own origin is fetched, and the
+  page the server answers is morphed into the live one, so the browser never
+  reloads. A field the visitor is typing in keeps what they typed.
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 
