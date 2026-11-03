@@ -81,8 +81,21 @@ fn bound_in acc f src
 fn acting m names
   return [(derive/define m.name (in_browser names))] if not served? m
   refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
-  return refused if length refused > 0
+  around = list/to_list (list/select m.calls (c -> around? names c))
+  bypass = list/to_list (list/map around (c -> derive/refuse_call c (direct c)))
+  return list/concat refused bypass if length refused + length bypass > 0
   [(derive/define m.name (on_server m names))]
+
+# A server action writes through a model, whose policy checks the write
+# (`models/updated`, `models/destroyed`), and never with SQL of its own. The
+# check reads the action's own calls.
+fn around? names c
+  bound = list/any? names (n -> n == c.caller)
+  bound and (c.callee == "pg/query" or c.callee == "pg/run")
+
+fn direct c
+  through = "write through a model, so its policy checks the write"
+  "`{c.caller}` is a server action and calls `{c.callee}` itself: {through}"
 
 fn in_browser names
   arms = list/to_list (list/map names browser_arm)

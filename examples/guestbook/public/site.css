@@ -102,3 +102,14 @@ button:hover { filter: brightness(1.08); }
   border-left: 3px solid #7a9a5e;
   border-radius: 3px;
 }
+
+.remove {
+  float: right;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.remove:hover { color: #a33; }

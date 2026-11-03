@@ -6,6 +6,8 @@ import "../../web"
 import "./entries"
 import "./home"
 import "./migrations"
+import "./removal"
+import "./signatures"
 import "./views"
 
 derive kata/views
@@ -14,9 +16,14 @@ derive routes/rest
 
 made = models/made schema
 
+# The components whose actions run on the server.
+served = { "removal":(web/component removal/act removal/view) }
+
+served_routes = web/components routes entries/secret served
+
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
 connected
   .> (db -> pg/run db made .> (_ -> models/compared db schema))
   .> (db -> pg/close db)
-  .> (_ -> web/serve 3000 routes connected)
+  .> (_ -> web/serve 3000 served_routes connected)

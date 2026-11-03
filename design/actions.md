@@ -58,39 +58,40 @@ a state, which a policy has to check again anyway.)
 
 ## Policies
 
-Today the pantry's star toggles whichever item id the state names, so a
-crafted request can star any item. Policies close that gap, and they need a
-viewer first.
-
 **The viewer.** An app signs a visitor in by keeping their id in the session
-(`web/signed_in r secret id`), and `web/components` takes the app's secret
-so the server can read it back. An action that asks for `viewer` is handed
-that id, or "" for a visitor who has not signed in. Nothing in the request
-body can name a viewer.
+(`web/signed_in r secret held id`), and `web/components` takes the app's
+secret so the server can read it back (`web/viewer`). An action that asks for
+`viewer` is handed that id, or "" for a visitor who has not signed in.
+Nothing in the request body can name a viewer.
 
 **A policy is a function in the model's module**, in Pundit's shape, named
 for the write it allows:
 
 ```
-pub fn update? viewer entry
-  entry.author == viewer
-
-pub fn destroy? viewer entry
-  entry.author == viewer
+pub fn destroy? viewer s
+  s.name == viewer
 ```
 
-**Writes go through the model.** The models derivation writes, for each model
-with a policy, the writes that policy allows: `entries/updated viewer db id
-changes` reads the row, asks `update?`, and either writes the changes or
-answers `forbidden`, a value the server answers as a 403. `entries/destroyed
-viewer db id` does the same with `destroy?`. A model with no `update?` gets
-no `updated`, so there is no unchecked path to call.
+**Writes go through the model.** The models derivation writes, for each
+model with an `id`, a value describing it: `signature_model`, a map of its
+table, its columns, its reader and each policy its module declares.
+`models/destroyed viewer db signatures/signature_model id` reads the row,
+asks `destroy?`, and deletes it only when the policy says yes;
+`models/updated viewer db model id changes` does the same with `update?`.
+A no answers `web/denied` and a missing row `web/absent`, which the server
+answers as 403 and 404. A model whose module declares no `destroy?` cannot
+be destroyed this way, so leaving a policy out denies the write. An app that
+means anyone may write says so (`pub fn update? _ _` answering true, as the
+pantry does).
+
+The derived code stays pure: a derived file cannot import senro's `pg` or
+`web`, because the derivation cannot know the path the app imports them by.
+The writes live in `models`, which can.
 
 **A server action may not write around its model.** kata refuses a server
-action that calls `pg/query` or `pg/run` itself, at the call, and says to
-write through the model. The check reads the action's own calls, so a helper
-could still hide one; the convention and the refusal together make the
-checked path the easy one.
+action that calls `pg/query` or `pg/run` itself, at the call. The check reads
+the action's own calls, so a helper could still hide one; the convention and
+the refusal together make the checked path the easy one.
 
 Reads follow the same pattern later: `pub fn visible? viewer entry` decides
 what a viewer may see, and the model's readers drop the rest.
@@ -100,6 +101,7 @@ what a viewer may see, and the model's readers drop the rest.
 1. Server actions: placement by parameters, the closed table, the page
    header. (Built.)
 2. The viewer, policies, the model's checked writes, and the refusal of a
-   server action that writes around its model. The guestbook gets sign-in
-   by name and a delete button only an entry's author can use.
+   server action that writes around its model. The guestbook signs a
+   visitor in under the name they sign with, and only an entry's author can
+   remove it. (Built.)
 3. Read policies.

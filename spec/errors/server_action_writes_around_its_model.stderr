@@ -1,0 +1,4 @@
+error[derive]: `starred` is a server action and calls `pg/run` itself: write through a model, so its policy checks the write
+  --> ./stars/stars.kso:5:3
+   5 |   pg/run db "update items set staple = true" .> (_ -> effect s)
+         ^

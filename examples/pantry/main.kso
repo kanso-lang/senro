@@ -8,6 +8,7 @@ import "./items"
 import "./migrations"
 import "./planner"
 import "./staple"
+import "./stock"
 import "./views"
 
 derive kata/views

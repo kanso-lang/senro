@@ -1,0 +1,2 @@
+takes id
+button.remove on-click=removed aria-label="remove entry {id}" ×

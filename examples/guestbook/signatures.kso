@@ -1,0 +1,13 @@
+# A signature as the `signatures` table stores it. senro/models checks each
+# field against the table's columns and writes `signature_from`, which builds
+# one from a row.
+pub type signature
+  id
+  name
+  message
+
+# Only the person who signed an entry may remove it. The models derivation
+# reads this policy and writes `signature_destroyed`, which asks it before it
+# deletes anything, so there is no other way to remove a signature.
+pub fn destroy? viewer s
+  s.name == viewer

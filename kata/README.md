@@ -108,8 +108,11 @@ server, and so does every action of its component. The click posts the
 state to `/senro/act/<component>`, which `web/components` adds to the
 route table for each server component the app names. Only an action a
 template binds can be reached that way, and only by a request carrying the
-page's `senro-page` header. In both cases the page morphs the component's
-next rendering into place.
+page's `senro-page` header. A server action may also ask for `viewer`, the
+id the session signed in, and it writes through a model
+(`models/updated`, `models/destroyed`), whose policy decides; kata refuses
+one that calls `pg/query` or `pg/run` itself. In both cases the page morphs
+the component's next rendering into place.
 
 ## What it does not do yet
 

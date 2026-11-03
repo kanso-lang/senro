@@ -1,0 +1,13 @@
+import "../../../models"
+import "../signatures"
+
+# Removes an entry. The action asks for the viewer and a database session, so
+# it runs on the server. Its state is the entry's id, which anyone can send,
+# so it removes the entry through the model, whose policy says no to anyone
+# but the person who signed it, and a no is the answer.
+pub fn removed viewer db id
+  models/destroyed viewer db signatures/signature_model id
+    .> (w -> settled id w)
+
+fn settled id w
+  if (models/refused? w) w id

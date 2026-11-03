@@ -1,0 +1,14 @@
+# A thing on the shelf, as the `items` table stores it. senro/models checks
+# each field against the table's columns and writes `item_from` and
+# `item_model`.
+pub type item
+  id
+  name
+  quantity
+  staple
+
+# The pantry is one household's shelf, and anyone at the page may change what
+# is on it. The policy says so outright: without one, a write through the
+# model is refused.
+pub fn update? _ _
+  true

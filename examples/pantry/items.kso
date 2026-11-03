@@ -2,17 +2,10 @@ import "../../pg"
 import "../../web"
 import "./planner"
 import "./staple"
+import "./stock"
 import "./views"
 import "std/list"
 import "std/net/http"
-
-# A thing on the shelf, as the `items` table stores it. senro/models checks
-# each field against the table's columns and writes `item_from`.
-pub type item
-  id
-  name
-  quantity
-  staple
 
 pub fn index _ db
   shelf db ""
@@ -45,7 +38,7 @@ fn shelf db editing
   pg/query db stocked [] .> (r -> shown r.rows editing)
 
 fn shown rows editing
-  items = list/to_list (list/map rows item_from)
+  items = list/to_list (list/map rows stock/item_from)
   total = list/fold items 0 (n i -> n + i.quantity)
   stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
   page = views/shelf items editing total (planner/view 3) stars
