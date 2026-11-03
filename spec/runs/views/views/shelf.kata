@@ -1,0 +1,18 @@
+takes books filter
+# a comment, and the rows under it, write nothing
+  p never written
+section#shelf.books class="wide"
+  h1 Books, filtered by {filter}
+  if length books == 0
+    p.empty Nothing on the shelf.
+  else if filter == ""
+    p Every book.
+  else
+    | Some books, and a brace: \{ kept.
+  ul
+    for b in books
+      li data-title=b
+        = b
+        if b == "Emma"
+          em  (out)
+  img src="/shelf.png" alt="a shelf of {length books}"

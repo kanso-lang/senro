@@ -3,12 +3,12 @@
 #
 #   KANSO=/path/to/kanso sh spec.sh
 #
-# Every module and example checks clean; the guestbook derives the schema and
-# route table its golden holds; kata compiles each view to the file beside it;
-# each app under spec/runs prints its golden on both engines; each app under
-# spec/db, run against a live Postgres, prints its golden on both engines; each
-# app under spec/serve, served and asked over HTTP, answers its golden; and
-# each app under spec/errors is refused with the message its golden holds.
+# Every module and example checks clean; the guestbook derives the schema,
+# route table and views its golden holds; each app under spec/runs prints its
+# golden on both engines; each app under spec/db, run against a live Postgres,
+# prints its golden on both engines; each app under spec/serve, served and
+# asked over HTTP, answers its golden; and each app under spec/errors is
+# refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -19,7 +19,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata examples/guestbook examples/pg bin/kata; do
+for d in routes models web pg kata examples/guestbook examples/pg; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -39,18 +39,6 @@ else
   bad "spec/guestbook.derived"
   printf '%s\n' "$got" | diff spec/guestbook.derived -
 fi
-
-note "== kata writes each view the guestbook holds"
-for slim in examples/guestbook/views/*.slim; do
-  kso=${slim%.slim}.kso
-  got=$("$KANSO" run bin/kata -- "$slim" 2>&1)
-  if printf '%s\n' "$got" | diff "$kso" - >/dev/null; then
-    note "ok: $kso"
-  else
-    bad "$kso is not what kata writes from $slim"
-    printf '%s\n' "$got" | diff "$kso" -
-  fi
-done
 
 note "== each app under spec/runs prints its golden, natively and interpreted"
 for d in spec/runs/*/; do

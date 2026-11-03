@@ -41,6 +41,7 @@ kanso derived examples/guestbook  # the schema and route table derived
 - `entries.kso` declares the `signature` model, stores one with a
   parameterized insert, so what a visitor types is stored as text and never
   read as SQL, and renders the list.
-- `views/signed.slim` is the page, compiled by kata to `views/signed.kso`,
-  and `views/layout.slim` the frame around it. It reads the `signature`
+- `views/signed.kata` is the page and `views/layout.kata` the frame around
+  it. `derive kata/views` in `main.kso` compiles each to a function of the
+  `views` module while the app compiles. The page reads the `signature`
   records `entries.kso` builds by their fields, which needs no import.
