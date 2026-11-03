@@ -74,6 +74,37 @@ kata also writes three helpers into each module that holds templates:
 `escape`, `each` and `joined`. They belong in the standard library once the
 design settles.
 
+## Components
+
+A template that binds an action is a component. `on-click=more` on an
+element binds a click on it to the function `more` in the template's module:
+
+```
+takes meals
+div.planner
+  span.count = meals
+  button on-click=fewer −
+  button on-click=more +
+```
+
+```
+pub fn more meals
+  meals + 1
+
+pub fn fewer meals
+  if (meals > 0) (meals - 1) 0
+```
+
+A component takes one value, its state, and an action takes the state and
+answers the next one. kata wraps what the template draws in an element that
+names the component and holds its state as JSON, and writes `act`, which runs
+an action by the name a template bound it under.
+
+The actions run in the browser. The app builds its browser module
+(`browser.kso`, built by `browser/build.sh`), and a click runs the action
+there without asking the server, then morphs the component's next rendering
+into place.
+
 ## What it does not do yet
 
 - A diagnostic in a template points at the module's derived source. The

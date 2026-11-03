@@ -1,0 +1,13 @@
+5
+<div data-component="counter" data-state="5"><div class="counter"><button data-on-click="decrement">−</button><span class="count">5</span><button data-on-click="increment">+</button></div></div>
+--
+-1
+<div data-component="counter" data-state="-1"><div class="counter"><button data-on-click="decrement">−</button><span class="count">-1</span><button data-on-click="increment">+</button></div></div>
+--
+7
+<div data-component="counter" data-state="7"><div class="counter"><button data-on-click="decrement">−</button><span class="count">7</span><button data-on-click="increment">+</button></div></div>
+--
+
+--
+
+--

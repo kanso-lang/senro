@@ -1,9 +1,9 @@
 // The pantry driven in a real browser with senro's page script loaded: add,
-// count up and down, rename and remove, each answered in place, and a second
-// visitor's page that follows the first's changes. The page
-// marks its window first; a page that reloaded would lose the mark. Prints
-// what a visitor sees after each step, for spec.sh to compare with
-// spec/browser/pantry.out. Run as:
+// count up and down, rename and remove, each answered in place; a component
+// whose clicks run in the browser; and a second visitor's page that follows
+// the first's changes. The page marks its window first; a page that reloaded
+// would lose the mark. Prints what a visitor sees after each step, for
+// spec.sh to compare with spec/browser/pantry.out. Run as:
 //
 //   node spec/browser/pantry.mjs <port> <browser> [screenshot directory]
 import { createRequire } from "node:module";
@@ -116,6 +116,28 @@ console.log(`a rename opened while a refresh was in flight stays open: ${open}`)
 await page.click(".rename a");
 await settled(`!document.querySelector(".rename")`);
 await bystander.context().close();
+
+// The planner is a component. Its clicks run in the browser, in the app's
+// module built for wasm, and send the server nothing. A page the server sends
+// later, after a change to the shelf, leaves its count where the clicks put
+// it. Each click waits for the one before, since an action reads the state
+// the last one left.
+await page.waitForFunction(
+  () => document.documentElement.classList.contains("senro-ready"),
+);
+let asked = 0;
+const counting = (r) => { if (!r.url().endsWith(".wasm")) asked++; };
+page.on("request", counting);
+for (const [button, after] of [["plus", 4], ["plus", 5], ["minus", 4]]) {
+  await page.click(`.planner button.${button}`);
+  await settled(`document.querySelector(".planner .count").textContent == "${after}"`);
+}
+page.off("request", counting);
+const planned = () => page.textContent(".planner .count");
+console.log(`planner: ${await planned()} after three clicks, ${asked} requests`);
+await row(0).locator("button.plus").click();
+await settled(`document.querySelector(".items li .count").textContent == "4"`);
+console.log(`planner after the shelf changed: ${await planned()}`);
 
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.

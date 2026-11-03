@@ -1,0 +1,9 @@
+import "../../../kata"
+import "./counter"
+
+derive kata/views
+
+print (counter/view 3)
+print (counter/act "increment" 3)
+print (counter/act "decrement" 3)
+print (counter/act "unknown" 3)

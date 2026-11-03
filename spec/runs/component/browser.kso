@@ -1,0 +1,9 @@
+import "../../../browser"
+import "../../../kata"
+import "./counter"
+
+derive kata/views
+
+wired = browser/component counter/act counter/view
+
+browser/answer { "counter":wired }

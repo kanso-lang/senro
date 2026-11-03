@@ -1,0 +1,8 @@
+# The week's meal plan, counted in the browser. These are the component's
+# actions: each takes the count and answers the next one, and the planner's
+# template binds them to its buttons.
+pub fn more meals
+  meals + 1
+
+pub fn fewer meals
+  if (meals > 0) (meals - 1) 0

@@ -1,0 +1,56 @@
+import "std/json"
+import "std/os"
+import "std/text"
+
+# A component as the browser runs it: the `act` kata wrote for its module,
+# which takes an action's name and the state and answers the next state, and
+# the view that renders a state.
+type wired
+  act
+  view
+
+pub fn component act view
+  wired act view
+
+# The page's script runs the app's browser module once for each event, and
+# hands it the event in SENRO_EVENT as three lines: the component's name, the
+# action's name and the state as JSON. The module prints the next state as
+# JSON on one line, then the component rendered in it.
+pub fn answer components
+  os/env "SENRO_EVENT" .> (e -> print (heard components (said e)))
+
+fn heard components event
+  answered components (text/split event "\n")
+
+fn said none
+  ""
+
+fn said event
+  event
+
+fn answered components parts
+  return "" if length parts < 3
+  decoded components parts (json/decode (part parts 3))
+
+# A state that is not JSON is no state, and the component is left alone.
+fn decoded _ _ none
+  ""
+
+fn decoded components parts state
+  found components[part parts 1] (part parts 2) state
+
+fn found none _ _
+  ""
+
+fn found c action state
+  next = c.act action state
+  "{json/encode next}\n{c.view next}"
+
+fn part parts at
+  given parts[at]
+
+fn given none
+  ""
+
+fn given p
+  p

@@ -17,7 +17,10 @@ pub fn views p
 fn templates m
   found = list/fold (keys m.files) [] (acc f -> added acc m.name f m.files[f])
   return [] if length found == 0
-  list/concat [(derive/define m.name leaned_on)] found
+  bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
+  head = if (length bound == 0) leaned_on "import \"std/json\"\n{leaned_on}"
+  acts = if (length bound == 0) [] [(derive/define m.name (acting bound))]
+  list/concat (list/concat [(derive/define m.name head)] found) acts
 
 fn added acc _ _ none
   acc
@@ -25,7 +28,50 @@ fn added acc _ _ none
 fn added acc m f src
   return acc if not text/ends_with? f ".kata"
   name = text/join (text/split f ".kata") ""
-  push acc (derive/define m (compiled name f src))
+  return push acc (derive/define m (compiled name f src)) if bare? src
+  push acc (component m f name src)
+
+fn bare? src
+  length (actions src) == 0
+
+# A template that binds actions is a component. Its state is the one value
+# it takes, and the function named after the file wraps what the template
+# renders in an element that says which component it is and what its state
+# is, as JSON, so the page's script can hand both to `act`.
+fn component m f name src
+  taken = takes src
+  return derive/refuse m (one_state f) if length taken != 1
+  s = taken[1]
+  inner = compiled "{name}_body" f src
+  wrap = [
+    "pub fn {name} {s}"
+    "  kata_state = escape (json/encode {s})"
+    "  kata_inside = {name}_body {s}"
+    "  kata_open = \"<div data-component=\\\"{m}\\\" data-state=\\\"\""
+    "  \"\{kata_open}\{kata_state}\\\">\{kata_inside}</div>\""
+  ]
+  derive/define m "{inner}\n{text/join wrap "\n"}\n"
+
+fn one_state f
+  said = "binds actions, so it is a component, and a component takes one value"
+  "`{f}` {said}: its state"
+
+fn bound_in acc _ none
+  acc
+
+fn bound_in acc f src
+  return acc if not text/ends_with? f ".kata"
+  list/fold (actions src) acc (a n -> if (has? a n) a (push a n))
+
+# `act` runs an action by the name a template bound it under, on the
+# component's state, and answers the next state. A name no template binds
+# leaves the state as it was.
+fn acting names
+  arms = list/to_list (list/map names arm)
+  "{text/join arms "\n"}\npub fn act _ state\n  state\n"
+
+fn arm n
+  "pub fn act \"{n}\" state\n  {n} state\n"
 
 # What every compiled template leans on, written once into each module that
 # holds templates: the escape that keeps a value from being read as markup, a

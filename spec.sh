@@ -5,7 +5,8 @@
 #
 # Every module and example checks clean; the guestbook derives the schema,
 # route table and views its golden holds; each app under spec/runs prints its
-# golden on both engines; each app under spec/db, run against a live Postgres,
+# golden on both engines, and one with a browser module answers its events
+# natively, interpreted and as wasm; each app under spec/db, run against a live Postgres,
 # prints its golden on both engines; each app under spec/serve, served and
 # asked over HTTP, answers its golden; the guestbook and the pantry, used in
 # a browser, update in place without a reload; and each app under spec/errors
@@ -61,6 +62,54 @@ for d in spec/runs/*/; do
       printf '%s\n' "$got" | diff "$want" -
     fi
   done
+done
+
+note "== each browser module answers its events on every engine"
+# An app under spec/runs with a browser.kso and a list of events in
+# spec/runs/<app>.events, one to a line as the component, the action and the
+# state separated by tabs, answers each as spec/runs/<app>.answers holds,
+# natively, interpreted and built for the browser. The browser build is run
+# by spec/browser/module.mjs against the kanso runtime for wasm32 named by
+# KANSO_RUNTIME_WASM, and is skipped without it.
+tab=$(printf '\t')
+for events in spec/runs/*.events; do
+  name=$(basename "$events" .events)
+  d=spec/runs/$name
+  want=spec/runs/$name.answers
+  engines="native interp"
+  built=$(mktemp -d)
+  if [ -n "${KANSO_RUNTIME_WASM:-}" ]; then
+    if (cd "$d" && "$KANSO" build browser.kso --wasm > /dev/null 2>&1); then
+      mv "$d/browser.wasm" "$built/app.wasm"
+      engines="$engines wasm"
+    else
+      bad "$name builds for the browser"
+    fi
+    rm -f "$d/browser.ll"
+  else
+    note "SKIPPED: $name as wasm (no KANSO_RUNTIME_WASM)"
+  fi
+  for engine in $engines; do
+    got=$(while IFS="$tab" read -r component action state; do
+      event=$(printf '%s\n%s\n%s' "$component" "$action" "$state")
+      case $engine in
+        native) (cd "$d" && SENRO_EVENT="$event" "$KANSO" run browser.kso 2>&1) ;;
+        interp) (cd "$d" && SENRO_EVENT="$event" "$KANSO" run browser.kso --interp 2>&1) ;;
+        wasm) node spec/browser/module.mjs "$KANSO_RUNTIME_WASM" "$built/app.wasm" "$event" 2>&1 ;;
+      esac
+      echo "--"
+    done < "$events")
+    if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+      printf '%s\n' "$got" > "$want"
+    fi
+    if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+      note "ok: $name answers its events ($engine)"
+    else
+      bad "$name answers its events ($engine)"
+      printf '%s\n' "$got" | diff "$want" -
+    fi
+  done
+  rm -rf "$built"
 done
 
 note "== each app under spec/db says what its golden says against Postgres"
@@ -142,7 +191,20 @@ note "== the guestbook and the pantry, used in a browser, update in place"
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/browser (SENRO_NO_DB=1)"
 else
-  for app in guestbook:3000 pantry:3001; do
+  # The pantry's planner runs in the browser, so its page needs the app's
+  # module and the runtime built for wasm (browser/build.sh), and the pantry
+  # is skipped without KANSO_RUNTIME_WASM.
+  apps="guestbook:3000"
+  if [ -n "${KANSO_RUNTIME_WASM:-}" ]; then
+    if KANSO=$KANSO sh browser/build.sh examples/pantry "$KANSO_RUNTIME_WASM"; then
+      apps="$apps pantry:3001"
+    else
+      bad "the pantry builds for the browser"
+    fi
+  else
+    note "SKIPPED: pantry in a browser (no KANSO_RUNTIME_WASM)"
+  fi
+  for app in $apps; do
     name=${app%:*}
     port=${app#*:}
     want=spec/browser/$name.out

@@ -1,0 +1,5 @@
+counter	increment	4
+counter	decrement	0
+counter	sideways	7
+nowhere	increment	4
+counter	increment	not json

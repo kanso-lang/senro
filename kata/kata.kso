@@ -316,6 +316,7 @@ fn attributes rest classes acc at
   return acc if length halves < 1
   key = halves[1]
   value = text/join (list/to_list (list/drop halves 1)) "="
+  return event key value classes acc at if text/starts_with? key "on-"
   joins = key == "class" and length classes > 0
   lead = if joins "{text/join classes " "} " ""
   left = if joins [] classes
@@ -324,6 +325,31 @@ fn attributes rest classes acc at
   word = first_word value
   shut = lit (spliced opened (escaped word) at) "\"" at
   attributes (after value (length word)) left shut at
+
+# `on-click=increment` binds an event to an action of the component, by
+# name: the page's script reads `data-on-click` and asks the component's
+# `act` for `increment`.
+fn event key value classes acc at
+  word = first_word value
+  named_it = lit acc " data-{key}=\"{word}\"" at
+  attributes (after value (length word)) classes named_it at
+
+# The actions a template binds, each once, in the order first written.
+pub fn actions src
+  pieces = text/split (text/join (text/split src "\n") " ") " "
+  bound_words = list/select pieces (w -> text/starts_with? w "on-")
+  names = list/map bound_words (w -> action_of (text/split w "="))
+  list/fold names [] (acc n -> if (n == "" or has? acc n) acc (push acc n))
+
+fn action_of parts
+  if (length parts < 2) "" parts[2]
+
+fn has? xs x
+  list/any? xs (y -> y == x)
+
+# What a template takes, as its first line says.
+pub fn takes src
+  takes_of (rows_of src)
 
 # A quoted value is text, with `{expr}` holes like any other.
 fn lettered value classes acc at

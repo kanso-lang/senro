@@ -1,5 +1,6 @@
 import "../../pg"
 import "../../web"
+import "./planner"
 import "./views"
 import "std/list"
 import "std/net/http"
@@ -44,7 +45,7 @@ fn shelf db editing
 fn shown rows editing
   items = list/to_list (list/map rows item_from)
   total = list/fold items 0 (n i -> n + i.quantity)
-  page = views/shelf items editing total
+  page = views/shelf items editing total (planner/view 3)
   effect (http/html_page (views/layout "Pantry" page))
 
 stocked = "select id, name, quantity from items order by id"
