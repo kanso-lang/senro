@@ -71,11 +71,13 @@ fn bound_in acc f src
 
 # `act` runs an action by the name a template bound it under, on the
 # component's state, and answers the next state. An action whose parameters
-# ask for the request or a database session needs the server, and so does
-# every action of a component that has one: its `act` takes the request and
-# a session before the state, and answers none for a name no template binds,
-# which the server answers as a 404. A browser component's `act` leaves the
-# state as it was for such a name.
+# ask for the request, a database session or the viewer needs the server,
+# and so does every action of a component that has one. Its `act` takes
+# what the server hands an action, the request, a session and the viewer as
+# the `req`, `db` and `viewer` fields of one value, before the state, and
+# answers none for a name no template binds, which the server answers as a
+# 404. A browser component's `act` leaves the state as it was for such a
+# name.
 fn acting m names
   return [(derive/define m.name (in_browser names))] if not served? m
   refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
@@ -91,26 +93,28 @@ fn browser_arm n
 
 fn on_server m names
   arms = list/to_list (list/map names (n -> server_arm m n))
-  "{text/join arms "\n"}\npub fn act _ _ _ _\n  none\n"
+  "{text/join arms "\n"}\npub fn act _ _ _\n  none\n"
 
 # The arm names only what its action takes, and leaves the rest unbound.
 fn server_arm m n
   given = handed m n
-  req = if (list/any? given (g -> g == "req")) "req" "_"
-  db = if (list/any? given (g -> g == "db")) "db" "_"
-  "pub fn act \"{n}\" {req} {db} state\n  {n} {text/join given " "}\n"
+  from = if (list/any? given (g -> g != "state")) "kata_given" "_"
+  "pub fn act \"{n}\" {from} state\n  {n} {text/join given " "}\n"
 
-# What an action is handed, parameter by parameter: the request and the
-# session by name, and the state last.
+# What an action is handed, parameter by parameter: the request, the
+# session and the viewer by name, and the state last.
 fn handed m n
   params = params_of m n
   list/to_list (list/map params (p -> given_as p.name))
 
 fn given_as "req"
-  "req"
+  "kata_given.req"
 
 fn given_as "db"
-  "db"
+  "kata_given.db"
+
+fn given_as "viewer"
+  "kata_given.viewer"
 
 fn given_as _
   "state"
@@ -127,10 +131,10 @@ fn server? params
   list/any? params (p -> handed? p.name)
 
 fn handed? name
-  name == "req" or name == "db"
+  name == "req" or name == "db" or name == "viewer"
 
-# Only the request, a session and the state can be handed to an action, and
-# the state comes last.
+# Only the request, a session, the viewer and the state can be handed to an
+# action, and the state comes last.
 fn misplaced acc m n
   params = params_of m n
   return acc if length params == 0
@@ -140,7 +144,7 @@ fn misplaced acc m n
   push acc (derive/refuse "{m.name}/{n}" (handed_only n odd[1].name))
 
 fn handed_only n p
-  only = "an action is handed only req, db and its state"
+  only = "an action is handed only req, db, viewer and its state"
   "the action `{n}` takes `{p}` before its state, and {only}"
 
 # What every compiled template leans on, written once into each module that

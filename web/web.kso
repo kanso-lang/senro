@@ -24,6 +24,12 @@ type wired
   act
   view
 
+# What the server hands a server component's action besides its state.
+type handed
+  req
+  db
+  viewer
+
 type site
   routes
   dbs
@@ -282,44 +288,46 @@ fn numbered action n req db
 # a component the app names here, and only an action one of its templates
 # binds, can be reached from a page:
 #
-#   web/serve 3001 (web/components routes { "stars": stars }) connected
+#   web/serve 3001 (web/components routes secret { "stars": stars }) connected
 #
-# where `stars = web/component stars/act stars/view`.
+# where `stars = web/component stars/act stars/view`. `secret` is the one the
+# app signs its sessions with, so an action that asks for the viewer is handed
+# the one the session names.
 pub fn component act view
   wired act view
 
-pub fn components routes table
-  list/fold (keys table) routes (acc n -> routed_to acc n table[n])
+pub fn components routes secret table
+  list/fold (keys table) routes (acc n -> routed_to acc n secret table[n])
 
-fn routed_to routes _ none
+fn routed_to routes _ _ none
   routes
 
-fn routed_to routes n c
-  put routes "POST /senro/act/{n}" (act_row c)
+fn routed_to routes n secret c
+  put routes "POST /senro/act/{n}" (act_row c secret)
 
-fn act_row c
-  { "action":(req db -> acted c req db) "id":"" }
+fn act_row c secret
+  { "action":(req db -> acted c req db (viewer req secret)) "id":"" }
 
 # The body is the action's name and the state as JSON, on two lines. A
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is
 # what keeps a page elsewhere from acting with this visitor's cookie.
-fn acted c req db
+fn acted c req db who
   return effect forbidden if req.headers["senro-page"] == none
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
   state = json/decode (text/join (list/to_list (list/drop lines 1)) "\n")
-  stated c lines[1] state req db
+  stated c lines[1] state req db who
 
 forbidden = http/respond 403 [] "Forbidden\n"
 
 bad_request = http/respond 400 [] "Bad Request\n"
 
-fn stated _ _ none _ _
+fn stated _ _ none _ _ _
   effect bad_request
 
-fn stated c action state req db
-  c.act action req db state .> (next -> drawn c next)
+fn stated c action state req db who
+  c.act action (handed req db who) state .> (next -> drawn c next)
 
 fn drawn _ none
   effect http/not_found
@@ -340,6 +348,22 @@ pub fn redirect path
 # secret of this app signed, reads as an empty map.
 pub fn session req secret
   verified (cookie req.headers["cookie"] "senro") secret
+
+# Who the session says is signed in: the id an app kept under "viewer" when
+# it signed them in (`signed_in`), or "" for a visitor who has not been.
+pub fn viewer req secret
+  signed_as (session req secret)["viewer"]
+
+fn signed_as none
+  ""
+
+fn signed_as v
+  v
+
+# The response, signing `id` in: the session the next request reads names
+# them as its viewer, beside whatever else `held` keeps.
+pub fn signed_in r secret held id
+  kept r secret (put held "viewer" id)
 
 # The response, with `held` kept as the session the next request reads.
 pub fn kept r secret held
