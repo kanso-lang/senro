@@ -1,0 +1,22 @@
+import "../../kata"
+import "../../models"
+import "../../pg"
+import "../../routes"
+import "../../web"
+import "./home"
+import "./items"
+import "./migrations"
+import "./views"
+
+derive kata/views
+derive models/tables
+derive routes/rest
+
+made = models/made schema
+
+connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+
+connected
+  .> (db -> pg/run db made .> (_ -> models/compared db schema))
+  .> (db -> pg/close db)
+  .> (_ -> web/serve 3001 routes connected)

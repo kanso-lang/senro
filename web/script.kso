@@ -4,9 +4,12 @@
 script = """
   // senro's page script. A link followed or a form sent on this origin is
   // fetched, and the page it answers is morphed into the live one, so the
-  // browser never reloads. A field being typed in keeps what was typed.
+  // browser never reloads. A field being typed in keeps what was typed,
+  // unless its own form was sent: then the answer is what it should hold.
   (() => \{
-    const visit = async (url, init, pushed) => \{
+    let sent = null;
+
+    const visit = async (url, init, pushed, form) => \{
       const r = await fetch(url, init);
       const kind = r.headers.get("content-type") || "";
       if (!kind.startsWith("text/html")) return plain(r, init);
@@ -14,7 +17,11 @@ script = """
       const moved = r.url !== location.href;
       if (pushed && moved) history.pushState(null, "", r.url);
       document.title = next.title;
+      sent = form || null;
       morph(document.body, next.body);
+      sent = null;
+      const asked = document.querySelector("[autofocus]");
+      if (asked && asked !== document.activeElement) asked.focus();
       if (pushed && moved) scrollTo(0, 0);
     };
 
@@ -61,9 +68,11 @@ script = """
     };
 
     // A field's value lives apart from its markup once someone has typed in
-    // it, so it is set from the answer, unless it is the one with focus.
+    // it, so it is set from the answer, unless it is the one with focus and
+    // the answer is to some other request than its own form's.
     const field = (from, to) => \{
-      if (from === document.activeElement) return;
+      const own = sent && sent.contains(from);
+      if (from === document.activeElement && !own) return;
       if (from.localName === "input" || from.localName === "textarea") \{
         if (from.value !== to.value) from.value = to.value;
       }
@@ -91,9 +100,9 @@ script = """
       const data = new URLSearchParams(new FormData(form, e.submitter));
       if (form.method === "get") \{
         url.search = data;
-        visit(url.href, \{}, true);
+        visit(url.href, \{}, true, form);
       } else \{
-        visit(url.href, \{ method: "POST", body: data }, true);
+        visit(url.href, \{ method: "POST", body: data }, true, form);
       }
     });
 

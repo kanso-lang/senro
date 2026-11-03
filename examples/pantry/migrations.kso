@@ -1,0 +1,12 @@
+import "../../models"
+
+# The pantry's schema, as the changes that built it, oldest first.
+pub all = [stocked]
+
+stocked = models/create_table "items" [id name quantity]
+
+id = models/column "id" "serial"
+
+name = models/column "name" "text"
+
+quantity = models/column "quantity" "integer not null default 0"

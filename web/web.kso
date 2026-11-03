@@ -54,7 +54,7 @@ fn answered c routes dbs
   net/read c .> (raw -> heard c routes dbs (http/parsed raw))
 
 fn heard c routes dbs req
-  action = matched routes req.method req.path
+  action = matched routes (method_of req) req.path
   pool/with dbs (db -> answered_by action req db .> (r -> sent c r))
     .> (_ -> net/close_conn c)
 
@@ -63,6 +63,21 @@ fn heard c routes dbs req
 # 500, and the connection is closed as any other is. The server goes on
 # accepting. A failure an app expects is a value its action answers, so what
 # reaches here is one it did not plan for.
+# A form can only GET or POST, so a POST says which method it stands for in a
+# `_method` field, as Rails does: PATCH to update, DELETE to destroy.
+fn method_of req
+  return req.method if req.method != "POST"
+  meant (value (form req.body) "_method")
+
+fn meant "PATCH"
+  "PATCH"
+
+fn meant "DELETE"
+  "DELETE"
+
+fn meant _
+  "POST"
+
 fn answered_by none req db
   routed none req db
 

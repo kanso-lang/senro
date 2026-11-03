@@ -1,0 +1,5 @@
+import "./items"
+
+# The front page is the shelf.
+pub fn index req db
+  items/index req db

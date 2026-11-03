@@ -19,8 +19,9 @@ derive routes/rest
 ```
 
 `kanso install` fetches the repository and writes the lock.
-`examples/guestbook` is a whole app. It imports the modules by relative path
-because it lives in this repository.
+`examples/guestbook` and `examples/pantry` are whole apps. They import the
+modules by relative path because they live in this repository. The pantry
+adds, counts, renames and removes things on a shelf without a page reload.
 
 `PRINCIPLES.md` states what senro's design follows.
 
@@ -74,7 +75,9 @@ because it lives in this repository.
   `/senro.js`. A layout that loads it gets pages that update in place: a
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never
-  reloads. A field the visitor is typing in keeps what they typed.
+  reloads. A field the visitor is typing in keeps what they typed, unless
+  it was in the form just sent. A form that POSTs a `_method` of `PATCH` or
+  `DELETE` is routed as that method, as in Rails.
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 
