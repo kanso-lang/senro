@@ -1,0 +1,5 @@
+# What `kanso build --wasm` writes beside an entry, and the modules an
+# app's page loads, which are built from it.
+*.ll
+browser.wasm
+public/senro/

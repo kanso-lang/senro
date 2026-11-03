@@ -1,7 +1,8 @@
-takes items editing total
+takes items editing total planner
 header
   h1 Pantry
   p.lede {total} things on the shelf, counted as you go.
+== planner
 form.add method="post" action="/items"
   input name="name" placeholder="add an item" required="required" autocomplete="off"
   button Add

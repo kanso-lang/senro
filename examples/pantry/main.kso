@@ -6,6 +6,7 @@ import "../../web"
 import "./home"
 import "./items"
 import "./migrations"
+import "./planner"
 import "./views"
 
 derive kata/views

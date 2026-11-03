@@ -35,13 +35,35 @@ script = """
       document.body.replaceChildren(pre);
     };
 
+    // A component's state belongs to the browser once the page has loaded.
+    // The server's render replaces it only when the server's own state for it
+    // has changed since it last sent one, so a page fetched for some other
+    // reason leaves a counter where its clicks put it.
+    const served = new WeakMap();
+    const serve = (el) => \{
+      const all = [...el.querySelectorAll("[data-component]")];
+      if (el.matches && el.matches("[data-component]")) all.push(el);
+      for (const c of all) served.set(c, c.dataset.state);
+    };
+    serve(document);
+
+    const kept = (from, to) => from.dataset.component !== undefined &&
+      from.dataset.component === to.dataset.component &&
+      served.get(from) === to.dataset.state;
+
     const morph = (from, to) => \{
       if (from.nodeType !== to.nodeType || from.nodeName !== to.nodeName) \{
-        from.replaceWith(document.importNode(to, true));
+        const fresh = document.importNode(to, true);
+        from.replaceWith(fresh);
+        if (fresh.nodeType === Node.ELEMENT_NODE) serve(fresh);
       } else if (from.nodeType === Node.ELEMENT_NODE) \{
+        if (kept(from, to)) return;
         attributes(from, to);
         children(from, to);
         field(from, to);
+        if (to.dataset.component !== undefined) \{
+          served.set(from, to.dataset.state);
+        }
       } else if (from.nodeValue !== to.nodeValue) \{
         from.nodeValue = to.nodeValue;
       }
@@ -107,6 +129,131 @@ script = """
     });
 
     addEventListener("popstate", () => visit(location.href, \{}, false));
+
+    // Components. A component's template binds events to its actions by name,
+    // and senro compiled the app's components to one wasm module. A click on a
+    // bound element runs the action in the browser: the module takes the
+    // component's state and the action's name and answers the next state and
+    // the component rendered in it, which is morphed into the page. Until the
+    // module has loaded, elements marked data-while-loading show and those
+    // marked data-when-loaded do not.
+    const loading = document.createElement("style");
+    loading.textContent = "html:not(.senro-ready) [data-when-loaded]," +
+      "html.senro-ready [data-while-loading] \{ display: none }";
+    document.head.appendChild(loading);
+
+    let runtime = null;
+    let app = null;
+
+    const ready = (async () => \{
+      if (!document.querySelector("[data-component]")) return;
+      const [r, a] = await Promise.all([
+        WebAssembly.compileStreaming(fetch("/senro/runtime.wasm")),
+        WebAssembly.compileStreaming(fetch("/senro/app.wasm")),
+      ]);
+      runtime = r;
+      app = a;
+      document.documentElement.classList.add("senro-ready");
+    })();
+
+    class Exit \{}
+
+    // One run of the app's module: a fresh runtime, the event in SENRO_EVENT,
+    // and what the module printed.
+    const ran = async (event) => \{
+      const out = [];
+      let memory = null;
+      const bytes = () => new Uint8Array(memory.buffer);
+      const view = () => new DataView(memory.buffer);
+      const env = [new TextEncoder().encode("SENRO_EVENT=" + event + "\\0")];
+      const calls = \{
+        fd_write(fd, iovs, n, written) \{
+          let total = 0;
+          for (let k = 0; k < n; k++) \{
+            const at = view().getUint32(iovs + k * 8, true);
+            const len = view().getUint32(iovs + k * 8 + 4, true);
+            if (fd === 1) out.push(bytes().slice(at, at + len));
+            total += len;
+          }
+          view().setUint32(written, total, true);
+          return 0;
+        },
+        environ_sizes_get(count, size) \{
+          view().setUint32(count, env.length, true);
+          view().setUint32(size, env[0].length, true);
+          return 0;
+        },
+        environ_get(at, buf) \{
+          view().setUint32(at, buf, true);
+          bytes().set(env[0], buf);
+          return 0;
+        },
+        args_sizes_get(count, size) \{
+          view().setUint32(count, 0, true);
+          view().setUint32(size, 0, true);
+          return 0;
+        },
+        fd_fdstat_get(fd, stat) \{
+          bytes().fill(0, stat, stat + 24);
+          return 0;
+        },
+        fd_prestat_get: () => 8,
+        proc_exit() \{ throw new Exit(); },
+      };
+      const quiet = (t, name) => t[name] || (() => 0);
+      const wasi = new Proxy(calls, \{ get: quiet });
+      const rt = (await WebAssembly.instantiate(runtime,
+        \{ wasi_snapshot_preview1: wasi })).exports;
+      memory = rt.memory;
+      const link = new DataView(
+        WebAssembly.Module.customSections(app, "kanso.link")[0]);
+      const table = rt.__indirect_function_table;
+      const imports = \{
+        memory: rt.memory,
+        __indirect_function_table: table,
+        __memory_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
+          rt.malloc(link.getUint32(0, true))),
+        __table_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
+          table.grow(link.getUint32(4, true))),
+      };
+      for (const imp of WebAssembly.Module.imports(app)) \{
+        if (!(imp.name in imports)) imports[imp.name] = rt[imp.name];
+      }
+      await WebAssembly.instantiate(app, \{ env: imports });
+      try \{
+        rt._start();
+      } catch (e) \{
+        if (!(e instanceof Exit)) throw e;
+      }
+      const all = new Uint8Array(out.reduce((n, c) => n + c.length, 0));
+      let at = 0;
+      for (const c of out) \{
+        all.set(c, at);
+        at += c.length;
+      }
+      return new TextDecoder().decode(all);
+    };
+
+    const acted = async (root, action) => \{
+      await ready;
+      if (!app) return;
+      const event = [root.dataset.component, action, root.dataset.state];
+      const answer = await ran(event.join("\\n"));
+      const html = answer.slice(answer.indexOf("\\n") + 1);
+      const next = new DOMParser().parseFromString(html, "text/html");
+      const drawn = next.body.firstElementChild;
+      if (!drawn) return;
+      attributes(root, drawn);
+      children(root, drawn);
+    };
+
+    addEventListener("click", (e) => \{
+      const bound = e.target.closest("[data-on-click]");
+      const root = bound && bound.closest("[data-component]");
+      if (!root) return;
+      e.preventDefault();
+      acted(root, bound.dataset.onClick);
+    });
 
     // When a request anywhere changes what the app stores, the server says so
     // on this stream, and the page fetches itself again.

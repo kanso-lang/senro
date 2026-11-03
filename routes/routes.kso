@@ -48,19 +48,26 @@ type aliases
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
 pub fn rest p
-  conventional = list/fold p.modules [] (acc m -> list/concat acc (routes_of m))
+  apps = list/to_list (list/select p.modules (m -> not templated? m))
+  conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
   start = aliases [] []
-  aliased = list/fold p.modules start (acc m -> aliases_in acc m conventional)
+  aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
   placed = list/concat conventional aliased.routes
   rows = list/fold placed {} (acc r -> put acc (spelled r) (row r))
   given = aliased.refused
-  odd = list/fold p.modules given (acc m -> list/concat acc (strays m))
+  odd = list/fold apps given (acc m -> list/concat acc (strays m))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
-  arms = list/fold p.modules [] (acc m -> list/concat acc (arms_of m))
-  links = list/fold p.modules [] (acc m -> list/concat acc (links_of m placed))
+  arms = list/fold apps [] (acc m -> list/concat acc (arms_of m))
+  links = list/fold apps [] (acc m -> list/concat acc (links_of m placed))
   told = list/concat (list/concat declared odd) clashing.out
   list/concat (list/concat told arms) links
+
+# A module holding templates is the app's views or one of its components.
+# A component's pub functions are its actions, which its template binds, and
+# none of them is a route.
+fn templated? m
+  list/any? (keys m.files) (f -> text/ends_with? f ".kata")
 
 # How a page names a route. `path_to post` finds the show route of a record by
 # its type, through the arm `rest` writes into the module that declares it.

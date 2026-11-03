@@ -1,0 +1,6 @@
+takes meals
+div.planner
+  span.label Meals planned this week
+  button.minus on-click=fewer aria-label="one fewer" −
+  span.count = meals
+  button.plus on-click=more aria-label="one more" +

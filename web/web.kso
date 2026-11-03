@@ -134,7 +134,17 @@ fn failed u
     .> (_ -> effect (http/respond 500 [] "Internal Server Error\n"))
 
 fn sent c r
+  wrote c r r.body
+
+fn wrote c r _:string
   net/write c (http/rendered r)
+
+# A bytes body, such as a wasm module, goes after its head on its own, since
+# a string holding the head cannot hold the bytes.
+fn wrote c r body
+  sized = push r.headers "content-length: {length body}"
+  head = "HTTP/1.1 {r.status} {r.reason}\r\n{text/join sized "\r\n"}\r\n\r\n"
+  net/write c head .> (_ -> net/write c body)
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
@@ -200,7 +210,19 @@ fn routed none req _
   return effect http/not_found if req.method != "GET"
   return effect (http/page [javascript] script) if req.path == "/senro.js"
   return effect http/not_found if length (text/split req.path "..") > 1
+  return served_module req.path if text/ends_with? req.path ".wasm"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
+
+# A wasm module is bytes, read as bytes: the app's components compiled for the
+# browser, and the runtime they run on.
+fn served_module path
+  os/read_bytes "public{path}" .> (got -> served_bytes got)
+
+fn served_bytes none
+  effect http/not_found
+
+fn served_bytes body
+  effect (http/page ["content-type: application/wasm"] body)
 
 javascript = "content-type: text/javascript; charset=utf-8"
 
