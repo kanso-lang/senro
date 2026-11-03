@@ -238,19 +238,38 @@ fn routed none req _
   return effect http/not_found if req.method != "GET"
   return effect (http/page [javascript] script) if req.path == "/senro.js"
   return effect http/not_found if length (text/split req.path "..") > 1
-  return served_module req.path if text/ends_with? req.path ".wasm"
+  return served_module req if text/ends_with? req.path ".wasm"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
 
 # A wasm module is bytes, read as bytes: the app's components compiled for the
-# browser, and the runtime they run on.
-fn served_module path
-  os/read_bytes "public{path}" .> (got -> served_bytes got)
+# browser, and the runtime they run on. Each goes out with an ETag made of the
+# file's modification time and size, as a static file server's is, and the
+# browser is told to check it before reusing its copy. A request whose
+# If-None-Match names the module as it stands is answered 304 with no body,
+# so a visitor downloads a module once per deploy that changes it. Hashing
+# the bytes instead cost the interpreter four seconds a request on the
+# runtime.
+fn served_module req
+  had = blank_if_none req.headers["if-none-match"]
+  path = "public{req.path}"
+  os/modified path .> (at -> os/read_bytes path .> (got -> stamped had at got))
 
-fn served_bytes none
+fn stamped _ _ _:os/file_not_found
   effect http/not_found
 
-fn served_bytes body
-  effect (http/page ["content-type: application/wasm"] body)
+fn stamped had at got
+  served_bytes had "\"{at}-{length got}\"" got
+
+fn blank_if_none none
+  ""
+
+fn blank_if_none v
+  v
+
+fn served_bytes had tag body
+  fresh = ["etag: {tag}" "cache-control: no-cache"]
+  return effect (http/respond 304 fresh "") if had == tag
+  effect (http/page (push fresh "content-type: application/wasm") body)
 
 javascript = "content-type: text/javascript; charset=utf-8"
 
