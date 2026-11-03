@@ -80,6 +80,25 @@ deterministically, so a program's interleaving is the same on every run.
 Shared state, such as a pool of database sessions, uses kanso's own
 structures (kanso#2264).
 
+## A view renders wherever it is needed
+
+The goal is an app that feels as quick as a single-page application while its
+author writes ordinary server code: actions that read the database and hand
+records to views. kanso compiles to WASM as well as natively, and its engines
+answer the same bytes for the same program, so a kata view can run in the
+browser and produce exactly what the server would have.
+
+A page's first request answers HTML, rendered on the server, so it shows at
+once and works without a script. The browser then loads the app's views as
+WASM. After that a link or a form asks the server only for the data its views
+need, in a compact encoding rather than markup, and the browser renders the
+views itself and morphs the page in place. The app's author never writes
+client code, and the two renderings cannot drift apart, because they are the
+same program. Firefox is the first browser this is tuned for.
+
+This is the direction senro is being built in (kanso#2280), and the parts
+that exist are specced like the rest.
+
 ## Every behavior has a spec
 
 Each convention, refusal and runtime behavior has an app under `spec/` and
