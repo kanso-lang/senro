@@ -132,13 +132,17 @@ fn took _ none _
 fn took action kind id
   hit action kind id
 
-# A GET no route answers is looked for under `public/`, beside the app, the
-# way a stylesheet or an image is served. A path that climbs out of it, or a
-# file that is not there, is a 404.
+# A GET no route answers is senro's page script at /senro.js, or else it is
+# looked for under `public/`, beside the app, the way a stylesheet or an
+# image is served. A path that climbs out of it, or a file that is not there,
+# is a 404.
 fn routed none req _
   return effect http/not_found if req.method != "GET"
+  return effect (http/page [javascript] script) if req.path == "/senro.js"
   return effect http/not_found if length (text/split req.path "..") > 1
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
+
+javascript = "content-type: text/javascript; charset=utf-8"
 
 fn served_file path body:string
   effect (http/page ["content-type: {kind_of path}"] body)

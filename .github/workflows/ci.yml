@@ -45,5 +45,17 @@ jobs:
             -c "alter system set ssl_key_file = '$dir/server.key'" \
             -c "alter system set ssl = on" \
             -c "select pg_reload_conf()"
-      - name: specs (checks, derived table, kata's views, runs, database, errors)
+      # spec/browser drives the guestbook in Firefox, the browser senro is
+      # tuned in first, and in Chromium.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright and its browsers
+        run: |
+          npm install --prefix /tmp/pw playwright@1.56.1
+          /tmp/pw/node_modules/.bin/playwright install --with-deps chromium firefox
+      - name: specs (checks, derived table, kata's views, runs, database, browsers, errors)
+        env:
+          NODE_PATH: /tmp/pw/node_modules
+          SENRO_BROWSERS: chromium firefox
         run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh
