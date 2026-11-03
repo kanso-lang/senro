@@ -9,11 +9,46 @@ script = """
   (() => \{
     let sent = null;
 
+    // This page's name for itself, sent with each request. The server names
+    // the page whose request changed something when it announces the change,
+    // and this page does not refetch on news of its own doing.
+    const self = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    // Visits can overlap: a link followed while a refresh is on its way. The
+    // page shows the answer to the visit started last, and an earlier one
+    // that answers after it is dropped. A change announced while a visit is
+    // in flight is fetched once that visit is done, since its answer may have
+    // been read before the change.
+    let started = 0;
+    let flying = 0;
+    let changed = false;
+
     const visit = async (url, init, pushed, form) => \{
-      const r = await fetch(url, init);
+      const mine = ++started;
+      flying++;
+      try \{
+        const named = \{ ...init, headers: \{ "senro-page": self } };
+        await shown(mine, await fetch(url, named), init, pushed, form);
+      } finally \{
+        flying--;
+        if (flying === 0 && changed) \{
+          changed = false;
+          visit(location.href, \{}, false);
+        }
+      }
+    };
+
+    const refresh = () => \{
+      if (flying > 0) changed = true;
+      else visit(location.href, \{}, false);
+    };
+
+    const shown = async (mine, r, init, pushed, form) => \{
       const kind = r.headers.get("content-type") || "";
       if (!kind.startsWith("text/html")) return plain(r, init);
-      const next = new DOMParser().parseFromString(await r.text(), "text/html");
+      const text = await r.text();
+      if (mine !== started) return;
+      const next = new DOMParser().parseFromString(text, "text/html");
       const moved = r.url !== location.href;
       if (pushed && moved) history.pushState(null, "", r.url);
       document.title = next.title;
@@ -258,6 +293,8 @@ script = """
     // When a request anywhere changes what the app stores, the server says so
     // on this stream, and the page fetches itself again.
     const live = new EventSource("/senro/live");
-    live.onmessage = () => visit(location.href, \{}, false);
+    live.onmessage = (e) => \{
+      if (e.data !== "changed " + self) refresh();
+    };
   })();
 """
