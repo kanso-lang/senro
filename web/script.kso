@@ -107,5 +107,10 @@ script = """
     });
 
     addEventListener("popstate", () => visit(location.href, \{}, false));
+
+    // When a request anywhere changes what the app stores, the server says so
+    // on this stream, and the page fetches itself again.
+    const live = new EventSource("/senro/live");
+    live.onmessage = () => visit(location.href, \{}, false);
   })();
 """

@@ -1,5 +1,6 @@
 // The pantry driven in a real browser with senro's page script loaded: add,
-// count up and down, rename and remove, each answered in place. The page
+// count up and down, rename and remove, each answered in place, and a second
+// visitor's page that follows the first's changes. The page
 // marks its window first; a page that reloaded would lose the mark. Prints
 // what a visitor sees after each step, for spec.sh to compare with
 // spec/browser/pantry.out. Run as:
@@ -82,4 +83,21 @@ await row(2).locator("button.delete").click();
 await settled(`document.querySelectorAll(".items li").length == 2`);
 await said("removed");
 console.log(`path: ${await page.evaluate(() => location.pathname)}`);
+
+// A second visitor, in a browser context of its own, has the shelf open. A
+// change the first makes reaches the second's page with no click there.
+const other = await (await browser.newContext()).newPage();
+await other.goto(`http://127.0.0.1:${port}/`);
+await other.evaluate(() => { window.senroMark = "kept"; });
+await other.waitForTimeout(300);
+await row(1).locator("button.plus").click();
+await other.waitForFunction(
+  () => document.querySelectorAll(".items li .count")[1].textContent == "1",
+  null, { timeout: 5000 },
+);
+const seen = await other.evaluate(() => ({
+  mark: window.senroMark || "lost",
+  count: document.querySelectorAll(".items li .count")[1].textContent,
+}));
+console.log(`the other visitor sees green tea at ${seen.count}, mark ${seen.mark}`);
 await browser.close();
