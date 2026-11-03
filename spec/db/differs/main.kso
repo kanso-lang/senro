@@ -1,6 +1,8 @@
 import "../../../models"
 import "../../../pg"
 import "./migrations"
+import "std/io"
+import "std/os"
 
 derive models/tables
 
@@ -14,6 +16,10 @@ live = """
   create table notes (id serial, body int not null, seen bool not null, extra text)
 """
 
+# The app says why it will not start and exits 1, the way an app's own
+# start-up would, so the golden holds the differences and not the line in
+# senro's library where the err was made.
 pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> pg/run db live .> (_ -> models/compared db schema))
   .> (_ -> print "the database agrees")
+  .? (u -> io/write_err "{u.reason}\n" .> (_ -> os/exit 1))
