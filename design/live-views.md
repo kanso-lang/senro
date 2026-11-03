@@ -51,10 +51,12 @@ that app code never touches JavaScript. The server renders each component's
 first state into the page, so it shows at once. When the views module arrives
 the component starts handling events in the browser.
 
-Until then the component is inert, and senro says so: it gives the page one
-hook for that state, so an app can show a line such as "application loading,
-one moment" and let it disappear when the module starts. A page with no
-dynamic parts never waits for anything.
+Until then the component is inert. senro shows nothing of its own for that
+state. It gives the app hooks: a way to say "render this while the
+application has not loaded," and the reverse. What goes there is the app's
+choice, such as a line reading "application loading, one moment" or a
+disabled button. When the module starts, the first kind is removed and the
+second appears. A page with no dynamic parts never waits for anything.
 
 The views module is keyed by the app's version and kept in the browser's
 Cache Storage, so a visitor downloads it once per deploy. A visitor who comes
