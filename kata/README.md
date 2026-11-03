@@ -100,14 +100,10 @@ answers the next one. kata wraps what the template draws in an element that
 names the component and holds its state as JSON, and writes `act`, which runs
 an action by the name a template bound it under.
 
-Where an action runs depends on its parameters. One that takes only the
-state runs in the browser: the app builds the browser module (`browser.kso`,
-built by `browser/build.sh`), and a click runs the action there without
-asking the server. An action that also asks for `req` or `db` needs the
-server, and so does every action of its component. The click posts the
-state to `/senro/act/<component>`, which `web/components` adds to the
-route table for each server component the app names. In both cases the page
-morphs the component's next rendering into place.
+The actions run in the browser. The app builds its browser module
+(`browser.kso`, built by `browser/build.sh`), and a click runs the action
+there without asking the server, then morphs the component's next rendering
+into place.
 
 ## What it does not do yet
 
