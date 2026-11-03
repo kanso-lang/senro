@@ -6,4 +6,7 @@ renaming: 3 things on the shelf, counted as you go. [Rice: 3, Tea: 0, Lentils: 0
 renamed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0, Lentils: 0] mark kept
 removed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0] mark kept
 path: /
+a rename opened while a refresh was in flight stays open: true
+planner: 4 after three clicks, 0 requests
+planner after the shelf changed: 4
 the other visitor sees green tea at 1, mark kept
