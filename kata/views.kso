@@ -15,40 +15,46 @@ pub fn views p
   list/fold p.modules [] (acc m -> list/concat acc (templates m))
 
 fn templates m
-  found = list/fold (keys m.files) [] (acc f -> added acc m.name f m.files[f])
+  server = served? m
+  found = list/fold (keys m.files) [] (acc f -> added acc m server f)
   return [] if length found == 0
   bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
   head = if (length bound == 0) leaned_on "import \"std/json\"\n{leaned_on}"
-  acts = if (length bound == 0) [] [(derive/define m.name (acting bound))]
+  acts = if (length bound == 0) [] (acting m bound)
   list/concat (list/concat [(derive/define m.name head)] found) acts
 
-fn added acc _ _ none
+fn added acc m server f
+  wrote acc m.name server f m.files[f]
+
+fn wrote acc _ _ _ none
   acc
 
-fn added acc m f src
+fn wrote acc m server f src
   return acc if not text/ends_with? f ".kata"
   name = text/join (text/split f ".kata") ""
   return push acc (derive/define m (compiled name f src)) if bare? src
-  push acc (component m f name src)
+  push acc (component m server f name src)
 
 fn bare? src
   length (actions src) == 0
 
 # A template that binds actions is a component. Its state is the one value
 # it takes, and the function named after the file wraps what the template
-# renders in an element that says which component it is and what its state
-# is, as JSON, so the page's script can hand both to `act`.
-fn component m f name src
+# renders in an element that says which component it is, what its state is,
+# as JSON, and whether its actions run on the server, so the page's script
+# can hand the state to `act` in the browser or post it to the server.
+fn component m server f name src
   taken = takes src
   return derive/refuse m (one_state f) if length taken != 1
   s = taken[1]
   inner = compiled "{name}_body" f src
+  runs = if server " data-runs=\\\"server\\\"" ""
   wrap = [
     "pub fn {name} {s}"
     "  kata_state = escape (json/encode {s})"
     "  kata_inside = {name}_body {s}"
-    "  kata_open = \"<div data-component=\\\"{m}\\\" data-state=\\\"\""
-    "  \"\{kata_open}\{kata_state}\\\">\{kata_inside}</div>\""
+    "  kata_open = \"<div data-component=\\\"{m}\\\"{runs}\""
+    "  \"\{kata_open} data-state=\\\"\{kata_state}\\\">\{kata_inside}</div>\""
   ]
   derive/define m "{inner}\n{text/join wrap "\n"}\n"
 
@@ -64,14 +70,78 @@ fn bound_in acc f src
   list/fold (actions src) acc (a n -> if (has? a n) a (push a n))
 
 # `act` runs an action by the name a template bound it under, on the
-# component's state, and answers the next state. A name no template binds
-# leaves the state as it was.
-fn acting names
-  arms = list/to_list (list/map names arm)
+# component's state, and answers the next state. An action whose parameters
+# ask for the request or a database session needs the server, and so does
+# every action of a component that has one: its `act` takes the request and
+# a session before the state, and answers none for a name no template binds,
+# which the server answers as a 404. A browser component's `act` leaves the
+# state as it was for such a name.
+fn acting m names
+  return [(derive/define m.name (in_browser names))] if not served? m
+  refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
+  return refused if length refused > 0
+  [(derive/define m.name (on_server m names))]
+
+fn in_browser names
+  arms = list/to_list (list/map names browser_arm)
   "{text/join arms "\n"}\npub fn act _ state\n  state\n"
 
-fn arm n
+fn browser_arm n
   "pub fn act \"{n}\" state\n  {n} state\n"
+
+fn on_server m names
+  arms = list/to_list (list/map names (n -> server_arm m n))
+  "{text/join arms "\n"}\npub fn act _ _ _ _\n  none\n"
+
+# The arm names only what its action takes, and leaves the rest unbound.
+fn server_arm m n
+  given = handed m n
+  req = if (list/any? given (g -> g == "req")) "req" "_"
+  db = if (list/any? given (g -> g == "db")) "db" "_"
+  "pub fn act \"{n}\" {req} {db} state\n  {n} {text/join given " "}\n"
+
+# What an action is handed, parameter by parameter: the request and the
+# session by name, and the state last.
+fn handed m n
+  params = params_of m n
+  list/to_list (list/map params (p -> given_as p.name))
+
+fn given_as "req"
+  "req"
+
+fn given_as "db"
+  "db"
+
+fn given_as _
+  "state"
+
+fn params_of m n
+  f = list/find m.functions (f -> f.name == n)
+  if (f == none) [] f.params
+
+fn served? m
+  bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
+  list/any? bound (n -> server? (params_of m n))
+
+fn server? params
+  list/any? params (p -> handed? p.name)
+
+fn handed? name
+  name == "req" or name == "db"
+
+# Only the request, a session and the state can be handed to an action, and
+# the state comes last.
+fn misplaced acc m n
+  params = params_of m n
+  return acc if length params == 0
+  early = list/to_list (list/take params (length params - 1))
+  odd = list/to_list (list/reject early (p -> handed? p.name))
+  return acc if length odd == 0
+  push acc (derive/refuse "{m.name}/{n}" (handed_only n odd[1].name))
+
+fn handed_only n p
+  only = "an action is handed only req, db and its state"
+  "the action `{n}` takes `{p}` before its state, and {only}"
 
 # What every compiled template leans on, written once into each module that
 # holds templates: the escape that keeps a value from being read as markup, a

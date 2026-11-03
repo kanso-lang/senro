@@ -18,6 +18,12 @@ type hit
 type moved
   path
 
+# A component whose actions run on the server: the `act` kata wrote for its
+# module and the view that draws a state.
+type wired
+  act
+  view
+
 type site
   routes
   dbs
@@ -270,6 +276,58 @@ fn numbered _ none _ _
 
 fn numbered action n req db
   action req db n
+
+# The app's components whose actions run on the server, added to its route
+# table. Each answers POST /senro/act/<component> and nothing else, so only
+# a component the app names here, and only an action one of its templates
+# binds, can be reached from a page:
+#
+#   web/serve 3001 (web/components routes { "stars": stars }) connected
+#
+# where `stars = web/component stars/act stars/view`.
+pub fn component act view
+  wired act view
+
+pub fn components routes table
+  list/fold (keys table) routes (acc n -> routed_to acc n table[n])
+
+fn routed_to routes _ none
+  routes
+
+fn routed_to routes n c
+  put routes "POST /senro/act/{n}" (act_row c)
+
+fn act_row c
+  { "action":(req db -> acted c req db) "id":"" }
+
+# The body is the action's name and the state as JSON, on two lines. A
+# request without the page's senro-page header did not come from senro's
+# script; a form on another site cannot set one, so it is refused, which is
+# what keeps a page elsewhere from acting with this visitor's cookie.
+fn acted c req db
+  return effect forbidden if req.headers["senro-page"] == none
+  lines = text/split req.body "\n"
+  return effect bad_request if length lines < 2
+  state = json/decode (text/join (list/to_list (list/drop lines 1)) "\n")
+  stated c lines[1] state req db
+
+forbidden = http/respond 403 [] "Forbidden\n"
+
+bad_request = http/respond 400 [] "Bad Request\n"
+
+fn stated _ _ none _ _
+  effect bad_request
+
+fn stated c action state req db
+  c.act action req db state .> (next -> drawn c next)
+
+fn drawn _ none
+  effect http/not_found
+
+fn drawn c next
+  effect (http/page [plain] "{json/encode next}\n{c.view next}")
+
+plain = "content-type: text/plain; charset=utf-8"
 
 # A 303 to `path`: the browser asks for it with a GET, which is how a form
 # post ends without leaving a page that posts again when reloaded.

@@ -9,4 +9,9 @@ path: /
 a rename opened while a refresh was in flight stays open: true
 planner: 4 after three clicks, 0 requests
 planner after the shelf changed: 4
+staples after starring the first: ★ ☆
+act without the page's header: 403
+act naming an action no template binds: 404
+act with a state that is not JSON: 400
+act on a component the app does not serve: 404
 the other visitor sees green tea at 1, mark kept

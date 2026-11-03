@@ -1,6 +1,7 @@
 import "../../pg"
 import "../../web"
 import "./planner"
+import "./staple"
 import "./views"
 import "std/list"
 import "std/net/http"
@@ -11,6 +12,7 @@ pub type item
   id
   name
   quantity
+  staple
 
 pub fn index _ db
   shelf db ""
@@ -45,10 +47,16 @@ fn shelf db editing
 fn shown rows editing
   items = list/to_list (list/map rows item_from)
   total = list/fold items 0 (n i -> n + i.quantity)
-  page = views/shelf items editing total (planner/view 3)
+  stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
+  page = views/shelf items editing total (planner/view 3) stars
   effect (http/html_page (views/layout "Pantry" page))
 
-stocked = "select id, name, quantity from items order by id"
+# Each item's staple star, a component whose state is the item's id and flag.
+# Postgres sends a boolean as text, t or f.
+fn starred i
+  staple/view { "id":i.id "staple":(i.staple == "t") }
+
+stocked = "select id, name, quantity, staple from items order by id"
 
 added = "insert into items (name) values ($1)"
 

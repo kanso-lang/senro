@@ -7,6 +7,7 @@ import "./home"
 import "./items"
 import "./migrations"
 import "./planner"
+import "./staple"
 import "./views"
 
 derive kata/views
@@ -15,9 +16,13 @@ derive routes/rest
 
 made = models/made schema
 
+# The components whose actions run on the server. The planner runs in the
+# browser, from browser.kso.
+served = { "staple":(web/component staple/act staple/view) }
+
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
 connected
   .> (db -> pg/run db made .> (_ -> models/compared db schema))
   .> (db -> pg/close db)
-  .> (_ -> web/serve 3001 routes connected)
+  .> (_ -> web/serve 3001 (web/components routes served) connected)

@@ -1,0 +1,4 @@
+error[derive]: the action `starred` takes `when` before its state, and an action is handed only req, db and its state
+  --> ./stars/stars.kso:2:8
+   2 | pub fn starred req when s
+              ^

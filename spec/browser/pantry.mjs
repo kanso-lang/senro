@@ -139,6 +139,32 @@ await row(0).locator("button.plus").click();
 await settled(`document.querySelector(".items li .count").textContent == "4"`);
 console.log(`planner after the shelf changed: ${await planned()}`);
 
+// The staple star is a component whose action writes to the database, so it
+// runs on the server: the click posts the star's state, and the answer is
+// the star drawn in its next state.
+await row(0).locator("button.staple").click();
+await settled(`document.querySelector(".items li button.staple.on")`);
+const stars = await page.evaluate(() =>
+  [...document.querySelectorAll(".items li button.staple")]
+    .map((b) => b.textContent).join(" "));
+console.log(`staples after starring the first: ${stars}`);
+
+// What a page may ask the server to do: only an action a template binds, on
+// a component the app serves, from senro's own script.
+const act = async (component, body, headers) => {
+  const r = await fetch(`http://127.0.0.1:${port}/senro/act/${component}`, {
+    method: "POST", headers, body,
+  });
+  return r.status;
+};
+const ours = { "senro-page": "spec" };
+const first = await page.evaluate(() =>
+  document.querySelector(".items li [data-component=staple]").dataset.state);
+console.log(`act without the page's header: ${await act("staple", `toggled\n${first}`, {})}`);
+console.log(`act naming an action no template binds: ${await act("staple", `staple?\n${first}`, ours)}`);
+console.log(`act with a state that is not JSON: ${await act("staple", "toggled\n{", ours)}`);
+console.log(`act on a component the app does not serve: ${await act("planner", `more\n3`, ours)}`);
+
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.
 const other = await (await browser.newContext()).newPage();
