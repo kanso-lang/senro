@@ -30,6 +30,17 @@ jobs:
           git clone https://github.com/kanso-lang/kanso /tmp/kanso
           cd /tmp/kanso && git checkout "$(cat $GITHUB_WORKSPACE/.kanso-version)"
           cargo build --release
+      # A component's actions run in the browser as the app's browser module,
+      # linked against kanso's runtime built for wasm32, which wants clang,
+      # wasm-ld and wasi-libc. Built as kanso's own CI builds it for the
+      # playground.
+      - name: the kanso runtime for wasm32
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends clang-19 lld-19 wasi-libc
+          sudo ln -sf /usr/bin/clang-19 /usr/local/bin/clang
+          sudo ln -sf /usr/bin/wasm-ld-19 /usr/local/bin/wasm-ld
+          sh /tmp/kanso/scripts/build_runtime_wasm.sh /tmp/kanso-runtime.wasm
       # The service starts before the checkout, so it learns its certificate
       # here: spec/tls's localhost certificate, then ssl on and a reload.
       - name: Postgres serves TLS with the test certificate
@@ -58,4 +69,5 @@ jobs:
         env:
           NODE_PATH: /tmp/pw/node_modules
           SENRO_BROWSERS: chromium firefox
+          KANSO_RUNTIME_WASM: /tmp/kanso-runtime.wasm
         run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh
