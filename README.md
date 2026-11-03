@@ -22,6 +22,8 @@ derive routes/rest
 `examples/guestbook` is a whole app. It imports the modules by relative path
 because it lives in this repository.
 
+`PRINCIPLES.md` states what senro's design follows.
+
 ## What is here
 
 - `routes`: the REST convention, run as a derivation while the app compiles.
