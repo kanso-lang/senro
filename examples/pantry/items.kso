@@ -1,0 +1,61 @@
+import "../../pg"
+import "../../web"
+import "./views"
+import "std/list"
+import "std/net/http"
+
+# A thing on the shelf, as the `items` table stores it. senro/models checks
+# each field against the table's columns and writes `item_from`.
+pub type item
+  id
+  name
+  quantity
+
+pub fn index _ db
+  shelf db ""
+
+# The shelf with one item's name open for editing.
+pub fn edit _ db id:int
+  shelf db "{id}"
+
+pub fn create req db
+  name = web/value (web/form req.body) "name"
+  pg/query db added [name] .> (_ -> back)
+
+# Two forms update an item: one renames it, and the plus and minus buttons
+# send `by`, which moves its count and never below zero.
+pub fn update req db id:int
+  f = web/form req.body
+  by = web/value f "by"
+  return changed db renamed [(web/value f "name") "{id}"] if by == ""
+  changed db stepped [by "{id}"]
+
+pub fn destroy _ db id:int
+  changed db removed ["{id}"]
+
+fn changed db sql params
+  pg/query db sql params .> (_ -> back)
+
+back = effect (web/redirect "/")
+
+fn shelf db editing
+  pg/query db stocked [] .> (r -> shown r.rows editing)
+
+fn shown rows editing
+  items = list/to_list (list/map rows item_from)
+  total = list/fold items 0 (n i -> n + i.quantity)
+  page = views/shelf items editing total
+  effect (http/html_page (views/layout "Pantry" page))
+
+stocked = "select id, name, quantity from items order by id"
+
+added = "insert into items (name) values ($1)"
+
+renamed = "update items set name = $1 where id = $2::integer"
+
+stepped = """
+  update items set quantity = greatest(quantity + $1::integer, 0)
+  where id = $2::integer
+"""
+
+removed = "delete from items where id = $1::integer"

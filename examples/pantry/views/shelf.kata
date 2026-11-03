@@ -1,0 +1,32 @@
+takes items editing total
+header
+  h1 Pantry
+  p.lede {total} things on the shelf, counted as you go.
+form.add method="post" action="/items"
+  input name="name" placeholder="add an item" required="required" autocomplete="off"
+  button Add
+if length items == 0
+  p.empty The shelf is empty.
+ul.items
+  for i in items
+    li id="item-{i.id}"
+      if "{i.id}" == editing
+        form.rename method="post" action="/items/{i.id}"
+          input type="hidden" name="_method" value="PATCH"
+          input name="name" value=i.name required="required" autofocus="autofocus"
+          button Save
+          a href="/" cancel
+      else
+        a.name href="/items/{i.id}/edit" title="rename" = i.name
+      form.step method="post" action="/items/{i.id}"
+        input type="hidden" name="_method" value="PATCH"
+        input type="hidden" name="by" value="-1"
+        button.minus aria-label="one fewer" −
+      span.count = i.quantity
+      form.step method="post" action="/items/{i.id}"
+        input type="hidden" name="_method" value="PATCH"
+        input type="hidden" name="by" value="1"
+        button.plus aria-label="one more" +
+      form.remove method="post" action="/items/{i.id}"
+        input type="hidden" name="_method" value="DELETE"
+        button.delete aria-label="remove" ×

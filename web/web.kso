@@ -1,3 +1,4 @@
+import "../pg"
 import "std/base64"
 import "std/io"
 import "std/json"
@@ -17,6 +18,11 @@ type hit
 type moved
   path
 
+type site
+  routes
+  dbs
+  connect
+
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
 # nobody else. A request is looked up by its method and path and handed to
@@ -27,36 +33,99 @@ type moved
 # back. An action answers an effect that yields the response.
 pub fn serve at routes connect
   pool/make sessions
-    .> (dbs -> filled dbs connect sessions .> (_ -> listened at routes dbs))
+    .> (dbs -> filled dbs connect sessions)
+    .> (dbs -> listened at (site routes dbs connect))
 
 sessions = 4
 
-fn filled _ _ 0
-  effect 0
+fn filled dbs _ 0
+  effect dbs
 
 fn filled dbs connect n
   connect .> (db -> pool/give dbs db) .> (_ -> filled dbs connect (n - 1))
 
-fn listened at routes dbs
-  net/listen at .> (l -> net/port l .> (p -> opened l p routes dbs))
+fn listened at s
+  net/listen at .> (l -> net/port l .> (p -> opened l p s))
 
-fn opened l p routes dbs
-  print "senro on port {p}" .> (_ -> served l routes dbs)
+fn opened l p s
+  print "senro on port {p}" .> (_ -> served l s)
 
-fn served l routes dbs
-  net/accept l .> (c -> forked l c routes dbs)
+fn served l s
+  net/accept l .> (c -> forked l c s)
 
-fn forked l c routes dbs
-  answered c routes dbs
-  served l routes dbs
+fn forked l c s
+  answered c s
+  served l s
 
-fn answered c routes dbs
-  net/read c .> (raw -> heard c routes dbs (http/parsed raw))
+fn answered c s
+  net/read c .> (raw -> heard c s (http/parsed raw))
 
-fn heard c routes dbs req
-  action = matched routes req.method req.path
-  pool/with dbs (db -> answered_by action req db .> (r -> sent c r))
+fn heard c s req
+  return live c s.connect if req.path == "/senro/live"
+  method = method_of req
+  action = matched s.routes method req.path
+  by = sender req.headers["senro-page"]
+  pool/with s.dbs (db -> responded c db method by (answered_by action req db))
     .> (_ -> net/close_conn c)
+
+fn responded c db method by answer
+  answer .> (r -> told db method by r) .> (r -> sent c r)
+
+# A form can only GET or POST, so a POST says which method it stands for in a
+# `_method` field, as Rails does: PATCH to update, DELETE to destroy.
+fn method_of req
+  return req.method if req.method != "POST"
+  meant (value (form req.body) "_method")
+
+fn meant "PATCH"
+  "PATCH"
+
+fn meant "DELETE"
+  "DELETE"
+
+fn meant _
+  "POST"
+
+# A request that is not a GET may have changed what the app stores, so the
+# server says so on Postgres's `senro` channel before it answers, and every
+# page listening at /senro/live fetches itself again. The notification names
+# the page that sent the request, from its senro-page header, so that page
+# leaves it alone: the answer it is about to get is already the new page.
+fn told _ "GET" _ r
+  effect r
+
+fn told db _ by r
+  pg/query db "select pg_notify('senro', $1)" [by] .> (_ -> effect r)
+
+fn sender none
+  ""
+
+fn sender page
+  page
+
+# A page that loaded senro's script listens here. The stream holds a database
+# session of its own, listening on the `senro` channel, and writes an event
+# for each notification, from this server or any other on the same database.
+# It ends when the page has gone and a write fails.
+fn live c connect
+  connect .> (db -> listening c db)
+
+fn listening c db
+  heard_all = net/write c stream_head
+    .> (_ -> pg/run db "listen senro")
+    .> (_ -> relayed c db)
+  heard_all .? (_ -> effect 0) .> (_ -> pg/close db) .> (_ -> net/close_conn c)
+
+fn relayed c db
+  pg/notified db
+    .> (p -> net/write c "data: changed {p}\n\n")
+    .> (_ -> relayed c db)
+
+stream_head = "HTTP/1.1 200 OK\r\n{event_stream}\r\n{uncached}\r\n\r\n"
+
+event_stream = "content-type: text/event-stream"
+
+uncached = "cache-control: no-cache"
 
 # An action that fails is the app's failure, born in another hako, so the
 # server may rescue it: the reason goes to standard error, the browser gets a

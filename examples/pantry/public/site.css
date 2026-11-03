@@ -1,0 +1,92 @@
+:root {
+  --ink: #2b2320;
+  --paper: #faf6ee;
+  --line: #e4dccd;
+  --accent: #b5452b;
+  --soft: #8a7d72;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.5 Georgia, "Iowan Old Style", serif;
+}
+
+main { max-width: 34rem; margin: 3rem auto; padding: 0 1rem; }
+
+h1 { font-size: 2.4rem; margin: 0; letter-spacing: -0.02em; }
+
+.lede { color: var(--soft); margin: 0.2rem 0 1.6rem; }
+
+form { margin: 0; }
+
+.add { display: flex; gap: 0.5rem; margin-bottom: 1.4rem; }
+
+input {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.add input { flex: 1; }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  padding: 0.4rem 0.8rem;
+}
+
+button:hover { border-color: var(--accent); }
+
+.add button, .rename button { background: var(--ink); color: var(--paper); }
+
+.empty { color: var(--soft); font-style: italic; }
+
+.items { list-style: none; padding: 0; margin: 0; }
+
+.items li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.items .name, .rename { flex: 1; }
+
+.items .name { color: inherit; text-decoration: none; }
+
+.items .name:hover { text-decoration: underline dotted; }
+
+.rename { display: flex; gap: 0.4rem; align-items: center; }
+
+.rename input[name=name] { flex: 1; }
+
+.rename a { color: var(--soft); font-size: 0.9rem; }
+
+.step button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.count {
+  min-width: 2.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: bold;
+}
+
+.delete { border: none; background: none; color: var(--soft); font-size: 1.2rem; }
+
+.delete:hover { color: var(--accent); }

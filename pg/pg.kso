@@ -146,6 +146,23 @@ fn encoded v
 fn sized bs
   list/concat (be32 (length bs)) bs
 
+# The payload of the next notification on a channel this session listens on
+# (`listen channel`), which Postgres sends when any session, in this process
+# or another, runs `notify channel`. Waits until one comes.
+pub fn notified s
+  replies s.conn notice? .> heard
+
+fn notice? m
+  m.kind == 65
+
+# A NotificationResponse: the notifying process's id, then the channel and the
+# payload as C strings.
+fn heard ms
+  n = list/find ms notice?
+  return "" if n == none
+  channel = cstring_at n.body 5
+  (cstring_at n.body channel.next).value
+
 pub fn close s
   net/write s.conn (text/to_bytes (framed 88 []))
     .> (_ -> net/close_conn s.conn)
