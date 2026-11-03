@@ -64,11 +64,12 @@ fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
   action = matched s.routes method req.path
-  pool/with s.dbs (db -> responded c db method (answered_by action req db))
+  by = sender req.headers["senro-page"]
+  pool/with s.dbs (db -> responded c db method by (answered_by action req db))
     .> (_ -> net/close_conn c)
 
-fn responded c db method answer
-  answer .> (r -> told db method r) .> (r -> sent c r)
+fn responded c db method by answer
+  answer .> (r -> told db method by r) .> (r -> sent c r)
 
 # A form can only GET or POST, so a POST says which method it stands for in a
 # `_method` field, as Rails does: PATCH to update, DELETE to destroy.
@@ -87,12 +88,20 @@ fn meant _
 
 # A request that is not a GET may have changed what the app stores, so the
 # server says so on Postgres's `senro` channel before it answers, and every
-# page listening at /senro/live fetches itself again.
-fn told _ "GET" r
+# page listening at /senro/live fetches itself again. The notification names
+# the page that sent the request, from its senro-page header, so that page
+# leaves it alone: the answer it is about to get is already the new page.
+fn told _ "GET" _ r
   effect r
 
-fn told db _ r
-  pg/run db "notify senro" .> (_ -> effect r)
+fn told db _ by r
+  pg/query db "select pg_notify('senro', $1)" [by] .> (_ -> effect r)
+
+fn sender none
+  ""
+
+fn sender page
+  page
 
 # A page that loaded senro's script listens here. The stream holds a database
 # session of its own, listening on the `senro` channel, and writes an event
