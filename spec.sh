@@ -7,7 +7,8 @@
 # route table its golden holds; kata compiles each view to the file beside it;
 # each app under spec/runs prints its golden on both engines; each app under
 # spec/db, run against a live Postgres, prints its golden on both engines; each
-# app under spec/serve, served and asked over HTTP, answers its golden; and
+# app under spec/serve, served and asked over HTTP, answers its golden; the
+# guestbook, signed in a browser, updates in place without a reload; and
 # each app under spec/errors is refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
@@ -142,6 +143,46 @@ else
       fi
       rm -f "$log"
     done
+  done
+fi
+
+note "== the guestbook, signed in a browser, updates in place"
+# The guestbook is served and signed in each browser SENRO_BROWSERS names
+# (chromium unless it says otherwise; CI adds firefox), through Playwright,
+# which node must be able to require. It uses Postgres, so SENRO_NO_DB=1
+# skips it too.
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/browser (SENRO_NO_DB=1)"
+else
+  want=spec/browser/guestbook.out
+  for engine in native interp; do
+    flag=""
+    [ "$engine" = interp ] && flag=--interp
+    log=$(mktemp)
+    (cd examples/guestbook && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    server=$!
+    tries=0
+    while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+      sleep 0.1
+      tries=$((tries + 1))
+    done
+    for browser in ${SENRO_BROWSERS:-chromium}; do
+      got=$(node spec/browser/guestbook.mjs 3000 "$browser" 2>&1)
+      if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+        printf '%s\n' "$got" > "$want"
+      fi
+      if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+        note "ok: guestbook in $browser ($engine)"
+      else
+        bad "guestbook in $browser ($engine)"
+        printf '%s\n' "$got" | diff "$want" -
+        cat "$log"
+      fi
+    done
+    pkill -P "$server" 2>/dev/null
+    kill "$server" 2>/dev/null
+    wait "$server" 2>/dev/null
+    rm -f "$log"
   done
 fi
 
