@@ -139,6 +139,16 @@ await row(0).locator("button.plus").click();
 await settled(`document.querySelector(".items li .count").textContent == "4"`);
 console.log(`planner after the shelf changed: ${await planned()}`);
 
+// The browser module is downloaded once per change to it: asked for again
+// with the ETag it came with, the server answers 304 and no body. A module
+// that is not there is a 404, and the server goes on serving.
+const module = `http://127.0.0.1:${port}/senro/app.wasm`;
+const tag = (await fetch(module)).headers.get("etag");
+const again = await fetch(module, { headers: { "if-none-match": tag } });
+console.log(`the browser module asked for again with its ETag: ${again.status}`);
+const nope = await fetch(`http://127.0.0.1:${port}/senro/nope.wasm`);
+console.log(`a module that is not there: ${nope.status}`);
+
 // The staple star is a component whose action writes to the database, so it
 // runs on the server: the click posts the star's state, and the answer is
 // the star drawn in its next state.
