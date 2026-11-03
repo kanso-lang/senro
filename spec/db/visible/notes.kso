@@ -1,0 +1,8 @@
+# A note, which only its owner may see.
+pub type note
+  id
+  owner
+  body
+
+pub fn visible? viewer n
+  n.owner == viewer
