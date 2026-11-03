@@ -14,6 +14,9 @@ type hit
   kind
   id
 
+type moved
+  path
+
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
 # nobody else. A request is looked up by its method and path and handed to
@@ -90,7 +93,32 @@ fn found none _
   none
 
 fn found row id
+  aimed row["to"] row id
+
+fn aimed none row id
   took row["action"] row["id"] id
+
+fn aimed to _ id
+  moved (redirected to id)
+
+# An old path the app keeps as a legacy alias answers a permanent redirect to
+# its route, with the id it was asked for.
+# Where a request `matched` found is redirected when a legacy alias answered
+# it, or "" when it was not.
+pub fn moved_to none
+  ""
+
+pub fn moved_to (moved path)
+  path
+
+pub fn moved_to _
+  ""
+
+fn redirected to ""
+  to
+
+fn redirected to id
+  text/join (text/split to ":id") id
 
 fn took none none _
   none
@@ -127,6 +155,9 @@ fn kind_of path
 
 fn routed (hit action kind id) req db
   called action kind id req db
+
+fn routed (moved path) _ _
+  effect (http/respond 308 ["location: {path}"] "")
 
 # An `:id` the action annotates as an int reaches it as one, and a segment
 # that is not a number is not that route.

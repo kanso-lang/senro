@@ -1,0 +1,5 @@
+pub fn index _ _
+  "every profile"
+
+pub fn show _ _
+  "the profile"

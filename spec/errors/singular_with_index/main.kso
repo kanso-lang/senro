@@ -1,0 +1,6 @@
+import "../../../routes"
+import "./profile"
+
+derive routes/rest
+
+print "unreached"

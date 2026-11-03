@@ -1,0 +1,13 @@
+import "../../../routes"
+
+pub type profile
+  name
+
+pub fn show _ _
+  "your profile is at {routes/path_to (profile "ada")}"
+
+pub fn edit _ _
+  "edit it"
+
+pub fn update _ _
+  "saved"

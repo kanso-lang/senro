@@ -1,0 +1,1 @@
+pub legacy_route_aliases = { "GET /entries":"entries/index" }

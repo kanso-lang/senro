@@ -1,0 +1,5 @@
+["GET /entries" "GET /entries/:id" "GET /entry/:id" "GET /signbook" "POST /entries" "POST /sign"]
+/entries
+/entries/5
+/entries
+[]

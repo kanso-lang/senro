@@ -1,0 +1,4 @@
+error[derive]: `GET /signbook` points at `entries/indx`, which names no route
+  --> ./legacy.kso:1:5
+   1 | pub legacy_route_aliases = { "GET /signbook":"entries/indx" }
+           ^

@@ -1,0 +1,5 @@
+pub fn edit _ _
+  "edit"
+
+pub fn show _ _ id:int
+  "post {id}"

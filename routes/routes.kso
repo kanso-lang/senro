@@ -8,6 +8,7 @@ type route
   origin
   action
   id
+  to
 
 type place
   method
@@ -16,6 +17,10 @@ type place
 type clashes
   seen
   out
+
+type aliases
+  routes
+  refused
 
 # senro's routing convention, run while an app compiles (#2186). A pub
 # function in one of the app's modules is an action, and its module's name
@@ -28,13 +33,28 @@ type clashes
 # takes: "int" when the action annotates `id` as an int, "any" when it takes
 # any segment, and "" when the route has no `:id`.
 #
+# A module whose `show`, `edit`, `update` and `destroy` take no `id` is a
+# singular resource, as Rails has them: `profile/show` answers GET /profile,
+# with no `:id`, and such a module has no `index`.
+#
+# An app that must keep an old URL declares `legacy_route_aliases` in one of
+# its modules, a map from an old path to the action now answering it:
+# `{ "GET /signbook": "entries/index" }`. Each alias answers with a permanent
+# redirect to its action's route, so every resource keeps one URL. An alias
+# must name a route, take `:id` as its second segment exactly when its route
+# does, and answer no request a route or another alias answers.
+#
 # It also writes a `path_to` arm for each record type declared in a module
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
 pub fn rest p
-  placed = list/fold p.modules [] (acc m -> list/concat acc (routes_of m))
+  conventional = list/fold p.modules [] (acc m -> list/concat acc (routes_of m))
+  start = aliases [] []
+  aliased = list/fold p.modules start (acc m -> aliases_in acc m conventional)
+  placed = list/concat conventional aliased.routes
   rows = list/fold placed {} (acc r -> put acc (spelled r) (row r))
-  odd = list/fold p.modules [] (acc m -> list/concat acc (strays m))
+  given = aliased.refused
+  odd = list/fold p.modules given (acc m -> list/concat acc (strays m))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
   arms = list/fold p.modules [] (acc m -> list/concat acc (arms_of m))
@@ -61,13 +81,25 @@ fn path_in none name _
   err "`{name}` names no route"
 
 fn path_in (place _ path) _ id
+  joined path id
+
+# A route's path with its `:id` filled, or with the segment left out when
+# there is no id, which is how a singular resource's path reads.
+fn joined path ""
+  text/join (text/split path "/:id") ""
+
+fn joined path id
   text/join (text/split path ":id") id
 
 fn arms_of m
   return [] if not list/any? m.functions (f -> f.name == "show")
-  list/to_list (list/map m.records (r -> arm_for m.name r.name))
+  one = singular? m
+  list/to_list (list/map m.records (r -> arm_for m.name r.name one))
 
-fn arm_for m t
+fn arm_for m t true
+  derive/define "{m}/{t}" "fn routes/path_to _:{t}\n  \"/{m}\"\n"
+
+fn arm_for m t false
   body = "\"/{m}/\{x.id}\""
   derive/define "{m}/{t}" "fn routes/path_to x:{t}\n  {body}\n"
 
@@ -108,10 +140,51 @@ fn spelled r
   "{r.method} {r.path}"
 
 fn row r
-  { "action":r.action "id":r.id }
+  return { "action":r.action "id":r.id } if r.to == ""
+  { "action":r.action "id":r.id "to":r.to }
 
 fn routes_of m
-  list/fold m.functions [] (acc f -> routed acc m f (path_of m.name f.name))
+  one = singular? m
+  list/fold m.functions [] (acc f -> routed acc m f (place_of m f one))
+
+fn place_of m f one
+  return none if one and f.name == "index"
+  placed_in (path_of m.name f.name) one
+
+# A singular resource's routes are its plural routes without `:id`.
+fn placed_in none true
+  none
+
+fn placed_in (place method path) true
+  place method (joined path "")
+
+fn placed_in found false
+  found
+
+# The member actions decide: when none the module declares takes an `id`, the
+# resource is singular.
+fn singular? m
+  members = list/to_list (list/select m.functions (f -> member? f.name))
+  return false if length members == 0
+  list/all? members (f -> not takes_id? f)
+
+fn takes_id? f
+  list/any? f.params (p -> p.name == "id")
+
+fn member? "show"
+  true
+
+fn member? "edit"
+  true
+
+fn member? "update"
+  true
+
+fn member? "destroy"
+  true
+
+fn member? _
+  false
 
 fn routed acc _ _ none
   acc
@@ -119,7 +192,7 @@ fn routed acc _ _ none
 fn routed acc m f (place method path)
   origin = "{m.name}/{f.name}"
   id = id_of path f.params
-  push acc (route method path origin f.reference id)
+  push acc (route method path origin f.reference id "")
 
 fn id_of path params
   return "" if not list/any? (text/split path "/") (s -> s == ":id")
@@ -164,7 +237,81 @@ fn path_of _ _
 
 fn strays m
   unplaced = list/select m.functions (f -> path_of m.name f.name == none)
-  list/to_list (list/map unplaced (f -> refused m f))
+  odd = list/to_list (list/map unplaced (f -> refused m f))
+  list/concat (list/concat odd (indexed m)) (mixed m)
+
+# A singular resource has no `index`: there is one of it.
+fn indexed m
+  return [] if not singular? m
+  found = list/to_list (list/select m.functions (f -> f.name == "index"))
+  said = "`{m.name}` is a singular resource, so it has no `index`"
+  list/to_list (list/map found (f -> derive/refuse "{m.name}/{f.name}" said))
+
+# Member actions that disagree about taking an id leave the resource neither
+# singular nor plural.
+fn mixed m
+  members = list/to_list (list/select m.functions (f -> member? f.name))
+  bare = list/to_list (list/select members (f -> not takes_id? f))
+  return [] if length bare == 0 or length bare == length members
+  f = bare[1]
+  bare = "`{m.name}/{f.name}` takes no id"
+  others = "other actions in `{m.name}` do: give each one an id, or none"
+  said = "{bare}, but {others}"
+  [(derive/refuse "{m.name}/{f.name}" said)]
+
+# Each entry of a module's `legacy_route_aliases` becomes a route that
+# redirects, or a refusal at the declaration.
+fn aliases_in acc m placed
+  aliases_from acc m m.constants["legacy_route_aliases"] placed
+
+fn aliases_from acc _ none _
+  acc
+
+fn aliases_from acc m given placed
+  list/fold (entries given) acc (a e -> alias_of a m e.key e.value placed)
+
+fn alias_of acc m key target placed
+  origin = "{m.name}/legacy_route_aliases"
+  words = text/split key " "
+  unsplit = "`{key}` is not a method and a path"
+  return refusal acc origin unsplit if length words != 2
+  found = list/to_list (list/select placed (r -> r.origin == target))
+  nowhere = "`{key}` points at `{target}`, which names no route"
+  return refusal acc origin nowhere if length found == 0
+  r = found[1]
+  method = words[1]
+  path = words[2]
+  other = "`{key}` is a {method}, but `{target}` answers {r.method}"
+  return refusal acc origin other if method != r.method
+  shaped acc origin key path r (has_id? path) (r.id != "")
+
+fn shaped acc origin key path r true true
+  misplaced = "`{key}` must take `:id` as its second segment"
+  return refusal acc origin misplaced if not second_id? path
+  kept acc path origin r
+
+fn shaped acc origin _ path r false false
+  kept acc path origin r
+
+fn shaped acc origin key _ r false true
+  refusal acc origin "`{key}` has no `:id`, but `{r.origin}` takes one"
+
+fn shaped acc origin key _ r true false
+  refusal acc origin "`{key}` has an `:id`, but `{r.origin}` takes none"
+
+fn has_id? path
+  list/any? (text/split path "/") (s -> s == ":id")
+
+fn second_id? path
+  segments = text/split path "/"
+  segments[3] == ":id"
+
+fn kept acc path origin r
+  alias = route r.method path origin r.action r.id r.path
+  aliases (push acc.routes alias) acc.refused
+
+fn refusal acc origin said
+  aliases acc.routes (push acc.refused (derive/refuse origin said))
 
 fn refused m f
   actions = "index, new, create, show, edit, update or destroy"

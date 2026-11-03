@@ -1,0 +1,7 @@
+import "../../../routes"
+import "./entries"
+import "./legacy"
+
+derive routes/rest
+
+print "unreached"

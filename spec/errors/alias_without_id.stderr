@@ -1,0 +1,4 @@
+error[derive]: `GET /entry` has no `:id`, but `entries/show` takes one
+  --> ./legacy.kso:1:5
+   1 | pub legacy_route_aliases = { "GET /entry":"entries/show" }
+           ^

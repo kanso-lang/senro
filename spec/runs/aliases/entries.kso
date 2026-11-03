@@ -1,0 +1,8 @@
+pub fn index _ _
+  "every entry"
+
+pub fn create _ _
+  "signed"
+
+pub fn show _ _ id:int
+  "entry {id}"
