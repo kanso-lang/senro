@@ -1,0 +1,10 @@
+import "../../../models"
+import "./notes"
+import "std/list"
+import "std/text"
+
+# What a viewer is shown of the rows a query answered.
+pub fn said viewer rows
+  seen = models/shown viewer notes/note_model rows
+  bodies = list/to_list (list/map seen (n -> n.body))
+  print "{viewer}: [{text/join bodies ", "}]"

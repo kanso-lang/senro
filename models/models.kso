@@ -181,7 +181,7 @@ fn guarded m r
     "\"columns\":[{text/join names " "}]"
     "\"read\":{t}_from"
   ]
-  policies = list/select ["update?" "destroy?"] (p -> declares? m p)
+  policies = list/select ["update?" "destroy?" "visible?"] (p -> declares? m p)
   said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
   all = list/to_list (list/sort (list/concat base (list/to_list said)))
   [(derive/define m.name (model_value t all))]
@@ -202,6 +202,21 @@ fn model_value t pairs
 # such policy. The server answers a server action that answers either as a
 # 404 or a 403. `updated` answers the row as the change leaves it and
 # `destroyed` the row as it was.
+# The records a viewer may see among the rows a query answered, read by the
+# model's reader. A model whose module declares `visible?` shows each row it
+# says yes to; one that declares none shows every row. Reads default open and
+# writes closed: a read with no check is what senro did before policies, and
+# a missing read policy can show a row but never change one.
+pub fn shown viewer model rows
+  records = list/map rows (row -> row_read model["read"] row)
+  list/to_list (list/select records (was -> seen? model["visible"] viewer was))
+
+fn seen? none _ _
+  true
+
+fn seen? policy viewer was
+  policy viewer was
+
 # Whether a write answered a refusal, `web/denied` or `web/absent`, rather
 # than the row it wrote.
 pub fn refused? w

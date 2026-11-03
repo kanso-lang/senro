@@ -1,0 +1,31 @@
+import "../../../models"
+import "../../../pg"
+import "./listing"
+import "./migrations"
+import "./notes"
+
+derive models/tables
+
+# Three notes by two owners, each read back through the model's read policy
+# by Ada, by Bob, and by a visitor who is nobody.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+made = models/made schema
+
+written = """
+  insert into notes (owner, body) values
+    ('ada', 'first'), ('bob', 'second'), ('ada', 'third')
+"""
+
+all = "select id, owner, body from notes order by id"
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> pg/run db written .> (_ -> pg/query db all []))
+  .> (r -> listing/said "ada" r.rows .> (_ -> r))
+  .> (r -> listing/said "bob" r.rows .> (_ -> r))
+  .> (r -> listing/said "" r.rows)

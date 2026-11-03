@@ -63,7 +63,11 @@ adds, counts, renames and removes things on a shelf without a page reload.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way.
+  such policy cannot be written this way. A model's module may declare
+  `visible?` too, and `models/shown viewer model rows` keeps the records a
+  query answered that the viewer may see. Without a `visible?` every row
+  shows: a missing read policy can show a row but never change one, so reads
+  default open where writes default closed.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres
