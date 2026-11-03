@@ -88,6 +88,35 @@ await settled(`document.querySelectorAll(".items li").length == 2`);
 await said("removed");
 console.log(`path: ${await page.evaluate(() => location.pathname)}`);
 
+// Two visits in flight at once. Another visitor's change makes this page
+// refresh itself, and that refresh is held back here; meanwhile this visitor
+// opens a rename. The rename's page is the later visit, so when the held
+// refresh answers last, its page is dropped and the rename stays open.
+const bystander = await (await browser.newContext()).newPage();
+await bystander.goto(`http://127.0.0.1:${port}/`);
+let release;
+const held = new Promise((r) => { release = r; });
+let holding;
+const caught = new Promise((r) => { holding = r; });
+await page.route(`http://127.0.0.1:${port}/`, async (route) => {
+  holding();
+  await held;
+  await route.continue();
+}, { times: 1 });
+await bystander.locator(".items li").nth(1).locator("button.minus").click();
+await caught;
+await row(0).locator("a.name").click();
+await settled(`document.activeElement && document.activeElement.name == "name"`);
+const late = page.waitForResponse(`http://127.0.0.1:${port}/`);
+release();
+await late;
+await page.waitForTimeout(200);
+const open = await page.evaluate(() => !!document.querySelector(".rename"));
+console.log(`a rename opened while a refresh was in flight stays open: ${open}`);
+await page.click(".rename a");
+await settled(`!document.querySelector(".rename")`);
+await bystander.context().close();
+
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.
 const other = await (await browser.newContext()).newPage();
