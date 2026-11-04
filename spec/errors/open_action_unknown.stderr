@@ -1,0 +1,4 @@
+error[derive]: `show` is not an action of `door`
+  --> ./door.kso:1:5
+   1 | pub without_sign_in = ["show"]
+           ^

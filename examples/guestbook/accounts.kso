@@ -14,6 +14,8 @@ pub type account
   digest
 
 # Anyone may make an account.
+pub without_sign_in = ["create" "new"]
+
 pub fn create? _ _
   true
 

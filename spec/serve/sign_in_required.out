@@ -1,0 +1,4 @@
+HTTP/1.1 200 OK: every note
+HTTP/1.1 303 See Other to /session/new
+HTTP/1.1 303 See Other to /notes/new
+HTTP/1.1 200 OK: a blank note

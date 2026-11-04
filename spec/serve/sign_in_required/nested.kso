@@ -1,0 +1,67 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+pub without_sign_in = ["index"]
+
+# A visitor who reads the open page, asks for one that needs a sign-in, is
+# sent to sign in, signs in with the cookie it was given, and is sent back to
+# the page it asked for, which it can read now.
+pub fn index _ _
+  asked "GET" "/notes" ""
+    .> (a -> asked "GET" "/notes/new" "" .> (b -> signing a b))
+
+fn signing a b
+  asked "POST" "/session" (cookie_of b)
+    .> (c -> asked "GET" "/notes/new" (cookie_of c) .> (d -> said [a b c d]))
+
+fn asked method path cookie
+  net/dial "127.0.0.1" 54405 .> (c -> sent c method path cookie)
+
+fn sent c method path cookie
+  head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"
+  net/write c "{head}\r\ncontent-length: 0\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn carried ""
+  ""
+
+fn carried cookie
+  "\r\ncookie: {cookie}"
+
+fn cookie_of raw
+  set = list/to_list (list/select (lines raw) (l -> starts? l "set-cookie: "))
+  return "" if length set == 0
+  line = or_empty set[1]
+  value = or_empty (text/slice line 13 (length line))
+  or_empty (text/split value ";")[1]
+
+fn said answers
+  told = text/join (list/to_list (list/map answers heard)) "\n"
+  effect (http/text_page told)
+
+fn heard raw
+  status = (lines raw)[1]
+  moved = list/to_list (list/select (lines raw) (l -> starts? l "location: "))
+  return "{status}: {body raw}" if length moved == 0
+  where = or_empty moved[1]
+  "{status} to {text/slice where 11 (length where)}"
+
+fn lines raw
+  text/split (or_empty (text/split raw "\r\n\r\n")[1]) "\r\n"
+
+fn or_empty none
+  ""
+
+fn or_empty s
+  s
+
+fn starts? l prefix
+  text/starts_with? (text/lowercase l) prefix
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]
