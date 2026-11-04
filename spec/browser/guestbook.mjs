@@ -7,6 +7,7 @@
 //
 //   node spec/browser/guestbook.mjs <port> <browser>
 import { createRequire } from "node:module";
+import { statSync, utimesSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 const playwright = require("playwright");
@@ -156,6 +157,29 @@ await page.click("form.out button");
 await page.waitForSelector("nav.door");
 const out = await page.evaluate(() => document.querySelector("p.flash").textContent);
 console.log(`after signing out: ${out}`);
+
+// The page's modules come from the browser's Cache Storage once they have
+// been fetched, so loading the page again asks the server for neither.
+const modules = [];
+page.on("request", (q) => {
+  const path = new URL(q.url()).pathname;
+  if (path.endsWith(".wasm")) modules.push(path);
+});
+await page.reload();
+await page.waitForSelector("html.senro-ready", { state: "attached" });
+console.log(`modules fetched by a second load: ${modules.length}`);
+
+// A deploy moves the app module's modification time, which is its version.
+// The page's next request learns of it, the page loads itself again, and
+// only the module that changed is fetched.
+const module = "examples/guestbook/public/senro/app.wasm";
+const was = statSync(module);
+utimesSync(module, was.atime, new Date(was.mtimeMs + 60000));
+await page.evaluate(() => { window.senroMark = "before the deploy"; });
+await page.click("a[href='/session/new']");
+await page.waitForFunction(() => window.senroMark === undefined);
+await page.waitForSelector("html.senro-ready", { state: "attached" });
+console.log(`after a deploy, fetched: ${modules.join(", ")}`);
 console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
 for (const line of said) console.log(line);
 await browser.close();

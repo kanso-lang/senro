@@ -97,7 +97,12 @@ adds, counts, renames and removes things on a shelf without a page reload.
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never
   reloads. Once the app's browser module has loaded, a page the app answers
-  with `views/answer` arrives as data and is rendered in the browser. A
+  with `views/answer` arrives as data and is rendered in the browser. The
+  script keeps the app's module and the runtime in the browser's Cache
+  Storage, each under its modification time, which the server writes into
+  `/senro.js`, so a returning visitor compiles them without asking for
+  them. Every answer to the script names that version, and a page opened
+  before a deploy that changed it loads itself again, once. A
   field the visitor is typing in keeps what they typed, unless it was in
   the form just sent. A form that POSTs a `_method` of `PATCH` or
   `DELETE` is routed as that method, as in Rails. When a request that isn't

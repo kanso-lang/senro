@@ -100,7 +100,38 @@ fn heard c s req
     .> (_ -> net/close_conn c)
 
 fn responded c db method by answer
-  answer .> (r -> told db method by r) .> (r -> sent c r)
+  answer
+    .> (r -> told db method by r)
+    .> (r -> versioned by r)
+    .> (r -> sent c r)
+
+# An answer to senro's page script carries the version of the app's browser
+# modules, so a page that loaded an older deploy's modules learns of the new
+# one with its next request and loads itself again.
+fn versioned "" r
+  effect r
+
+fn versioned _ r
+  modules_version .> (v -> effect (headed r "senro-version: {v}"))
+
+fn headed r line
+  http/respond r.status (push r.headers line) r.body
+
+# The version of the app's browser modules: the modification times of the
+# module and the runtime it runs on, which a deploy that changes either moves.
+# The page script keeps both in the browser's Cache Storage under it, so a
+# returning visitor compiles them without asking for them.
+modules_version = os/modified "public/senro/app.wasm"
+  .> (a -> os/modified "public/senro/runtime.wasm" .> (b -> both a b))
+
+fn both a b
+  effect "{stamp a}-{stamp b}"
+
+fn stamp _:os/file_not_found
+  "none"
+
+fn stamp at
+  "{at}"
 
 # A form can only GET or POST, so a POST says which method it stands for in a
 # `_method` field, as Rails does: PATCH to update, DELETE to destroy.
@@ -248,7 +279,7 @@ fn took action kind id
 # is a 404.
 fn routed none req _
   return effect http/not_found if req.method != "GET"
-  return effect (http/page [javascript] script) if req.path == "/senro.js"
+  return page_script if req.path == "/senro.js"
   return effect http/not_found if length (text/split req.path "..") > 1
   return served_module req if text/ends_with? req.path ".wasm"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
@@ -284,6 +315,15 @@ fn served_bytes had tag body
   effect (http/page (push fresh "content-type: application/wasm") body)
 
 javascript = "content-type: text/javascript; charset=utf-8"
+
+# senro's page script, opened with the version of the app's modules. It is
+# small, and the browser is told to check it before reusing a copy, since a
+# copy from before a deploy would name the old version.
+page_script = modules_version .> (v -> effect (opened_with v))
+
+fn opened_with v
+  heads = [javascript "cache-control: no-cache"]
+  http/page heads "const senroVersion = \"{v}\";\n{script}"
 
 fn served_file path body:string
   effect (http/page ["content-type: {kind_of path}"] body)
