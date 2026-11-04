@@ -2,3 +2,7 @@ kept: { "name":"ada" }
 another secret: {}
 map changed: {}
 no cookie: {}
+a day later: ada
+fifteen days later: { "flash":"hello" }
+before it began: { "flash":"hello" }
+unstamped: ada

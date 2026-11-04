@@ -46,7 +46,8 @@ fn joined req db name password rows
 fn made req kept:account
   s = web/session req entries/secret
   welcomed = put s "flash" "Welcome, {kept.name}. Your account is made."
-  effect (web/signed_in (web/redirect "/") entries/secret welcomed kept.name)
+  home = web/redirect "/"
+  effect (web/signed_in req home entries/secret welcomed kept.name)
 
 fn made _ _
   effect web/denied

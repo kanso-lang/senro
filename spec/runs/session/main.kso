@@ -5,13 +5,40 @@ import "std/net/http"
 # A session set on a response comes back from the request that carries its
 # cookie; a cookie signed under another secret, or one whose map was changed
 # after signing, reads as an empty session.
+#
+# A sign-in lasts fourteen days from the request that made it. The session
+# read a day later still names the viewer; read fifteen days later, or before
+# it began, it has forgotten them and kept its notice. A request the server
+# did not stamp has no age to measure.
 secret = "a spec's secret"
 
 answered = web/kept (http/text_page "ok") secret { "name":"ada" }
 
 value = cookies/sealed_from (http/rendered answered)
 
+day = 24 * 60 * 60 * 1000
+
+began = 1700000000000
+
+signing = cookies/asked_at "" began
+
+held = { "flash":"hello" }
+
+signed = web/signed_in signing (http/text_page "ok") secret held "ada"
+
+kept_in = cookies/sealed_from (http/rendered signed)
+
+later = cookies/asked_at kept_in (began + day)
+
+expired = cookies/asked_at kept_in (began + 15 * day)
+
+early = cookies/asked_at kept_in (began - 1)
+
 print "kept: {web/session (cookies/asked value) secret}"
 print "another secret: {web/session (cookies/asked value) "not the app's"}"
 print "map changed: {web/session (cookies/asked (cookies/forged value)) secret}"
 print "no cookie: {web/session (http/parsed "GET / HTTP/1.1\r\n\r\n") secret}"
+print "a day later: {web/viewer later secret}"
+print "fifteen days later: {web/session expired secret}"
+print "before it began: {web/session early secret}"
+print "unstamped: {web/viewer (cookies/asked kept_in) secret}"

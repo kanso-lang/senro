@@ -32,7 +32,7 @@ fn entered req name kept password
   return refused req name if not passwords/matches? password kept
   s = web/session req entries/secret
   welcomed = put s "flash" "Signed in as {name}."
-  effect (web/signed_in (web/redirect "/") entries/secret welcomed name)
+  effect (web/signed_in req (web/redirect "/") entries/secret welcomed name)
 
 fn refused req name
   wrong = { "password":"That name and password do not match." }

@@ -9,6 +9,7 @@ import "std/os"
 import "std/pool"
 import "std/sha256"
 import "std/text"
+import "std/time"
 
 type hit
   action
@@ -77,7 +78,18 @@ fn forked l c s
   served l s
 
 fn answered c s
-  net/read c .> (raw -> heard c s (http/parsed raw))
+  net/read c .> (raw -> time/now .> (t -> heard c s (arrived raw t)))
+
+# The request as the server heard it, with the time it arrived, in
+# milliseconds since the epoch, under `senro-at`. The line goes after the
+# client's headers, and the last of two headers with one name is the one
+# parsed, so a value the client sent under that name is replaced and a
+# session's age is measured by the server's clock alone.
+fn arrived raw t
+  parts = text/split raw "\r\n\r\n"
+  return http/parsed raw if length parts < 2
+  rest = text/join (list/to_list (list/drop parts 1)) "\r\n\r\n"
+  http/parsed "{parts[1]}\r\nsenro-at: {t}\r\n\r\n{rest}"
 
 fn heard c s req
   return live c s.connect if req.path == "/senro/live"
@@ -388,8 +400,41 @@ pub fn redirect path
 # with each request. The cookie holds the map as JSON beside an HMAC-SHA-256
 # of it under the app's secret, so a session the browser altered, or one no
 # secret of this app signed, reads as an empty map.
+#
+# A sign-in lasts `session_days`. The session keeps the time it began, and a
+# request that arrives later than that reads the session without its viewer;
+# whatever else it keeps, such as a notice, survives. A request the server
+# did not stamp, as a spec builds by hand, has no age to measure.
 pub fn session req secret
-  verified (cookie req.headers["cookie"] "senro") secret
+  m = verified (cookie req.headers["cookie"] "senro") secret
+  at = text/to_int (said req.headers["senro-at"])
+  aged m at (text/to_int (said m["since"]))
+
+pub session_days = 14
+
+day = 24 * 60 * 60 * 1000
+
+fn aged m none none
+  m
+
+fn aged m none _
+  m
+
+fn aged m _ none
+  forgotten m
+
+fn aged m at since
+  return forgotten m if at - since > session_days * day or at < since
+  m
+
+fn forgotten m
+  delete (delete m "viewer") "since"
+
+fn said none
+  ""
+
+fn said v
+  v
 
 # Who the session says is signed in: the id an app kept under "viewer" when
 # it signed them in (`signed_in`), or "" for a visitor who has not been.
@@ -402,10 +447,12 @@ fn signed_as none
 fn signed_as v
   v
 
-# The response, signing `id` in: the session the next request reads names
-# them as its viewer, beside whatever else `held` keeps.
-pub fn signed_in r secret held id
-  kept r secret (put held "viewer" id)
+# The response to `req`, signing `id` in: the session the next request reads
+# names them as its viewer, beside whatever else `held` keeps, until
+# `session_days` after `req` arrived.
+pub fn signed_in req r secret held id
+  since = said req.headers["senro-at"]
+  kept r secret (put (put held "viewer" id) "since" since)
 
 # The response, with `held` kept as the session the next request reads.
 pub fn kept r secret held

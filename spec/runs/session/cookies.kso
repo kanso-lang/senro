@@ -18,3 +18,8 @@ pub fn forged sealed
   parts = text/split sealed "."
   return "" if length parts < 2
   "eyJuYW1lIjoiZXZlIn0=.{parts[2]}"
+
+# The same, as the server hands it on, stamped with the time it arrived.
+pub fn asked_at v t
+  raw = "GET / HTTP/1.1\r\ncookie: senro={v}\r\nsenro-at: {t}\r\n\r\n"
+  http/parsed raw
