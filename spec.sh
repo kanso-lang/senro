@@ -6,11 +6,12 @@
 # Every module and example checks clean; the guestbook derives the schema,
 # route table and views its golden holds; each app under spec/runs prints its
 # golden on both engines, and one with a browser module answers its events
-# natively, interpreted and as wasm; each app under spec/db, run against a live Postgres,
-# prints its golden on both engines; each app under spec/serve, served and
-# asked over HTTP, answers its golden; the guestbook and the pantry, used in
-# a browser, update in place without a reload; and each app under spec/errors
-# is refused with the message its golden holds.
+# natively, interpreted and as wasm; spec/runs/pages renders a page in the
+# browser module as the server rendered it; each app under spec/db, run
+# against a live Postgres, prints its golden on both engines; each app under
+# spec/serve, served and asked over HTTP, answers its golden; the guestbook
+# and the pantry, used in a browser, update in place without a reload; and
+# each app under spec/errors is refused with the message its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}

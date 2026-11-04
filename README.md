@@ -82,9 +82,9 @@ adds, counts, renames and removes things on a shelf without a page reload.
   expects, and checks its certificate against the machine's trusted roots
   (`SSL_CERT_FILE` names others).
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. The server opens four database sessions when it
-  starts and keeps them in a pool; each request borrows one and gives it back
-  when it has answered, and a request that finds all four lent waits. An
+  decodes a posted form. The server opens a pool of database sessions when
+  it starts (`sessions` in `web.kso`); each request borrows one and gives it
+  back when it has answered, and a request that finds them all lent waits. An
   action that fails is answered with a 500, its reason goes to standard
   error, and the server keeps serving. A failure the app expects should be a
   value its action answers. It serves files under the app's `public/`,
@@ -120,13 +120,7 @@ adds, counts, renames and removes things on a shelf without a page reload.
 KANSO=/path/to/kanso sh spec.sh
 ```
 
-`.kanso-version` pins the compiler CI builds. The specs check every module
-and example, compare the guestbook's derived schema and routes with
-`spec/guestbook.derived`, compare each view kata writes with the file beside
-its template, run each app under `spec/runs` on both engines against its
-`.stdout` golden, run each browser module's events in `spec/runs/<app>.events`
-natively, interpreted and as wasm against its `.answers` golden, hold
-`spec/runs/pages`'s page rendered in the browser to the page the server
-rendered, run each app under `spec/db` the same way against a Postgres that
-trusts 127.0.0.1:54329 (`SENRO_NO_DB=1` skips them), and hold each app under
-`spec/errors` to the refusal its `.stderr` golden records. `SPEC_WRITE=1` rewrites the goldens.
+`.kanso-version` pins the compiler CI builds. The comment at the top of
+`spec.sh` lists what the specs check. `SENRO_NO_DB=1` skips those that need
+Postgres, `KANSO_RUNTIME_WASM` names the runtime the browser specs load,
+and `SPEC_WRITE=1` rewrites the goldens.

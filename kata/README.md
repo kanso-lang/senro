@@ -119,15 +119,15 @@ the component's next rendering into place.
 
 A template that binds no action is a page, and an app can have its pages
 rendered in the browser. The action describes the page instead of rendering
-it, and answers with `answer`:
+it, and answers with `answer`, or with `answer_as` and a status:
 
 ```
-page = views/signed_view signed name flash removals
+page = views/signed_view book form flash removals
 views/answer req (views/layout_view "Guestbook" page)
 ```
 
-Once the app names `answer` or `rendered`, kata writes three more functions
-for each page in the module:
+Once the app names `answer`, `answer_as` or `rendered`, kata writes two
+more functions for each page in the module:
 
 - `signed_view` takes what `signed` takes and answers the page as data: the
   template's name and its values. A record goes in cut down to a map of the
@@ -138,14 +138,19 @@ for each page in the module:
   which is how a layout holds its body.
 - `signed_keyed` is the template compiled a second time, with each field
   read written as a read of a map's key, so it renders from the data.
-- `rendered` renders a page from its data, choosing the template by name.
 
-`answer` renders the page on the server for a request the browser made
-itself. senro's page script asks with a `senro-view` header and gets the
-page's data as JSON, which the app's browser module renders with the same
-`rendered` before the script morphs it into the page. Because the server
-renders with `rendered` too, the HTML a first request gets and the HTML the
-browser renders come from one compile. `spec/runs/pages` prints both beside
+It also writes `rendered` once for the module, which renders a page from its
+data, choosing the template by name. A program that names `answer` or
+`answer_as` gets those two functions as well. A template named `answer`,
+`answer_as` or `rendered` is refused, since it would take one of these
+names.
+
+`answer` and `answer_as` render the page on the server for a request the
+browser made itself. senro's page script asks with a `senro-view` header
+and gets the page's data as JSON, which the app's browser module renders
+with the same `rendered` before the script morphs it into the page. Because
+the server renders with `rendered` too, the HTML a first request gets and
+the HTML the browser renders come from one compile. `spec/runs/pages` prints both beside
 the template's rendering of the records themselves, and the three are the
 same bytes.
 
@@ -166,8 +171,9 @@ A program that names `rendered` but not `answer`, as this one does, holds
 none of the records the pages read. kata writes a page's own function and
 its `_view` there only when the program names them.
 
-A template cannot yet read a record held inside a record, whether it renders
-records or data. A loop that walks something other than a value the template
+A template cannot yet read a record held inside a record: `p.author.name`
+is refused where the template is compiled, because kanso does not know the
+type of `p.author`. A loop that walks something other than a value the template
 takes, or one of its fields, leaves the fields read in its body out of the
 data.
 
