@@ -1,0 +1,6 @@
+ada: stored note 1 by ada: first
+ada: invalid, body: Say something., kept: "  "
+ada: invalid, body: Keep it to twenty characters., kept: "a note far too long to keep"
+: refused
+bob: refused
+bob: stored note 2 by bob: mine

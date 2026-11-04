@@ -242,7 +242,8 @@ fn path_of m "destroy"
 fn path_of _ _
   none
 
-# A policy sits in its model's module beside the actions, and is no route.
+# A policy or a model's `problems` sits in its model's module beside the
+# actions, and is no route.
 fn strays m
   acting = list/reject m.functions (f -> policy? f.name)
   unplaced = list/select acting (f -> path_of m.name f.name == none)
@@ -250,7 +251,8 @@ fn strays m
   list/concat (list/concat odd (indexed m)) (mixed m)
 
 fn policy? name
-  name == "update?" or name == "destroy?" or name == "visible?"
+  modeled = ["create?" "update?" "destroy?" "visible?" "problems"]
+  list/any? modeled (p -> p == name)
 
 # A singular resource has no `index`: there is one of it.
 fn indexed m

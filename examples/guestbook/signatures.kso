@@ -1,3 +1,6 @@
+import "../../models"
+import "std/text"
+
 # A signature as the `signatures` table stores it. senro/models checks each
 # field against the table's columns and writes `signature_from`, which builds
 # one from a row.
@@ -11,3 +14,16 @@ pub type signature
 # deletes anything, so there is no other way to remove a signature.
 pub fn destroy? viewer s
   s.name == viewer
+
+# Anyone may sign the book.
+pub fn create? _ _
+  true
+
+# A signature needs a name and a message, and a message short enough to
+# read at a glance.
+pub fn problems s
+  models/problems [
+    (models/rule "name" (text/trim s.name == "") "Say who you are.")
+    (models/rule "message" (text/trim s.message == "") "Say something.")
+    (models/rule "message" (length s.message > 280) "Keep it under 280.")
+  ]

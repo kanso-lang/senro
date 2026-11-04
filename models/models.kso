@@ -38,6 +38,19 @@ type reading
   schema
   table
 
+# What a create answers when the record breaks its model's rules: the
+# problems, a map from each field that breaks one to its message, and the
+# record as it was given, to fill the form in again.
+pub type invalid
+  problems
+  record
+
+# One of a model's rules, as `rule` writes it.
+type ruled
+  field
+  broken
+  message
+
 pub fn create_table name columns
   new_table name columns
 
@@ -181,7 +194,8 @@ fn guarded m r
     "\"columns\":[{text/join names " "}]"
     "\"read\":{t}_from"
   ]
-  policies = list/select ["update?" "destroy?" "visible?"] (p -> declares? m p)
+  owned = ["create?" "update?" "destroy?" "visible?" "problems"]
+  policies = list/select owned (p -> declares? m p)
   said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
   all = list/to_list (list/sort (list/concat base (list/to_list said)))
   [(derive/define m.name (model_value t all))]
@@ -216,6 +230,67 @@ fn seen? none _ _
 
 fn seen? policy viewer was
   policy viewer was
+
+# A rule of a model's `problems`: the field it is about, whether the record
+# breaks it, and what to tell the visitor when it does.
+pub fn rule field broken message
+  ruled field broken message
+
+# A model module declares what makes its record fit to keep as `problems`,
+# which takes the record and answers `models/problems` of its rules:
+#
+#   pub fn problems s
+#     models/problems [
+#       (models/rule "name" (s.name == "") "Say who you are.")
+#       (models/rule "message" (s.message == "") "Say something.")
+#     ]
+#
+# The answer maps each field that breaks a rule to the message of the first
+# rule it breaks, and holds no other field, so a record with no problems has
+# an empty map. A form shows a field's problem when it has one:
+#
+#   if problems["name"] != none
+#     p.problem = problems["name"]
+pub fn problems rules
+  list/fold rules {} noted
+
+fn noted acc r
+  return acc if not r.broken or acc[r.field] != none
+  put acc r.field r.message
+
+# Whether a record has any problem.
+pub fn problems? found
+  length found > 0
+
+# A record made through its model. The values, such as a form's fields, are
+# read into a record by the model's reader, with any `id` left out, since
+# Postgres numbers a new row. The model's `create?` policy is asked about the
+# record, and a model whose module declares none cannot be created this
+# way, as with every write. Then `problems` checks it, when the module
+# declares one, and a record with problems answers `invalid` without
+# writing. Otherwise the row is inserted, and the answer is the record as
+# stored, its id among it.
+pub fn created viewer db model fields
+  given = delete fields "id"
+  was = row_read model["read"] given
+  return effect web/denied if not allowed? model["create"] viewer was
+  found = checked_by model["problems"] was
+  return effect (invalid found was) if problems? found
+  cols = column_list model["columns"]
+  pg/insert db (table_of model["table"]) cols given
+    .> (r -> stored model r.rows[1])
+
+fn checked_by none _
+  {}
+
+fn checked_by check was
+  check was
+
+fn stored _ none
+  effect web/absent
+
+fn stored model row
+  effect (row_read model["read"] row)
 
 # Whether a write answered a refusal, `web/denied` or `web/absent`, rather
 # than the row it wrote.

@@ -1,0 +1,18 @@
+import "../../../models"
+import "std/text"
+
+# A note. Anyone signed in may write one, under their own name, and a note
+# needs a body of at most twenty characters.
+pub type note
+  id
+  owner
+  body
+
+pub fn create? viewer n
+  viewer != "" and n.owner == viewer
+
+pub fn problems n
+  models/problems [
+    (models/rule "body" (text/trim n.body == "") "Say something.")
+    (models/rule "body" (length n.body > 20) "Keep it to twenty characters.")
+  ]

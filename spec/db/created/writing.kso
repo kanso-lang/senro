@@ -1,0 +1,17 @@
+import "../../../models"
+import "../../../web"
+import "./notes"
+
+# What a create through the model answered, as a visitor would learn it.
+# The session is handed on for the next.
+pub fn tried viewer db fields
+  models/created viewer db notes/note_model fields
+    .> (w -> print "{viewer}: {told w}")
+    .> (_ -> effect db)
+
+fn told w:models/invalid
+  "invalid, body: {w.problems["body"]}, kept: \"{w.record.body}\""
+
+fn told w
+  return "refused" if models/refused? w
+  "stored note {w.id} by {w.owner}: {w.body}"

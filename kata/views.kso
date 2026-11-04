@@ -174,6 +174,9 @@ fn handed_only n p
 # holds templates: the escape that keeps a value from being read as markup, a
 # loop body joined once per element, and the join of a function's parts.
 leaned_on = """
+  fn escape none
+    ""
+
   fn escape x
     s = "\{x}"
     amp = text/join (text/split s "&") "&amp;"
@@ -189,10 +192,10 @@ leaned_on = """
     text/join parts ""
 """
 
-# The names of the two functions a module of pages answers with, which no
+# The names of the functions a module of pages answers with, which no
 # template may take.
 fn taken? name
-  name == "answer" or name == "rendered"
+  list/any? ["answer" "answer_as" "rendered"] (n -> n == name)
 
 fn reserved f name
   "`{f}` would be the function `{name}`, which kata writes for every page"
@@ -202,7 +205,8 @@ fn reserved f name
 # with `views/rendered`, whether it calls the function or hands it on. An app
 # that does neither compiles as it did.
 fn used asked m
-  return "serve" if has? asked "{m.name}/answer"
+  serving = has? asked "{m.name}/answer" or has? asked "{m.name}/answer_as"
+  return "serve" if serving
   if (has? asked "{m.name}/rendered") "render" ""
 
 fn named_in acc c
@@ -275,21 +279,27 @@ rendering = """
 
 # A page answers a request a browser made itself as HTML, rendered here. The
 # page's script asks with a `senro-view` header, and gets the page's data as
-# JSON, which it renders with the app's browser module.
+# JSON, which it renders with the app's browser module. `answer_as` answers
+# with a status of the action's choosing, such as 422 for a form sent back
+# with its problems.
 answering = """
   pub fn answer req node
-    kata_answered req.headers["senro-view"] node
+    answer_as req 200 node
 
-  fn kata_answered none node
-    http/html_page (rendered node)
+  pub fn answer_as req code node
+    kata_answered req.headers["senro-view"] code node
 
-  fn kata_answered _ node
+  fn kata_answered none code node
+    page = ["content-type: text/html; charset=utf-8"]
+    http/respond code page (rendered node)
+
+  fn kata_answered _ code node
     heard = [
       "cache-control: no-store"
       "content-type: application/json"
       "senro-view: 1"
     ]
-    http/respond 200 heard (json/encode node)
+    http/respond code heard (json/encode node)
 """
 
 # What JSON decoded is read through these: a key a map lacks reads as "", a

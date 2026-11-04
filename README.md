@@ -67,7 +67,14 @@ adds, counts, renames and removes things on a shelf without a page reload.
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row
   shows: a missing read policy can show a row but never change one, so reads
-  default open where writes default closed.
+  default open where writes default closed. A record is made with
+  `models/created viewer db model fields`, which reads the fields (a
+  posted form, say) into a record, asks the `create?` policy, checks the
+  module's `problems`, and inserts only when both pass. `problems` takes
+  the record and answers `models/problems` of a list of
+  `models/rule field broken message`. A record that breaks a rule comes
+  back as `models/invalid`, holding each broken field's message and the
+  record as given, so the action can show the form again with both.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres

@@ -50,7 +50,8 @@ ol.entries
 - Attributes are `name="text"`, where the text may hold `{expr}`, or
   `name=expr` for a value.
 - `= expr` writes a value escaped and `== expr` writes it raw. Text after a
-  tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace.
+  tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace. A value
+  that may be none, such as a map's entry, writes nothing under `=`.
 - `if expr`, any number of `else if expr`, an optional `else`, and
   `for x in xs`.
 - `# comment` drops the line and the rows under it. `doctype html` writes the
