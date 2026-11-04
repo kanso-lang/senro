@@ -1,11 +1,12 @@
 import "../../browser"
 import "../../kata"
 import "./planner"
+import "./views"
 
 derive kata/views
 
-# The pantry's components, compiled for the browser with
+# The pantry's planner and its pages, compiled for the browser with
 # `kanso build browser.kso --wasm`.
 planned = browser/component planner/act planner/view
 
-browser/answer { "planner":planned }
+browser/answer_pages { "planner":planned } views/rendered

@@ -17,3 +17,4 @@ act naming an action no template binds: 404
 act with a state that is not JSON: 400
 act on a component the app does not serve: 404
 the other visitor sees green tea at 1, mark kept
+every page the shelf fetched came as data: true
