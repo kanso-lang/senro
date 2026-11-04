@@ -150,9 +150,9 @@ browser made itself. senro's page script asks with a `senro-view` header
 and gets the page's data as JSON, which the app's browser module renders
 with the same `rendered` before the script morphs it into the page. Because
 the server renders with `rendered` too, the HTML a first request gets and
-the HTML the browser renders come from one compile. `spec/runs/pages` prints both beside
-the template's rendering of the records themselves, and the three are the
-same bytes.
+the HTML the browser renders come from one compile. `spec/runs/pages`
+prints both beside the template's rendering of the records themselves, and
+the three are the same bytes.
 
 The browser module hands `rendered` to `browser/answer_pages`, with the
 app's browser components, here none:
