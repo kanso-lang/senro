@@ -1,8 +1,9 @@
 import "../../../models"
 import "std/text"
 
-# A note. Anyone signed in may write one, under their own name, and a note
-# needs a body of at most twenty characters.
+# A note. Anyone signed in may write one, under their own name, and change
+# their own; a note needs a body of at most twenty characters, before and
+# after a change.
 pub type note
   id
   owner
@@ -10,6 +11,9 @@ pub type note
 
 pub fn create? viewer n
   viewer != "" and n.owner == viewer
+
+pub fn update? viewer n
+  n.owner == viewer
 
 pub fn problems n
   models/problems [

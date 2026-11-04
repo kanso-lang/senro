@@ -8,7 +8,8 @@ derive models/tables
 
 # Notes written through the model: one that is fine, one with no body, one
 # too long, one by a visitor signed in as nobody, one claiming another's
-# name, and one that names an id of its own, which Postgres overrides.
+# name, and one that names an id of its own, which Postgres overrides. Then
+# Ada empties her note, which its rule refuses, and edits it.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
@@ -23,6 +24,8 @@ long = { "body":"a note far too long to keep" "owner":"ada" }
 nobody = { "body":"anonymous" "owner":"" }
 forged = { "body":"forged" "owner":"ada" }
 numbered = { "body":"mine" "id":"77" "owner":"bob" }
+emptied = { "body":"" }
+edited = { "body":"edited" }
 
 pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
@@ -32,3 +35,5 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> writing/tried "" db nobody)
   .> (db -> writing/tried "bob" db forged)
   .> (db -> writing/tried "bob" db numbered)
+  .> (db -> writing/changed "ada" db 1 emptied)
+  .> (db -> writing/changed "ada" db 1 edited)

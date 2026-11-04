@@ -70,8 +70,9 @@ adds, counts, renames and removes things on a shelf without a page reload.
   default open where writes default closed. A record is made with
   `models/created viewer db model fields`, which reads the fields (a
   posted form, say) into a record, asks the `create?` policy, checks the
-  module's `problems`, and inserts only when both pass. `problems` takes
-  the record and answers `models/problems` of a list of
+  module's `problems`, and inserts only when both pass; `models/updated`
+  checks `problems` too, on the record as the change leaves it.
+  `problems` takes the record and answers `models/problems` of a list of
   `models/rule field broken message`. A record that breaks a rule comes
   back as `models/invalid`, holding each broken field's message and the
   record as given, so the action can show the form again with both.

@@ -210,12 +210,6 @@ fn model_value t pairs
   return "{line}\n" if length line <= 80
   "pub {t}_model = \{\n  {text/join pairs "\n  "}\n}\n"
 
-# A write through a model, checked by its policy. The row is read by its id,
-# and `web/absent` answers for one that is not there; the policy is asked
-# about it as it stands, and `web/denied` answers a no, or a model with no
-# such policy. The server answers a server action that answers either as a
-# 404 or a 403. `updated` answers the row as the change leaves it and
-# `destroyed` the row as it was.
 # The records a viewer may see among the rows a query answered, read by the
 # model's reader. A model whose module declares `visible?` shows each row it
 # says yes to; one that declares none shows every row. Reads default open and
@@ -297,6 +291,15 @@ fn stored model row
 pub fn refused? w
   web/refused? w
 
+# A write through a model, checked by its policy. The row is read by its id,
+# and `web/absent` answers for one that is not there; the policy is asked
+# about it as it stands, and `web/denied` answers a no, or a model with no
+# such policy. The server answers a server action that answers either as a
+# 404 or a 403. An update is checked by the model's `problems` too, as the
+# change leaves the record, and answers `invalid` without writing when it
+# breaks a rule. `updated` answers the row as the change leaves it and
+# `destroyed` the row as it was.
+#
 # A state the browser sent may name no id at all, which is a row not there.
 pub fn updated _ _ _ none _
   effect web/absent
@@ -311,9 +314,12 @@ fn update_found viewer db model changes row
   was = row_read model["read"] row
   return effect web/denied if not allowed? model["update"] viewer was
   now = list/fold (keys changes) row (acc k -> put acc k changes[k])
+  changed = row_read model["read"] now
+  found = checked_by model["problems"] changed
+  return effect (invalid found changed) if problems? found
   cols = column_list model["columns"]
   pg/update_by_id db (table_of model["table"]) cols "{id_of row}" changes
-    .> (_ -> effect (row_read model["read"] now))
+    .> (_ -> effect changed)
 
 pub fn destroyed _ _ _ none
   effect web/absent

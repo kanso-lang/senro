@@ -15,3 +15,9 @@ fn told w:models/invalid
 fn told w
   return "refused" if models/refused? w
   "stored note {w.id} by {w.owner}: {w.body}"
+
+# What an update through the model answered.
+pub fn changed viewer db id changes
+  models/updated viewer db notes/note_model id changes
+    .> (w -> print "{viewer} changes {id}: {told w}")
+    .> (_ -> effect db)
