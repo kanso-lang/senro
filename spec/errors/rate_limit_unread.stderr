@@ -1,0 +1,4 @@
+error[derive]: `5 a minute` is not a count per a window, such as "10 per 3 minutes"
+  --> ./door.kso:1:5
+   1 | pub rate_limits = { "create":"5 a minute" }
+           ^

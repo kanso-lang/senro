@@ -1,0 +1,4 @@
+error[derive]: `destroy` is not an action of `door`
+  --> ./door.kso:1:5
+   1 | pub rate_limits = { "destroy":"5 per minute" }
+           ^

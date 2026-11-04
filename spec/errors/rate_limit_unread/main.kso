@@ -1,0 +1,6 @@
+import "../../../routes"
+import "./door"
+
+derive routes/rest
+
+print "unreached"

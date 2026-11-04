@@ -15,6 +15,7 @@ type hit
   action
   kind
   id
+  limit
 
 type moved
   path
@@ -42,6 +43,7 @@ type site
   routes
   dbs
   connect
+  calls
 
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
@@ -51,10 +53,22 @@ type site
 # never hold one session at once, because their queries would interleave on
 # its socket; a request that finds every session lent waits for one to come
 # back. An action answers an effect that yields the response.
+#
+# An action its module limits (`rate_limits`, in routes) is called only so
+# often by one client, told apart by its address. The calls each client made
+# in the window are kept in this server's memory, in a pool holding one map,
+# so two requests never count at once; they start over when the server does,
+# and two servers count apart. A call past the limit is answered 429 Too Many
+# Requests without reaching the action.
 pub fn serve at routes connect
   pool/make sessions
     .> (dbs -> filled dbs connect sessions)
-    .> (dbs -> listened at (site routes dbs connect))
+    .> (dbs -> counting .> (calls -> opening at routes dbs connect calls))
+
+fn opening at routes dbs connect calls
+  listened at (site routes dbs connect calls)
+
+counting = pool/make 1 .> (p -> pool/give p {} .> (_ -> effect p))
 
 sessions = 4
 
@@ -78,26 +92,118 @@ fn forked l c s
   served l s
 
 fn answered c s
-  net/read c .> (raw -> time/now .> (t -> heard c s (arrived raw t)))
+  net/read c
+    .> (raw -> time/now .> (t -> net/peer c .> (from -> heard_from raw t from)))
+    .> (req -> heard c s req)
+
+fn heard_from raw t from
+  effect (arrived raw t from)
 
 # The request as the server heard it, with the time it arrived, in
-# milliseconds since the epoch, under `senro-at`. The line goes after the
-# client's headers, and the last of two headers with one name is the one
-# parsed, so a value the client sent under that name is replaced and a
-# session's age is measured by the server's clock alone.
-fn arrived raw t
+# milliseconds since the epoch, under `senro-at`, and the address of the
+# client under `senro-peer`. The lines go after the client's headers, and the
+# last of two headers with one name is the one parsed, so a value the client
+# sent under either name is replaced: a session's age is measured by the
+# server's clock alone, and a client cannot name itself another.
+fn arrived raw t from
   parts = text/split raw "\r\n\r\n"
   return http/parsed raw if length parts < 2
   rest = text/join (list/to_list (list/drop parts 1)) "\r\n\r\n"
-  http/parsed "{parts[1]}\r\nsenro-at: {t}\r\n\r\n{rest}"
+  ours = "senro-at: {t}\r\nsenro-peer: {from}"
+  http/parsed "{parts[1]}\r\n{ours}\r\n\r\n{rest}"
+
+# The address of the client that made a request, as Rails' `remote_ip` reads
+# it: "127.0.0.1", or an IPv6 address in its short form.
+pub fn peer req
+  req.headers["senro-peer"]
 
 fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
   action = matched s.routes method req.path
   by = sender req.headers["senro-page"]
-  pool/with s.dbs (db -> responded c db method by (answered_by action req db))
+  answer = (db -> answered_by action req db)
+  answering = pool/with s.dbs (db -> responded c db method by (answer db))
+  turned = turned_away action req
+  allowed s.calls action req
+    .> (fine -> let_in fine c answering turned)
     .> (_ -> net/close_conn c)
+
+fn let_in true _ answering _
+  answering
+
+fn let_in false c _ turned
+  turned .> (r -> sent c r)
+
+# What a call past its action's limit is answered: the module's `over_limit`
+# when it writes one, and 429 Too Many Requests when it does not.
+fn turned_away none _
+  too_many
+
+fn turned_away (hit _ _ _ none) _
+  too_many
+
+fn turned_away (hit _ _ _ l) req
+  over_limit l["over"] req
+
+fn turned_away _ _
+  too_many
+
+fn over_limit none _
+  too_many
+
+fn over_limit over req
+  over req
+
+too_many = effect (http/respond 429 [] "Too Many Requests\n")
+
+fn allowed _ none _
+  effect true
+
+fn allowed _ (hit _ _ _ none) _
+  effect true
+
+fn allowed calls (hit _ _ _ l) req
+  at = "{l["key"]} {peer req}"
+  checked calls at l["count"] l
+
+fn checked _ _ none _
+  effect true
+
+fn checked calls at count l
+  windowed calls at count l["within"]
+
+fn windowed _ _ _ none
+  effect true
+
+fn windowed calls at count within
+  taken = pool/take calls
+  time/now .> (t -> taken .> (seen -> counted calls seen at count within t))
+
+fn allowed _ _ _
+  effect true
+
+# The calls one client made to one action, in the window that ends now. A call
+# the limit allows is counted, and one it does not is not, so a client that
+# keeps calling is let in again once its earlier calls have aged out.
+fn counted calls seen at count within t
+  since = t - within
+  recent = list/to_list (list/select (made seen[at]) (when -> when > since))
+  fine = length recent < count
+  counts = put seen at (tallied recent fine t)
+  pool/give calls counts .> (_ -> effect fine)
+
+fn made none
+  []
+
+fn made times
+  times
+
+fn tallied recent true t
+  push recent t
+
+fn tallied recent false _
+  recent
 
 fn responded c db method by answer
   answer
@@ -237,15 +343,14 @@ fn found row id
   aimed row["to"] row id
 
 fn aimed none row id
-  took row["action"] row["id"] id
+  limited (took row["action"] row["id"] id) row["limit"]
 
 fn aimed to _ id
   moved (redirected to id)
 
-# An old path the app keeps as a legacy alias answers a permanent redirect to
-# its route, with the id it was asked for.
 # Where a request `matched` found is redirected when a legacy alias answered
-# it, or "" when it was not.
+# it, or "" when it was not. An alias redirects to its route with the id it
+# was asked for.
 pub fn moved_to none
   ""
 
@@ -271,7 +376,17 @@ fn took _ none _
   none
 
 fn took action kind id
-  hit action kind id
+  hit action kind id none
+
+# The limit its module set on the action, when it set one.
+fn limited none _
+  none
+
+fn limited (hit action kind id _) none
+  hit action kind id none
+
+fn limited (hit action kind id _) l
+  hit action kind id l
 
 # A GET no route answers is senro's page script at /senro.js, or else it is
 # looked for under `public/`, beside the app, the way a stylesheet or an
@@ -338,7 +453,7 @@ fn kind_of path
   return "text/javascript; charset=utf-8" if text/ends_with? path ".js"
   "text/plain; charset=utf-8"
 
-fn routed (hit action kind id) req db
+fn routed (hit action kind id _) req db
   called action kind id req db
 
 fn routed (moved path) _ _

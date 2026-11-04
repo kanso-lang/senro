@@ -1,0 +1,12 @@
+import "../../../web"
+import "std/net/http"
+
+pub rate_limits = { "create":"1 per minute" }
+
+pub fn create _ _
+  effect (http/text_page "through the gate")
+
+# A call past the limit is sent back to the door, as the guestbook sends a
+# visitor back to the sign-in page.
+pub fn over_limit _
+  effect (web/redirect "/door")

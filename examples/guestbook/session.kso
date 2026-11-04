@@ -6,6 +6,11 @@ import "./entries"
 import "./views"
 import "std/text"
 
+# One address may try to sign in ten times in three minutes, as Rails 8's
+# generated sessions controller allows. Past that, `over_limit` answers the
+# sign-in page again, saying why.
+pub rate_limits = { "create":"10 per 3 minutes" }
+
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's name into it as the viewer.
 pub fn new req _
@@ -37,6 +42,10 @@ fn entered req name kept password
 fn refused req name
   wrong = { "password":"That name and password do not match." }
   effect (opened req name wrong 422)
+
+pub fn over_limit req
+  wait = { "password":"Too many tries. Try again in a few minutes." }
+  effect (opened req "" wait 429)
 
 # Signing out keeps the rest of the session and forgets the viewer.
 pub fn destroy req _

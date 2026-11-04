@@ -1,0 +1,39 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Knocks three times on a door that lets one client in twice a minute. Each
+# knock claims another address in `senro-peer`, which the server replaces
+# with the one it read off the connection, so all three count against this
+# client and the third is turned away. Then twice on a gate that lets it in
+# once and sends it back to the door after.
+pub fn index _ _
+  thrice = (a b -> knocked "/door" .> (c -> effect [a b c]))
+  doors = knocked "/door" .> (a -> knocked "/door" .> (b -> thrice a b))
+  gates = knocked "/gate" .> (d -> knocked "/gate" .> (e -> effect [d e]))
+  doors .> (ds -> gates .> (gs -> said (list/concat ds gs)))
+
+fn knocked path
+  net/dial "127.0.0.1" 54404 .> (c -> knocking c path)
+
+fn knocking c path
+  head = "POST {path} HTTP/1.1\r\nhost: localhost\r\nsenro-peer: 10.0.0.9"
+  net/write c "{head}\r\ncontent-length: 0\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn said answers
+  lines = text/join (list/to_list (list/map answers heard)) "\n"
+  effect (http/text_page lines)
+
+fn heard raw
+  "{status raw}: {body raw}"
+
+fn status raw
+  (text/split raw "\r\n")[1]
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]
