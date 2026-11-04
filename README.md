@@ -89,7 +89,10 @@ adds, counts, renames and removes things on a shelf without a page reload.
   error, and the server keeps serving. A failure the app expects should be a
   value its action answers. It serves files under the app's `public/`,
   answers `web/redirect`, and keeps a session in a signed cookie
-  (`web/session` and `web/kept`). It also serves senro's page script at
+  (`web/session` and `web/kept`). The server stamps each request with the
+  time it arrived, and a sign-in (`web/signed_in`) lasts `web/session_days`,
+  fourteen, from the request that made it; after that the session reads
+  without its viewer. It also serves senro's page script at
   `/senro.js`. A layout that loads it gets pages that update in place: a
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never
