@@ -61,7 +61,7 @@ type origin
   keyed
 
 # What a scan of an expression found: its text with every field read written
-# as `(kata_field e "name")`, and each chain of reads it rewrote, such as
+# as `(kata_at e "name")`, and each chain of reads it rewrote, such as
 # `post.author.name`. Only code is read; the text of a string literal is
 # copied, though the code in its `{}` holes is not.
 type reading
@@ -72,22 +72,23 @@ type reading
 # `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
 pub fn compiled name file src
-  written "pub fn" (origin name file false) src
+  written "pub fn" name (origin name file false) src
 
 # The same template compiled to read what JSON decoded: `{name}_keyed`, a
 # private function of the same parameters, in which `e.name` reads the key
 # `name` of a map. The browser renders a page with it from the data the
-# server sent, and the server renders the first request with it too, so the
-# two cannot differ.
+# server sent, and the server renders the first request with it too. Its
+# helpers are named `{name}_k` and a line number, kept short because each
+# hole must fit on a line of the source kata writes.
 pub fn keyed name file src
-  written "fn" (origin "{name}_keyed" file true) src
+  written "fn" "{name}_keyed" (origin "{name}_k" file true) src
 
-fn written kind o src
+fn written kind head o src
   rows = rows_of src
   declared = takes_of rows
   from = if (length declared == 0) 1 2
   w = walk rows from (length rows + 1) declared o (woven [] [])
-  main = emitted "{kind} {o.name} {params_of declared}" w.units o
+  main = emitted "{kind} {head} {params_of declared}" w.units o
   "{text/join (push w.helpers main) "\n\n"}\n"
 
 fn rows_of src
@@ -574,7 +575,7 @@ fn fields_after cs i j modes acc expr chain
   return rewritten cs j modes ended_here if not more
   k = name_end cs (j + 1)
   f = word_from cs (j + 1) k
-  read = "kata_field {wrapped expr} \"{f}\""
+  read = "kata_at {wrapped expr} \"{f}\""
   fields_after cs i k modes acc read "{chain}.{f}"
 
 fn alone? before after_it

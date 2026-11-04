@@ -263,14 +263,14 @@ fn shown_arm f src
   n = page_name f
   declared = takes src
   return "fn kata_shown \"{n}\" _\n  {n}_keyed \"\"\n" if length declared == 0
-  bound = list/map declared (d -> "  {d} = kata_field kata_l \"{d}\"")
+  bound = list/map declared (d -> "  {d} = kata_at kata_l \"{d}\"")
   call = "  {n}_keyed {text/join declared " "}"
   lines = list/concat (list/to_list bound) [call]
   "fn kata_shown \"{n}\" kata_l\n{text/join lines "\n"}\n"
 
 rendering = """
   pub fn rendered node
-    kata_shown (kata_field node "view") (kata_field node "locals")
+    kata_shown (kata_at node "view") (kata_at node "locals")
 """
 
 # A page answers a request a browser made itself as HTML, rendered here. The
@@ -296,10 +296,10 @@ answering = """
 # value that is not a list loops over nothing, and a page within the page
 # renders where it is spliced.
 keyed_helpers = """
-  fn kata_field none _
+  fn kata_at none _
     ""
 
-  fn kata_field m k
+  fn kata_at m k
     kata_present m[k]
 
   fn kata_present none

@@ -55,10 +55,10 @@ fn each xs f
 fn joined parts
   text/join parts ""
 
-fn kata_field none _
+fn kata_at none _
   ""
 
-fn kata_field m k
+fn kata_at m k
   kata_present m[k]
 
 fn kata_present none
@@ -130,48 +130,48 @@ fn layout_keyed title body
     "</head><body><main>{kata_raw body}</main></body></html>"
   ]
 # in views, by kata/views
-fn signed_keyed_5 flash
+fn signed_k_5 flash
   # signed.kata:6
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_keyed_12 removals e
+fn signed_k_12 removals e
   joined [
     # signed.kata:14
-    "<li><p class=\"message\">{escape (kata_field e "message")}</p><p "
+    "<li><p class=\"message\">{escape (kata_at e "message")}</p><p "
     # signed.kata:15
-    "class=\"who\">{escape (kata_field e "name")}</p>"
+    "class=\"who\">{escape (kata_at e "name")}</p>"
     # signed.kata:16
-    "{kata_raw removals["{kata_field e "id"}"]}</li>"
+    "{kata_raw removals["{kata_at e "id"}"]}</li>"
   ]
 
 fn signed_keyed signatures name flash removals
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # signed.kata:5
-    "comes next.</p></header>{if (flash != "") (signed_keyed_5 flash) ""}"
-    "<form method=\"post\" action=\"/entries\"><input name=\"name\" "
+    "comes next.</p></header>{if (flash != "") (signed_k_5 flash) ""}<form "
+    "method=\"post\" action=\"/entries\"><input name=\"name\" "
     # signed.kata:8
     "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
     "<textarea name=\"message\" placeholder=\"say something\" "
     "required=\"required\"></textarea><button>Sign</button></form><ol "
     "class=\"entries\">"
     # signed.kata:12
-    "{each (kata_items signatures) (e -> signed_keyed_12 removals e)}</ol>"
+    "{each (kata_items signatures) (e -> signed_k_12 removals e)}</ol>"
   ]
 # in views, by kata/views
 pub fn rendered node
-  kata_shown (kata_field node "view") (kata_field node "locals")
+  kata_shown (kata_at node "view") (kata_at node "locals")
 
 fn kata_shown "layout" kata_l
-  title = kata_field kata_l "title"
-  body = kata_field kata_l "body"
+  title = kata_at kata_l "title"
+  body = kata_at kata_l "body"
   layout_keyed title body
 
 fn kata_shown "signed" kata_l
-  signatures = kata_field kata_l "signatures"
-  name = kata_field kata_l "name"
-  flash = kata_field kata_l "flash"
-  removals = kata_field kata_l "removals"
+  signatures = kata_at kata_l "signatures"
+  name = kata_at kata_l "name"
+  flash = kata_at kata_l "flash"
+  removals = kata_at kata_l "removals"
   signed_keyed signatures name flash removals
 
 fn kata_shown _ _
