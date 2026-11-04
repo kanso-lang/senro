@@ -1,0 +1,46 @@
+import "../../../../passwords"
+import "std/text"
+
+# Digests written by Python's hashlib, an implementation independent of
+# kanso's: RFC 7914's first PBKDF2-SHA-256 vector cut to 32 bytes, and one
+# of fifty rounds under a salt of sixteen bytes.
+digest = "VawEblbjCJ/sFpHCJUS2BflBhSFt3gRl5oudV8INrLw="
+
+vector = "pbkdf2-sha256$1$c2FsdA==${digest}"
+
+salt = "MDEyMzQ1Njc4OWFiY2RlZg=="
+
+fifty = "pbkdf2-sha256$50${salt}$TaOuZtGliQBuvuAmNHKUuEerVTjGQJOy7H4Kkpzz1b0="
+
+empty = "pbkdf2-sha256$1$c2FsdA==$"
+
+none_rounds = "pbkdf2-sha256$0$c2FsdA==${digest}"
+
+fn told name none
+  print "{name}: nothing"
+
+fn told name verdict
+  print "{name}: {verdict}"
+
+fn stand_in_matched d
+  told "the stand-in, matched" (passwords/matches? "" d)
+
+fn fresh a b
+  told "two digests of one password differ" (a != b)
+    .> (_ -> told "the first matches" (passwords/matches? "hunter2" a))
+    .> (_ -> told "the second matches" (passwords/matches? "hunter2" b))
+    .> (_ -> told "a wrong guess" (passwords/matches? "hunter3" a))
+    .> (_ -> told "names its rounds" (text/starts_with? a "pbkdf2-sha256$20$"))
+
+pub all = told "the RFC vector" (passwords/matches? "passwd" vector)
+  .> (_ -> told "fifty rounds" (passwords/matches? "hunter2" fifty))
+  .> (_ -> told "the vector, wrong" (passwords/matches? "passw0rd" vector))
+  .> (_ -> told "a password kept as itself" (passwords/matches? "x" "x"))
+  .> (_ -> told "no rounds" (passwords/matches? "passwd" none_rounds))
+  .> (_ -> told "an empty digest" (passwords/matches? "passwd" empty))
+  .> (_ -> passwords/stand_in)
+  .> (d -> told "the stand-in" d .> (_ -> stand_in_matched d))
+  .> (_ -> passwords/digested_at 20 "hunter2")
+  .> (a -> passwords/digested_at 20 "hunter2" .> (b -> fresh a b))
+  .> (_ -> passwords/digested "hunter2")
+  .> (d -> told "rounds from the environment" (text/split d "$")[2])

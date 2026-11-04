@@ -6,30 +6,30 @@ import "./signatures"
 import "./views"
 import "std/list"
 
-# What the form shows: the name and message it holds, and the problem with
-# each, if any.
+# What the form shows: the message it holds, and its problem, if any.
 type filled
-  name
   message
   problems
 
-# The session remembers who signed last, to fill in the form for them, and
-# carries a thank-you across the redirect that follows a signature; the page
-# that shows the thank-you clears it.
+# The session says who is signed in, and carries a notice across the
+# redirect that follows a signature or a sign-in; the page that shows the
+# notice clears it.
 pub fn index req db
   s = web/session req secret
-  form = filled (said s["name"]) "" {}
-  pg/query db newest [] .> (r -> shown req r.rows s form 200)
+  pg/query db newest [] .> (r -> shown req r.rows s (filled "" {}) 200)
 
 # A development secret. A deployed guestbook signs its sessions with its own.
 pub secret = "the guestbook's development secret"
 
 # A signature is made through its model, whose rules decide whether it is
-# fit to keep; the two fields go to Postgres as parameters, so what a visitor
-# types is stored as text and never read as SQL.
+# fit to keep. It is signed with the name of the account signed in, and a
+# visitor who is not signed in is sent to sign in. The fields go to Postgres
+# as parameters, so what a visitor types is stored as text and never read as
+# SQL.
 pub fn create req db
-  f = web/form req.body
   viewer = web/viewer req secret
+  return effect (web/redirect "/session/new") if viewer == ""
+  f = put (web/form req.body) "name" viewer
   models/created viewer db signatures/signature_model f
     .> (w -> signed req db w)
 
@@ -37,18 +37,14 @@ pub fn create req db
 # form as the visitor filled it in and what to fix.
 fn signed req db w:models/invalid
   s = web/session req secret
-  form = filled w.record.name w.record.message w.problems
+  form = filled w.record.message w.problems
   pg/query db newest [] .> (r -> shown req r.rows s form 422)
 
 # A signature kept. The answer sends the browser back to the list, so
-# reloading it does not sign the book again. Signing signs the visitor in
-# under the name they signed with, which is what lets them remove their own
-# entries.
-fn signed req _ kept
-  name = kept.name
-  s = put (web/session req secret) "name" name
-  thanked = put s "flash" "Thank you for signing, {name}."
-  effect (web/signed_in (web/redirect "/") secret thanked name)
+# reloading it does not sign the book again.
+fn signed req _ _
+  thanked = put (web/session req secret) "flash" "Thank you for signing."
+  effect (web/kept (web/redirect "/") secret thanked)
 
 newest = "select id, name, message from signatures order by id desc"
 
@@ -60,7 +56,7 @@ fn shown req rows s form code
   who = said s["viewer"]
   removals = list/fold book {} (m e -> put m "{e.id}" (removal_of e who))
   flash = said s["flash"]
-  page = views/signed_view book form flash removals
+  page = views/signed_view book form flash removals who
   r = views/answer_as req code (views/layout_view "Guestbook" page)
   effect (web/kept r secret (put s "flash" ""))
 

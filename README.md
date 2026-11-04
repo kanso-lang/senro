@@ -101,6 +101,15 @@ adds, counts, renames and removes things on a shelf without a page reload.
   a GET finishes, the server notifies Postgres's `senro` channel, and every
   page holding `/senro/live` open fetches itself again, so one visitor's
   change shows on another's page.
+- `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
+  the operating system's secure source (`os/random_bytes`).
+  `passwords/digested password` describes the stored text, which names its
+  rounds, salt and digest; `passwords/matches? password kept` checks a
+  password against it, comparing every byte. A sign-in for a name with no
+  account checks against `passwords/stand_in`, which costs the same, so a
+  refusal's timing does not say whether the name exists. The rounds are
+  `SENRO_PASSWORD_ROUNDS`, or 100,000 when it is unset; the comment above
+  `default_rounds` says why that is below OWASP's figure. The specs set 30.
 - `browser`: what an app's components and pages need in the browser.
   `browser.kso` beside the app's entry names its browser components with
   `browser/answer`, or with `browser/answer_pages` when the module renders

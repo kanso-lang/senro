@@ -1,0 +1,13 @@
+takes heading path button name problems
+header
+  h1 = heading
+  p.lede
+    a href="/" Back to the book
+form method="post" action=path
+  input name="name" placeholder="name" required="required" value=name
+  if problems["name"] != none
+    p.problem = problems["name"]
+  input type="password" name="password" placeholder="password" required="required"
+  if problems["password"] != none
+    p.problem = problems["password"]
+  button = button

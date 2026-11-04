@@ -15,6 +15,10 @@
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
+# Passwords are stretched by thirty rounds of PBKDF2, so the interpreter
+# signs a visitor in quickly; spec/runs/passwords checks that the setting
+# reaches the digest.
+export SENRO_PASSWORD_ROUNDS=30
 fail=0
 here=$(pwd)
 
@@ -22,7 +26,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata examples/guestbook examples/pantry examples/pg; do
+for d in routes models web pg kata passwords examples/guestbook examples/pantry examples/pg; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else

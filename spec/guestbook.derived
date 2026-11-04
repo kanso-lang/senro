@@ -88,6 +88,33 @@ fn kata_raw node:map[string some]
 fn kata_raw x
   "{x}"
 # in views, by kata/views
+fn door_8 problems
+  # door.kata:9
+  "<p class=\"problem\">{escape problems["name"]}</p>"
+
+fn door_11 problems
+  # door.kata:12
+  "<p class=\"problem\">{escape problems["password"]}</p>"
+
+pub fn door heading path button name problems
+  joined [
+    # door.kata:3
+    "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
+    # door.kata:6
+    "to the book</a></p></header><form method=\"post\" action=\"{escape path}"
+    "\"><input name=\"name\" placeholder=\"name\" required=\"required\" "
+    # door.kata:7
+    "value=\"{escape name}\">"
+    # door.kata:8
+    "{if (problems["name"] != none) (door_8 problems) ""}<input "
+    "type=\"password\" name=\"password\" placeholder=\"password\" "
+    "required=\"required\">"
+    # door.kata:11
+    "{if (problems["password"] != none) (door_11 problems) ""}<button>"
+    # door.kata:13
+    "{escape button}</button></form>"
+  ]
+# in views, by kata/views
 pub fn layout title body
   joined [
     "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta "
@@ -99,45 +126,84 @@ pub fn layout title body
     "</head><body><main>{body}</main></body></html>"
   ]
 # in views, by kata/views
-fn signed_5 flash
-  # signed.kata:6
+signed_5 = joined [
+  "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
+  "href=\"/accounts/new\">Make an account</a></nav>"
+]
+
+fn signed_9 viewer
+  joined [
+    "<form method=\"post\" action=\"/session\" class=\"out\"><input "
+    "type=\"hidden\" name=\"_method\" value=\"DELETE\"><span>Signed in as "
+    # signed.kata:12
+    "{escape viewer}.</span><button>Sign out</button></form>"
+  ]
+
+fn signed_14 flash
+  # signed.kata:15
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_9 form
-  # signed.kata:10
-  "<p class=\"problem\">{escape form.problems["name"]}</p>"
-
-fn signed_12 form
-  # signed.kata:13
+fn signed_19 form
+  # signed.kata:20
   "<p class=\"problem\">{escape form.problems["message"]}</p>"
 
-fn signed_16 removals e
+fn signed_16 form
   joined [
+    "<form method=\"post\" action=\"/entries\" class=\"sign\"><textarea "
+    "name=\"message\" placeholder=\"say something\" required=\"required\">"
     # signed.kata:18
+    "{escape form.message}</textarea>"
+    # signed.kata:19
+    "{if (form.problems["message"] != none) (signed_19 form) ""}<button>"
+    "Sign</button></form>"
+  ]
+
+fn signed_23 removals e
+  joined [
+    # signed.kata:25
     "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
-    # signed.kata:19, 20
+    # signed.kata:26, 27
     "{escape e.name}</p>{removals["{e.id}"]}</li>"
   ]
 
-pub fn signed signatures form flash removals
+pub fn signed signatures form flash removals viewer
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # signed.kata:5
-    "comes next.</p></header>{if (flash != "") (signed_5 flash) ""}<form "
-    "method=\"post\" action=\"/entries\"><input name=\"name\" "
-    "placeholder=\"your name\" required=\"required\" "
-    # signed.kata:8
-    "value=\"{escape form.name}\">"
-    # signed.kata:9
-    "{if (form.problems["name"] != none) (signed_9 form) ""}<textarea "
-    "name=\"message\" placeholder=\"say something\" required=\"required\">"
-    # signed.kata:11
-    "{escape form.message}</textarea>"
-    # signed.kata:12
-    "{if (form.problems["message"] != none) (signed_12 form) ""}<button>"
-    "Sign</button></form><ol class=\"entries\">"
+    "comes next.</p></header>{if (viewer == "") signed_5 (signed_9 viewer)}"
+    # signed.kata:14
+    "{if (flash != "") (signed_14 flash) ""}"
     # signed.kata:16
-    "{each signatures (e -> signed_16 removals e)}</ol>"
+    "{if (viewer != "") (signed_16 form) ""}<ol class=\"entries\">"
+    # signed.kata:23
+    "{each signatures (e -> signed_23 removals e)}</ol>"
+  ]
+# in views, by kata/views
+fn door_k_8 problems
+  # door.kata:9
+  "<p class=\"problem\">{escape problems["name"]}</p>"
+
+fn door_k_11 problems
+  # door.kata:12
+  "<p class=\"problem\">{escape problems["password"]}</p>"
+
+fn door_keyed heading path button name problems
+  joined [
+    # door.kata:3
+    "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
+    # door.kata:6
+    "to the book</a></p></header><form method=\"post\" action=\"{escape path}"
+    "\"><input name=\"name\" placeholder=\"name\" required=\"required\" "
+    # door.kata:7
+    "value=\"{escape name}\">"
+    # door.kata:8
+    "{if (problems["name"] != none) (door_k_8 problems) ""}<input "
+    "type=\"password\" name=\"password\" placeholder=\"password\" "
+    "required=\"required\">"
+    # door.kata:11
+    "{if (problems["password"] != none) (door_k_11 problems) ""}<button>"
+    # door.kata:13
+    "{escape button}</button></form>"
   ]
 # in views, by kata/views
 fn layout_keyed title body
@@ -151,51 +217,72 @@ fn layout_keyed title body
     "</head><body><main>{kata_raw body}</main></body></html>"
   ]
 # in views, by kata/views
-fn signed_k_5 flash
-  # signed.kata:6
+signed_k_5 = joined [
+  "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
+  "href=\"/accounts/new\">Make an account</a></nav>"
+]
+
+fn signed_k_9 viewer
+  joined [
+    "<form method=\"post\" action=\"/session\" class=\"out\"><input "
+    "type=\"hidden\" name=\"_method\" value=\"DELETE\"><span>Signed in as "
+    # signed.kata:12
+    "{escape viewer}.</span><button>Sign out</button></form>"
+  ]
+
+fn signed_k_14 flash
+  # signed.kata:15
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_k_9 form
-  # signed.kata:10
-  "<p class=\"problem\">{escape (kata_at form "problems")["name"]}</p>"
-
-fn signed_k_12 form
-  # signed.kata:13
+fn signed_k_19 form
+  # signed.kata:20
   "<p class=\"problem\">{escape (kata_at form "problems")["message"]}</p>"
 
-fn signed_k_16 removals e
+fn signed_k_16 form
   joined [
+    "<form method=\"post\" action=\"/entries\" class=\"sign\"><textarea "
+    "name=\"message\" placeholder=\"say something\" required=\"required\">"
     # signed.kata:18
-    "<li><p class=\"message\">{escape (kata_at e "message")}</p><p "
+    "{escape (kata_at form "message")}</textarea>"
     # signed.kata:19
+    "{if ((kata_at form "problems")["message"] != none) (signed_k_19 form) ""}"
+    "<button>Sign</button></form>"
+  ]
+
+fn signed_k_23 removals e
+  joined [
+    # signed.kata:25
+    "<li><p class=\"message\">{escape (kata_at e "message")}</p><p "
+    # signed.kata:26
     "class=\"who\">{escape (kata_at e "name")}</p>"
-    # signed.kata:20
+    # signed.kata:27
     "{kata_raw removals["{kata_at e "id"}"]}</li>"
   ]
 
-fn signed_keyed signatures form flash removals
+fn signed_keyed signatures form flash removals viewer
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
+    "comes next.</p></header>"
     # signed.kata:5
-    "comes next.</p></header>{if (flash != "") (signed_k_5 flash) ""}<form "
-    "method=\"post\" action=\"/entries\"><input name=\"name\" "
-    "placeholder=\"your name\" required=\"required\" "
-    # signed.kata:8
-    "value=\"{escape (kata_at form "name")}\">"
-    # signed.kata:9
-    "{if ((kata_at form "problems")["name"] != none) (signed_k_9 form) ""}"
-    "<textarea name=\"message\" placeholder=\"say something\" "
-    # signed.kata:11
-    "required=\"required\">{escape (kata_at form "message")}</textarea>"
-    # signed.kata:12
-    "{if ((kata_at form "problems")["message"] != none) (signed_k_12 form) ""}"
-    "<button>Sign</button></form><ol class=\"entries\">"
+    "{if (viewer == "") signed_k_5 (signed_k_9 viewer)}"
+    # signed.kata:14
+    "{if (flash != "") (signed_k_14 flash) ""}"
     # signed.kata:16
-    "{each (kata_items signatures) (e -> signed_k_16 removals e)}</ol>"
+    "{if (viewer != "") (signed_k_16 form) ""}<ol class=\"entries\">"
+    # signed.kata:23
+    "{each (kata_items signatures) (e -> signed_k_23 removals e)}</ol>"
   ]
 # in views, by kata/views
 pub fn rendered node
   kata_shown (kata_at node "view") (kata_at node "locals")
+
+fn kata_shown "door" kata_l
+  heading = kata_at kata_l "heading"
+  path = kata_at kata_l "path"
+  button = kata_at kata_l "button"
+  name = kata_at kata_l "name"
+  problems = kata_at kata_l "problems"
+  door_keyed heading path button name problems
 
 fn kata_shown "layout" kata_l
   title = kata_at kata_l "title"
@@ -207,10 +294,21 @@ fn kata_shown "signed" kata_l
   form = kata_at kata_l "form"
   flash = kata_at kata_l "flash"
   removals = kata_at kata_l "removals"
-  signed_keyed signatures form flash removals
+  viewer = kata_at kata_l "viewer"
+  signed_keyed signatures form flash removals viewer
 
 fn kata_shown _ _
   ""
+# in views, by kata/views
+pub fn door_view heading path button name problems
+  kata_locals = {
+    "button":button
+    "heading":heading
+    "name":name
+    "path":path
+    "problems":problems
+  }
+  { "locals":kata_locals "view":"door" }
 # in views, by kata/views
 pub fn layout_view title body
   kata_locals = { "body":body "title":title }
@@ -223,14 +321,15 @@ fn signed_view_signatures xs
   list/to_list (list/map xs signed_view_signatures_each)
 
 fn signed_view_form x
-  { "message":x.message "name":x.name "problems":x.problems }
+  { "message":x.message "problems":x.problems }
 
-pub fn signed_view signatures form flash removals
+pub fn signed_view signatures form flash removals viewer
   kata_locals = {
     "flash":flash
     "form":(signed_view_form form)
     "removals":removals
     "signatures":(signed_view_signatures signatures)
+    "viewer":viewer
   }
   { "locals":kata_locals "view":"signed" }
 # in views, by kata/views
@@ -251,7 +350,26 @@ fn kata_answered _ code node
     "senro-view: 1"
   ]
   http/respond code heard (json/encode node)
-schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
+schema = { "accounts":["id serial" "name text" "digest text"] "signatures":["id serial" "name text" "message text"] }    # models/tables
+# in accounts, by models/tables
+pub fn account_from row
+  id = account_cell row["id"]
+  name = account_cell row["name"]
+  digest = account_cell row["digest"]
+  account id name digest
+# in accounts, by models/tables
+fn account_cell none
+  ""
+
+fn account_cell v
+  v
+# in accounts, by models/tables
+pub account_model = {
+  "columns":["id" "name" "digest"]
+  "create":create?
+  "read":account_from
+  "table":"accounts"
+}
 # in signatures, by models/tables
 pub fn signature_from row
   id = signature_cell row["id"]
@@ -273,4 +391,4 @@ pub signature_model = {
   "read":signature_from
   "table":"signatures"
 }
-routes = { "GET /":{ "action":home/index "id":"" } "GET /entries":{ "action":entries/index "id":"" } "POST /entries":{ "action":entries/create "id":"" } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" } "GET /accounts/new":{ "action":accounts/new "id":"" } "GET /entries":{ "action":entries/index "id":"" } "GET /session/new":{ "action":session/new "id":"" } "POST /accounts":{ "action":accounts/create "id":"" } "POST /entries":{ "action":entries/create "id":"" } "POST /session":{ "action":session/create "id":"" } }    # routes/rest

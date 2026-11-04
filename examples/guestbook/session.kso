@@ -1,0 +1,49 @@
+import "../../models"
+import "../../passwords"
+import "../../pg"
+import "../../web"
+import "./entries"
+import "./views"
+import "std/text"
+
+# Signing in and out. The session is the signed cookie `web` keeps, and
+# signing in writes the account's name into it as the viewer.
+pub fn new req _
+  effect (opened req "" {} 200)
+
+# A name with no account is checked against nothing at the same cost, so a
+# refusal takes as long whether or not the name exists, and the answer is
+# the same: a name and a password that do not match.
+pub fn create req db
+  f = web/form req.body
+  name = text/trim (web/value f "name")
+  password = web/value f "password"
+  pg/query db digest_of [name]
+    .> (r -> kept_digest r.rows)
+    .> (kept -> entered req name kept password)
+
+digest_of = "select digest from accounts where name = $1"
+
+fn kept_digest rows
+  return passwords/stand_in if length rows == 0
+  effect (models/cell rows[1] "digest")
+
+fn entered req name kept password
+  return refused req name if not passwords/matches? password kept
+  s = web/session req entries/secret
+  welcomed = put s "flash" "Signed in as {name}."
+  effect (web/signed_in (web/redirect "/") entries/secret welcomed name)
+
+fn refused req name
+  wrong = { "password":"That name and password do not match." }
+  effect (opened req name wrong 422)
+
+# Signing out keeps the rest of the session and forgets the viewer.
+pub fn destroy req _
+  s = delete (web/session req entries/secret) "viewer"
+  r = web/redirect "/"
+  effect (web/kept r entries/secret (put s "flash" "Signed out."))
+
+fn opened req name problems code
+  page = views/door_view "Sign in" "/session" "Sign in" name problems
+  views/answer_as req code (views/layout_view "Sign in · Guestbook" page)

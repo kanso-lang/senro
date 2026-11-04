@@ -1,9 +1,9 @@
 // The guestbook signed in a real browser, with senro's page script and the
-// guestbook's browser module loaded.
-// The page marks its window before signing; a page that reloaded would lose
-// the mark. Then the visitor removes her own entry, and is refused when she
-// asks to remove someone else's. Prints what a visitor sees, for spec.sh to
-// compare with spec/browser/guestbook.out. Run as:
+// guestbook's browser module loaded. Each visitor makes an account and signs
+// with it. The page marks its window before signing; a page that reloaded
+// would lose the mark. Then the visitor removes her own entry, and is refused
+// when she asks to remove someone else's. Prints what a visitor sees, for
+// spec.sh to compare with spec/browser/guestbook.out. Run as:
 //
 //   node spec/browser/guestbook.mjs <port> <browser>
 import { createRequire } from "node:module";
@@ -16,13 +16,64 @@ const page = await browser.newPage();
 const said = [];
 page.on("pageerror", (e) => said.push(`page error: ${e.message}`));
 
+const at = (path) => `http://127.0.0.1:${port}${path}`;
+
+// Makes an account from the front page's link, and waits for the book. The
+// interpreted run finds the account the native run made, and signs in.
+async function joined(p, name, password) {
+  await p.goto(at("/"));
+  await p.click("a[href='/accounts/new']");
+  await p.waitForSelector("input[type=password]");
+  await p.fill("input[name=name]", name);
+  await p.fill("input[name=password]", password);
+  await p.click("form button");
+  await p.waitForSelector("form.out, p.problem");
+  if (await p.$("form.out")) return;
+  await p.goto(at("/session/new"));
+  await p.fill("input[name=name]", name);
+  await p.fill("input[name=password]", password);
+  await p.click("form button");
+  await p.waitForSelector("form.out");
+}
+
 // Bob signs first, in a browser context of his own.
 const bob = await (await browser.newContext()).newPage();
-await bob.goto(`http://127.0.0.1:${port}/`);
-await bob.fill("input[name=name]", "Bob");
+await joined(bob, "Bob", "bobs password");
 await bob.fill("textarea[name=message]", "from Bob");
-await bob.click("button");
+await bob.click("form.sign button");
 await bob.waitForSelector("p.flash");
+
+// A visitor who is not signed in is offered the door and no form.
+const visitor = await (await browser.newContext()).newPage();
+await visitor.goto(at("/"));
+const door = await visitor.evaluate(() => ({
+  links: [...document.querySelectorAll("nav.door a")].map((a) => a.textContent).join(", "),
+  form: document.querySelector("form.sign") ? "shown" : "none",
+}));
+console.log(`a visitor sees: ${door.links}; sign form: ${door.form}`);
+
+// Signing in with the wrong password is refused with one message, whether
+// or not the name has an account.
+async function refused(name) {
+  await visitor.goto(at("/session/new"));
+  await visitor.fill("input[name=name]", name);
+  await visitor.fill("input[name=password]", "not the password");
+  await visitor.click("form button");
+  await visitor.waitForSelector("p.problem");
+  return visitor.evaluate(() => document.querySelector("p.problem").textContent);
+}
+console.log(`Bob, a wrong password: ${await refused("Bob")}`);
+console.log(`a name with no account: ${await refused("Nobody")}`);
+
+// A name already taken and a short password are both turned back.
+await visitor.goto(at("/accounts/new"));
+await visitor.fill("input[name=name]", "Bob");
+await visitor.fill("input[name=password]", "short");
+await visitor.click("form button");
+await visitor.waitForSelector("p.problem");
+const taken = await visitor.evaluate(() =>
+  [...document.querySelectorAll("p.problem")].map((p) => p.textContent).join(" "));
+console.log(`taking Bob's name with a short password: ${taken}`);
 
 // Each page the script fetches after the first comes as data, which the
 // guestbook's views compiled for the browser render, once the module has
@@ -33,27 +84,22 @@ page.on("response", (r) => {
   if (asked.resourceType() !== "fetch" || new URL(r.url()).pathname !== "/") return;
   fetched.push(r.headers()["senro-view"] ? "data" : "html");
 });
-await page.goto(`http://127.0.0.1:${port}/`);
+await joined(page, "Ada", "adas password");
 await page.waitForSelector("html.senro-ready", { state: "attached" });
 await page.evaluate(() => { window.senroMark = "kept"; });
 
-// A name of spaces passes the browser's required check and fails the
-// model's rule, so the form comes back with the problem and the message
-// still in it.
-await page.fill("input[name=name]", "   ");
-await page.fill("textarea[name=message]", "kept for the retry");
-await page.click("button");
+// A message of spaces passes the browser's required check and fails the
+// model's rule, so the form comes back with the problem.
+await page.fill("textarea[name=message]", "   ");
+await page.click("form.sign button");
 await page.waitForSelector("p.problem");
-const turned = await page.evaluate(() => ({
-  problem: document.querySelector("p.problem").textContent,
-  message: document.querySelector("textarea[name=message]").value,
-}));
-console.log(`a name of spaces: ${turned.problem} (message kept: ${turned.message})`);
+const turned = await page.evaluate(() => document.querySelector("p.problem").textContent);
+console.log(`a message of spaces: ${turned}`);
 
-await page.fill("input[name=name]", "Ada");
 await page.fill("textarea[name=message]", "signed without a reload");
-await page.click("button");
-await page.waitForSelector("p.flash");
+await page.click("form.sign button");
+await page.waitForFunction(() =>
+  document.querySelector("p.flash")?.textContent === "Thank you for signing.");
 
 const seen = await page.evaluate(() => ({
   mark: window.senroMark || "lost",
@@ -62,7 +108,7 @@ const seen = await page.evaluate(() => ({
   flash: document.querySelector("p.flash").textContent,
   first: document.querySelector("ol.entries li p.message").textContent,
   who: document.querySelector("ol.entries li p.who").textContent,
-  name: document.querySelector("input[name=name]").value,
+  signed: document.querySelector("form.out span").textContent,
   message: document.querySelector("textarea[name=message]").value,
 }));
 console.log(`window mark: ${seen.mark}`);
@@ -70,10 +116,10 @@ console.log(`path: ${seen.path}`);
 console.log(`title: ${seen.title}`);
 console.log(`flash: ${seen.flash}`);
 console.log(`newest entry: ${seen.first}, by ${seen.who}`);
-console.log(`name field: ${seen.name}`);
+console.log(`signed in: ${seen.signed}`);
 console.log(`message field: "${seen.message}"`);
 
-// Signing signed Ada in under her name. Her entries have a remove button,
+// Ada's entries have a remove button,
 // and nobody else's do; the button is a server action, so the click posts to
 // the server, which removes the entry only because the policy says she may.
 const buttons = await page.evaluate(() =>
@@ -104,6 +150,12 @@ const asked = await page.evaluate(async (state) => {
   return r.status;
 }, his);
 console.log(`Ada asking to remove Bob's entry: ${asked}`);
+
+// Signing out leaves the door where the form was.
+await page.click("form.out button");
+await page.waitForSelector("nav.door");
+const out = await page.evaluate(() => document.querySelector("p.flash").textContent);
+console.log(`after signing out: ${out}`);
 console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
 for (const line of said) console.log(line);
 await browser.close();

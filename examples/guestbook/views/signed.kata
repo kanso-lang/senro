@@ -1,17 +1,24 @@
-takes signatures form flash removals
+takes signatures form flash removals viewer
 header
   h1 Guestbook
   p.lede Leave a line for whoever comes next.
+if viewer == ""
+  nav.door
+    a href="/session/new" Sign in
+    a href="/accounts/new" Make an account
+else
+  form.out method="post" action="/session"
+    input type="hidden" name="_method" value="DELETE"
+    span Signed in as {viewer}.
+    button Sign out
 if flash != ""
   p.flash = flash
-form method="post" action="/entries"
-  input name="name" placeholder="your name" required="required" value=form.name
-  if form.problems["name"] != none
-    p.problem = form.problems["name"]
-  textarea name="message" placeholder="say something" required="required" = form.message
-  if form.problems["message"] != none
-    p.problem = form.problems["message"]
-  button Sign
+if viewer != ""
+  form.sign method="post" action="/entries"
+    textarea name="message" placeholder="say something" required="required" = form.message
+    if form.problems["message"] != none
+      p.problem = form.problems["message"]
+    button Sign
 ol.entries
   for e in signatures
     li
