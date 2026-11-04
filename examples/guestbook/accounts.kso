@@ -1,0 +1,60 @@
+import "../../models"
+import "../../passwords"
+import "../../pg"
+import "../../web"
+import "./entries"
+import "./views"
+import "std/text"
+
+# An account, as the `accounts` table stores it: the name its holder signs
+# with, and a digest of the password. The password itself is never stored.
+pub type account
+  id
+  name
+  digest
+
+# Anyone may make an account.
+pub fn create? _ _
+  true
+
+pub fn new req _
+  effect (opened req "" {} 200)
+
+# An account needs a name nobody holds and a password of eight characters or
+# more. The name is looked up before the password is stretched, so a sign-up
+# that cannot succeed costs no hashing.
+pub fn create req db
+  f = web/form req.body
+  name = text/trim (web/value f "name")
+  password = web/value f "password"
+  pg/query db held [name] .> (r -> joined req db name password r.rows)
+
+held = "select id from accounts where name = $1"
+
+fn joined req db name password rows
+  short = "Use eight characters or more."
+  found = models/problems [
+    (models/rule "name" (name == "") "Choose a name.")
+    (models/rule "name" (length rows > 0) "That name is taken.")
+    (models/rule "password" (length password < 8) short)
+  ]
+  return effect (opened req name found 422) if models/problems? found
+  passwords/digested password
+    .> (d -> models/created "" db account_model { "digest":d "name":name })
+    .> (w -> made req w)
+
+fn made req kept:account
+  s = web/session req entries/secret
+  welcomed = put s "flash" "Welcome, {kept.name}. Your account is made."
+  effect (web/signed_in (web/redirect "/") entries/secret welcomed kept.name)
+
+fn made _ _
+  effect web/denied
+
+# The sign-up form shows the name as typed and the problem with each field,
+# if any. A password is never sent back.
+fn opened req name problems code
+  heading = "Make an account"
+  page = views/door_view heading "/accounts" "Make it" name problems
+  framed = views/layout_view "Make an account · Guestbook" page
+  views/answer_as req code framed

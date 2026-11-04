@@ -1,12 +1,17 @@
-a name of spaces: Say who you are. (message kept: kept for the retry)
+a visitor sees: Sign in, Make an account; sign form: none
+Bob, a wrong password: That name and password do not match.
+a name with no account: That name and password do not match.
+taking Bob's name with a short password: That name is taken. Use eight characters or more.
+a message of spaces: Say something.
 window mark: kept
 path: /
 title: Guestbook
-flash: Thank you for signing, Ada.
+flash: Thank you for signing.
 newest entry: signed without a reload, by Ada
-name field: Ada
+signed in: Signed in as Ada.
 message field: ""
 remove buttons only on Ada's entries: true
 newest entry after Ada removes hers: from Bob, by Bob
 Ada asking to remove Bob's entry: 403
-Ada's page fetched / as: data, data
+after signing out: Signed out.
+Ada's page fetched / as: data, data, data, data, data

@@ -113,3 +113,27 @@ button:hover { filter: brightness(1.08); }
 }
 
 .remove:hover { color: #a33; }
+
+.door {
+  display: flex;
+  gap: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.door a, .lede a { color: var(--accent); }
+
+form.out {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--muted);
+}
+
+form.out button {
+  padding: 0.25rem 0.8rem;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--rule);
+}

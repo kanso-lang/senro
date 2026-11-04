@@ -10,6 +10,10 @@ kanso derived examples/guestbook  # the schema and route table derived
 KANSO=kanso sh browser/build.sh examples/guestbook <runtime.wasm>
 ```
 
+`kanso run` builds at kanso's development tier, where a password takes
+seconds to stretch at the default rounds; `SENRO_PASSWORD_ROUNDS=1000` in
+the environment makes signing up and in quick while developing.
+
 The third line builds the browser module the page loads, which renders the
 guestbook's pages in the browser. Without it the pages still update in
 place, rendered on the server.
@@ -39,13 +43,26 @@ place, rendered on the server.
   `:id`, and an `id:int` action is handed the number or answers 404. A path
   under `public/` is served as a file, which is where the stylesheet comes
   from.
-- After a signature is stored, `entries/create` answers a redirect to the
-  list, so reloading the page does not post the form again. It keeps the
-  signer's name and a one-time notice in a session, a cookie signed with
-  HMAC-SHA-256, and the form comes back with the name filled in. A cookie
-  whose signature does not match reads as an empty session.
+- A visitor signs the book with an account. `accounts.kso` declares the
+  `account` model, a name and a password digest, and its actions:
+  `accounts/new` and `accounts/create` answer GET /accounts/new and POST
+  /accounts. A name already taken, or a password under eight characters,
+  brings the form back with a 422. Otherwise the password is digested with
+  `passwords/digested`, the account is made through its model, and the
+  visitor is signed in. `session.kso` is a singular resource: GET
+  /session/new is the sign-in form, POST /session checks the password with
+  `passwords/matches?`, and a DELETE signs out. A wrong password and a name
+  with no account get the same message, after the same work.
+- Signing in keeps the account's name in the session, a cookie signed with
+  HMAC-SHA-256, as its viewer; a cookie whose signature does not match reads
+  as an empty session. `entries/create` signs with the viewer's name, so
+  nobody can sign as someone else, and sends a visitor who is not signed in
+  to the sign-in form. After a signature is stored it answers a redirect to
+  the list, so reloading the page does not post the form again, and carries
+  a one-time notice across it in the session.
 - `signatures.kso` declares the `signature` model, its policies and its
-  rules: a name and a message, and a message under 280 characters.
+  rules: a name and a message, and a message under 280 characters. Only
+  the account that signed an entry may remove it.
   `entries.kso` makes a signature through the model (`models/created`),
   which stores it with a parameterized insert, so what a visitor types is
   stored as text and never read as SQL. A signature that breaks a rule is
