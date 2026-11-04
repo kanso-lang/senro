@@ -12,26 +12,36 @@ import "std/text"
 # `views/signed`. A directory of templates holds no kanso source of its own;
 # its functions are written here while the program compiles.
 pub fn views p
-  list/fold p.modules [] (acc m -> list/concat acc (templates m))
+  list/fold p.modules [] (acc m -> list/concat acc (templates p m))
 
-fn templates m
+fn templates p m
+  return [] if not list/any? (keys m.files) (f -> text/ends_with? f ".kata")
+  calls = list/fold p.modules [] (acc x -> list/concat acc x.calls)
+  asked = list/fold calls [] named_in
+  use = used asked m
+  keep = (n -> use != "render" or has? asked "{m.name}/{n}")
   server = served? m
-  found = list/fold (keys m.files) [] (acc f -> added acc m server f)
-  return [] if length found == 0
+  found = list/fold (keys m.files) [] (acc f -> added acc m server f keep)
   bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
-  head = if (length bound == 0) leaned_on "import \"std/json\"\n{leaned_on}"
+  head = derive/define m.name (head_of (length bound > 0) use)
   acts = if (length bound == 0) [] (acting m bound)
-  list/concat (list/concat [(derive/define m.name head)] found) acts
+  pages = if (use == "") [] (pages_of m use keep)
+  list/concat (list/concat (list/concat [head] found) acts) pages
 
-fn added acc m server f
-  wrote acc m.name server f m.files[f]
+fn added acc m server f keep
+  wrote acc m.name server f m.files[f] keep
 
-fn wrote acc _ _ _ none
+fn wrote acc _ _ _ none _
   acc
 
-fn wrote acc m server f src
+# A program that only renders pages, such as the app's browser module, holds
+# none of the records its pages read, so it gets a page's own function only
+# when it names it.
+fn wrote acc m server f src keep
   return acc if not text/ends_with? f ".kata"
   name = text/join (text/split f ".kata") ""
+  return push acc (derive/refuse m (reserved f name)) if taken? name
+  return acc if bare? src and not keep name
   return push acc (derive/define m (compiled name f src)) if bare? src
   push acc (component m server f name src)
 
@@ -164,9 +174,6 @@ fn handed_only n p
 # holds templates: the escape that keeps a value from being read as markup, a
 # loop body joined once per element, and the join of a function's parts.
 leaned_on = """
-  import "std/list"
-  import "std/text"
-
   fn escape x
     s = "\{x}"
     amp = text/join (text/split s "&") "&amp;"
@@ -180,4 +187,139 @@ leaned_on = """
 
   fn joined parts
     text/join parts ""
+"""
+
+# The names of the two functions a module of pages answers with, which no
+# template may take.
+fn taken? name
+  name == "answer" or name == "rendered"
+
+fn reserved f name
+  "`{f}` would be the function `{name}`, which kata writes for every page"
+
+# A module's pages are written for the browser when the app asks for them: a
+# server that answers with `views/answer`, or a browser module that renders
+# with `views/rendered`, whether it calls the function or hands it on. An app
+# that does neither compiles as it did.
+fn used asked m
+  return "serve" if has? asked "{m.name}/answer"
+  if (has? asked "{m.name}/rendered") "render" ""
+
+fn named_in acc c
+  list/concat (push acc c.callee) c.arguments
+
+# The imports and helpers every compiled template leans on, and those the
+# pages compiled to read JSON lean on too.
+fn head_of bound use
+  json = bound or use == "serve"
+  extra = if (use == "serve") ["std/net/http"] []
+  listed = list/concat (if json ["std/json" "std/list"] ["std/list"]) extra
+  all = push listed "std/text"
+  lines = list/to_list (list/map all (i -> "import \"{i}\""))
+  body = if (use == "") leaned_on "{leaned_on}\n{keyed_helpers}"
+  "{text/join lines "\n"}\n\n{body}"
+
+# Each page of the module as data and rendered from it: `{name}_view`,
+# which describes the page, the template compiled to read JSON, and
+# `rendered`, which renders a page `{name}_view` described with that
+# compile. A server also gets `answer`.
+fn pages_of m use keep
+  files = list/to_list (list/sort (keys m.files))
+  pages = list/to_list (list/select files (f -> page? f m.files[f]))
+  keyed_all = list/to_list (list/map pages (f -> keyed_of m f m.files[f]))
+  arms = list/to_list (list/map pages (f -> shown_arm f m.files[f]))
+  dispatch = "{rendering}\n{text/join arms "\n"}\nfn kata_shown _ _\n  \"\"\n"
+  drawn = push keyed_all (derive/define m.name dispatch)
+  asked_for = list/select pages (f -> keep "{page_name f}_view")
+  described = list/to_list (list/map asked_for (f -> viewed_of m f m.files[f]))
+  both = list/concat drawn described
+  if (use == "serve") (push both (derive/define m.name answering)) both
+
+fn page? _ none
+  false
+
+fn page? f src
+  text/ends_with? f ".kata" and bare? src
+
+fn page_name f
+  text/join (text/split f ".kata") ""
+
+fn keyed_of m f none
+  derive/refuse m.name "`{f}` could not be read"
+
+fn keyed_of m f src
+  derive/define m.name (keyed (page_name f) f src)
+
+fn viewed_of m f none
+  derive/refuse m.name "`{f}` could not be read"
+
+fn viewed_of m f src
+  derive/define m.name (viewed (page_name f) src)
+
+fn shown_arm _ none
+  ""
+
+fn shown_arm f src
+  n = page_name f
+  declared = takes src
+  return "fn kata_shown \"{n}\" _\n  {n}_keyed \"\"\n" if length declared == 0
+  bound = list/map declared (d -> "  {d} = kata_field kata_l \"{d}\"")
+  call = "  {n}_keyed {text/join declared " "}"
+  lines = list/concat (list/to_list bound) [call]
+  "fn kata_shown \"{n}\" kata_l\n{text/join lines "\n"}\n"
+
+rendering = """
+  pub fn rendered node
+    kata_shown (kata_field node "view") (kata_field node "locals")
+"""
+
+# A page answers a request a browser made itself as HTML, rendered here. The
+# page's script asks with a `senro-view` header, and gets the page's data as
+# JSON, which it renders with the app's browser module.
+answering = """
+  pub fn answer req node
+    kata_answered req.headers["senro-view"] node
+
+  fn kata_answered none node
+    http/html_page (rendered node)
+
+  fn kata_answered _ node
+    heard = [
+      "cache-control: no-store"
+      "content-type: application/json"
+      "senro-view: 1"
+    ]
+    http/respond 200 heard (json/encode node)
+"""
+
+# What JSON decoded is read through these: a key a map lacks reads as "", a
+# value that is not a list loops over nothing, and a page within the page
+# renders where it is spliced.
+keyed_helpers = """
+  fn kata_field none _
+    ""
+
+  fn kata_field m k
+    kata_present m[k]
+
+  fn kata_present none
+    ""
+
+  fn kata_present v
+    v
+
+  fn kata_items xs:[]some
+    xs
+
+  fn kata_items _
+    []
+
+  fn kata_raw none
+    "<none>"
+
+  fn kata_raw node:map[string some]
+    rendered node
+
+  fn kata_raw x
+    "\{x}"
 """

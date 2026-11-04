@@ -11,7 +11,7 @@ import "std/net/http"
 # that shows the thank-you clears it.
 pub fn index req db
   s = web/session req secret
-  pg/query db newest [] .> (r -> shown r.rows s)
+  pg/query db newest [] .> (r -> shown req r.rows s)
 
 # A development secret. A deployed guestbook signs its sessions with its own.
 pub secret = "the guestbook's development secret"
@@ -33,12 +33,15 @@ added = "insert into signatures (name, message) values ($1, $2)"
 
 newest = "select id, name, message from signatures order by id desc"
 
-fn shown rows s
+# The page goes out as HTML to a browser that asked for it, and as data to
+# senro's page script, which renders it with the views compiled for the
+# browser.
+fn shown req rows s
   signed = list/to_list (list/map rows signatures/signature_from)
   who = said s["viewer"]
   removals = list/fold signed {} (m e -> put m "{e.id}" (removal_of e who))
-  page = views/signed signed (said s["name"]) (said s["flash"]) removals
-  r = http/html_page (views/layout "Guestbook" page)
+  page = views/signed_view signed (said s["name"]) (said s["flash"]) removals
+  r = views/answer req (views/layout_view "Guestbook" page)
   effect (web/kept r secret (put s "flash" ""))
 
 # Each entry's remove button, drawn only for the person who signed it. The

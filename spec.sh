@@ -68,7 +68,8 @@ note "== each browser module answers its events on every engine"
 # An app under spec/runs with a browser.kso and a list of events in
 # spec/runs/<app>.events, one to a line as the component, the action and the
 # state separated by tabs, answers each as spec/runs/<app>.answers holds,
-# natively, interpreted and built for the browser. The browser build is run
+# natively, interpreted and built for the browser. A page is an event with no
+# component and no action, whose state is the page as data. The browser build is run
 # by spec/browser/module.mjs against the kanso runtime for wasm32 named by
 # KANSO_RUNTIME_WASM, and is skipped without it.
 tab=$(printf '\t')
@@ -90,8 +91,8 @@ for events in spec/runs/*.events; do
     note "SKIPPED: $name as wasm (no KANSO_RUNTIME_WASM)"
   fi
   for engine in $engines; do
-    got=$(while IFS="$tab" read -r component action state; do
-      event=$(printf '%s\n%s\n%s' "$component" "$action" "$state")
+    got=$(while IFS= read -r line; do
+      event=$(printf '%s' "$line" | tr "$tab" '\n')
       case $engine in
         native) (cd "$d" && SENRO_EVENT="$event" "$KANSO" run browser.kso 2>&1) ;;
         interp) (cd "$d" && SENRO_EVENT="$event" "$KANSO" run browser.kso --interp 2>&1) ;;
@@ -111,6 +112,25 @@ for events in spec/runs/*.events; do
   done
   rm -rf "$built"
 done
+
+note "== the browser renders a page as the server rendered it"
+# spec/runs/pages prints a page as data, then the page the server renders
+# from it, then the page its templates render from the records themselves.
+# Its one event is that data, and the browser module's answer to it is the
+# same page, byte for byte.
+server_page=$(sed -n 2p spec/runs/pages.stdout)
+template_page=$(sed -n 3p spec/runs/pages.stdout)
+browser_page=$(sed -n 1p spec/runs/pages.answers)
+if [ "$server_page" = "$template_page" ]; then
+  note "ok: pages renders from its data as from its records"
+else
+  bad "pages renders differently from its data"
+fi
+if [ "$server_page" = "$browser_page" ]; then
+  note "ok: pages renders the same in the browser"
+else
+  bad "pages renders differently in the browser"
+fi
 
 note "== each app under spec/db says what its golden says against Postgres"
 # These connect to a Postgres that trusts 127.0.0.1:54329, as CI's service
@@ -191,18 +211,20 @@ note "== the guestbook and the pantry, used in a browser, update in place"
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/browser (SENRO_NO_DB=1)"
 else
-  # The pantry's planner runs in the browser, so its page needs the app's
-  # module and the runtime built for wasm (browser/build.sh), and the pantry
-  # is skipped without KANSO_RUNTIME_WASM.
-  apps="guestbook:3000"
+  # Each app's page loads the app's module and the runtime built for wasm
+  # (browser/build.sh): the guestbook renders its pages with it and the
+  # pantry runs its planner. Both are skipped without KANSO_RUNTIME_WASM.
+  apps=""
   if [ -n "${KANSO_RUNTIME_WASM:-}" ]; then
-    if KANSO=$KANSO sh browser/build.sh examples/pantry "$KANSO_RUNTIME_WASM"; then
-      apps="$apps pantry:3001"
-    else
-      bad "the pantry builds for the browser"
-    fi
+    for app in guestbook:3000 pantry:3001; do
+      if KANSO=$KANSO sh browser/build.sh "examples/${app%:*}" "$KANSO_RUNTIME_WASM"; then
+        apps="$apps $app"
+      else
+        bad "${app%:*} builds for the browser"
+      fi
+    done
   else
-    note "SKIPPED: pantry in a browser (no KANSO_RUNTIME_WASM)"
+    note "SKIPPED: spec/browser (no KANSO_RUNTIME_WASM)"
   fi
   for app in $apps; do
     name=${app%:*}

@@ -1,0 +1,15 @@
+takes posts flash marks
+if flash != ""
+  p.flash = flash
+ul
+  for p in posts
+    li id="post-{p.id}"
+      h2 = p.title
+      p.by by {p.author}
+      == marks["{p.id}"]
+      if p.draft
+        em draft
+      ul.tags
+        for t in p.tags
+          li = t
+p.count {length posts} posts

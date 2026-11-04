@@ -36,7 +36,9 @@ pub fn act "removed" kata_given state
 pub fn act _ _ _
   none
 # in views, by kata/views
+import "std/json"
 import "std/list"
+import "std/net/http"
 import "std/text"
 
 fn escape x
@@ -52,6 +54,33 @@ fn each xs f
 
 fn joined parts
   text/join parts ""
+
+fn kata_field none _
+  ""
+
+fn kata_field m k
+  kata_present m[k]
+
+fn kata_present none
+  ""
+
+fn kata_present v
+  v
+
+fn kata_items xs:[]some
+  xs
+
+fn kata_items _
+  []
+
+fn kata_raw none
+  "<none>"
+
+fn kata_raw node:map[string some]
+  rendered node
+
+fn kata_raw x
+  "{x}"
 # in views, by kata/views
 pub fn layout title body
   joined [
@@ -89,6 +118,97 @@ pub fn signed signatures name flash removals
     # signed.kata:12
     "class=\"entries\">{each signatures (e -> signed_12 removals e)}</ol>"
   ]
+# in views, by kata/views
+fn layout_keyed title body
+  joined [
+    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta "
+    "name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+    # layout.kata:7
+    "<title>{escape title}</title><link rel=\"stylesheet\" "
+    "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
+    # layout.kata:12
+    "</head><body><main>{kata_raw body}</main></body></html>"
+  ]
+# in views, by kata/views
+fn signed_keyed_5 flash
+  # signed.kata:6
+  "<p class=\"flash\">{escape flash}</p>"
+
+fn signed_keyed_12 removals e
+  joined [
+    # signed.kata:14
+    "<li><p class=\"message\">{escape (kata_field e "message")}</p><p "
+    # signed.kata:15
+    "class=\"who\">{escape (kata_field e "name")}</p>"
+    # signed.kata:16
+    "{kata_raw removals["{kata_field e "id"}"]}</li>"
+  ]
+
+fn signed_keyed signatures name flash removals
+  joined [
+    "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
+    # signed.kata:5
+    "comes next.</p></header>{if (flash != "") (signed_keyed_5 flash) ""}"
+    "<form method=\"post\" action=\"/entries\"><input name=\"name\" "
+    # signed.kata:8
+    "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
+    "<textarea name=\"message\" placeholder=\"say something\" "
+    "required=\"required\"></textarea><button>Sign</button></form><ol "
+    "class=\"entries\">"
+    # signed.kata:12
+    "{each (kata_items signatures) (e -> signed_keyed_12 removals e)}</ol>"
+  ]
+# in views, by kata/views
+pub fn rendered node
+  kata_shown (kata_field node "view") (kata_field node "locals")
+
+fn kata_shown "layout" kata_l
+  title = kata_field kata_l "title"
+  body = kata_field kata_l "body"
+  layout_keyed title body
+
+fn kata_shown "signed" kata_l
+  signatures = kata_field kata_l "signatures"
+  name = kata_field kata_l "name"
+  flash = kata_field kata_l "flash"
+  removals = kata_field kata_l "removals"
+  signed_keyed signatures name flash removals
+
+fn kata_shown _ _
+  ""
+# in views, by kata/views
+pub fn layout_view title body
+  kata_locals = { "body":body "title":title }
+  { "locals":kata_locals "view":"layout" }
+# in views, by kata/views
+fn signed_view_signatures_each x
+  { "id":x.id "message":x.message "name":x.name }
+
+fn signed_view_signatures xs
+  list/to_list (list/map xs signed_view_signatures_each)
+
+pub fn signed_view signatures name flash removals
+  kata_locals = {
+    "flash":flash
+    "name":name
+    "removals":removals
+    "signatures":(signed_view_signatures signatures)
+  }
+  { "locals":kata_locals "view":"signed" }
+# in views, by kata/views
+pub fn answer req node
+  kata_answered req.headers["senro-view"] node
+
+fn kata_answered none node
+  http/html_page (rendered node)
+
+fn kata_answered _ node
+  heard = [
+    "cache-control: no-store"
+    "content-type: application/json"
+    "senro-view: 1"
+  ]
+  http/respond 200 heard (json/encode node)
 schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in signatures, by models/tables
 pub fn signature_from row

@@ -1,0 +1,16 @@
+# Posts, each with a list of tags inside it, and a field no page reads.
+pub type post
+  id
+  title
+  author
+  tags
+  draft
+  notes
+
+pub all = [
+  post 1 "On <tags>" "Ada" ["kata" "html"] false "kept back"
+  post 2 "Second" "Bob" [] true ""
+]
+
+# Markup made elsewhere, such as a component, keyed by a post's id.
+pub marks = { "1":"<b>new</b>" "2":"" }

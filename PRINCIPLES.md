@@ -97,8 +97,9 @@ views itself and morphs the page in place. The app's author never writes
 client code, and the two renderings cannot drift apart, because they are the
 same program. Firefox is the first browser this is tuned for.
 
-This is the direction senro is being built in (kanso#2280), and the parts
-that exist are specced like the rest.
+The guestbook's pages work this way (`kata/README.md`). `spec/runs/pages`
+holds a page rendered from its data on the server, in the browser module on
+every engine, and by its template from the records, to the same bytes.
 
 ## Every behavior has a spec
 

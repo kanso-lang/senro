@@ -19,6 +19,24 @@ pub fn component act view
 pub fn answer components
   os/env "SENRO_EVENT" .> (e -> print (heard components (said e)))
 
+# A module that renders the app's pages as well, with the `rendered` that
+# `derive kata/views` wrote for its views. A page arrives as an event with
+# no component and no action, and its state is the page as data, as the
+# server sent it; the module prints the page rendered.
+pub fn answer_pages components rendered
+  os/env "SENRO_EVENT" .> (e -> print (paged components rendered (said e)))
+
+fn paged components rendered event
+  parts = text/split event "\n"
+  return heard components event if length parts < 3 or parts[1] != ""
+  drawn rendered (json/decode (part parts 3))
+
+fn drawn _ none
+  ""
+
+fn drawn rendered page
+  rendered page
+
 fn heard components event
   answered components (text/split event "\n")
 
