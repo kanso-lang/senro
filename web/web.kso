@@ -325,10 +325,9 @@ fn aimed none row id
 fn aimed to _ id
   moved (redirected to id)
 
-# An old path the app keeps as a legacy alias answers a permanent redirect to
-# its route, with the id it was asked for.
 # Where a request `matched` found is redirected when a legacy alias answered
-# it, or "" when it was not.
+# it, or "" when it was not. An alias redirects to its route with the id it
+# was asked for.
 pub fn moved_to none
   ""
 
