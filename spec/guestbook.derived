@@ -3,6 +3,9 @@ import "std/json"
 import "std/list"
 import "std/text"
 
+fn escape none
+  ""
+
 fn escape x
   s = "{x}"
   amp = text/join (text/split s "&") "&amp;"
@@ -40,6 +43,9 @@ import "std/json"
 import "std/list"
 import "std/net/http"
 import "std/text"
+
+fn escape none
+  ""
 
 fn escape x
   s = "{x}"
@@ -97,26 +103,41 @@ fn signed_5 flash
   # signed.kata:6
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_12 removals e
+fn signed_9 form
+  # signed.kata:10
+  "<p class=\"problem\">{escape form.problems["name"]}</p>"
+
+fn signed_12 form
+  # signed.kata:13
+  "<p class=\"problem\">{escape form.problems["message"]}</p>"
+
+fn signed_16 removals e
   joined [
-    # signed.kata:14
+    # signed.kata:18
     "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
-    # signed.kata:15, 16
+    # signed.kata:19, 20
     "{escape e.name}</p>{removals["{e.id}"]}</li>"
   ]
 
-pub fn signed signatures name flash removals
+pub fn signed signatures form flash removals
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # signed.kata:5
     "comes next.</p></header>{if (flash != "") (signed_5 flash) ""}<form "
     "method=\"post\" action=\"/entries\"><input name=\"name\" "
+    "placeholder=\"your name\" required=\"required\" "
     # signed.kata:8
-    "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
-    "<textarea name=\"message\" placeholder=\"say something\" "
-    "required=\"required\"></textarea><button>Sign</button></form><ol "
+    "value=\"{escape form.name}\">"
+    # signed.kata:9
+    "{if (form.problems["name"] != none) (signed_9 form) ""}<textarea "
+    "name=\"message\" placeholder=\"say something\" required=\"required\">"
+    # signed.kata:11
+    "{escape form.message}</textarea>"
     # signed.kata:12
-    "class=\"entries\">{each signatures (e -> signed_12 removals e)}</ol>"
+    "{if (form.problems["message"] != none) (signed_12 form) ""}<button>"
+    "Sign</button></form><ol class=\"entries\">"
+    # signed.kata:16
+    "{each signatures (e -> signed_16 removals e)}</ol>"
   ]
 # in views, by kata/views
 fn layout_keyed title body
@@ -134,29 +155,43 @@ fn signed_k_5 flash
   # signed.kata:6
   "<p class=\"flash\">{escape flash}</p>"
 
-fn signed_k_12 removals e
+fn signed_k_9 form
+  # signed.kata:10
+  "<p class=\"problem\">{escape (kata_at form "problems")["name"]}</p>"
+
+fn signed_k_12 form
+  # signed.kata:13
+  "<p class=\"problem\">{escape (kata_at form "problems")["message"]}</p>"
+
+fn signed_k_16 removals e
   joined [
-    # signed.kata:14
+    # signed.kata:18
     "<li><p class=\"message\">{escape (kata_at e "message")}</p><p "
-    # signed.kata:15
+    # signed.kata:19
     "class=\"who\">{escape (kata_at e "name")}</p>"
-    # signed.kata:16
+    # signed.kata:20
     "{kata_raw removals["{kata_at e "id"}"]}</li>"
   ]
 
-fn signed_keyed signatures name flash removals
+fn signed_keyed signatures form flash removals
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # signed.kata:5
     "comes next.</p></header>{if (flash != "") (signed_k_5 flash) ""}<form "
     "method=\"post\" action=\"/entries\"><input name=\"name\" "
+    "placeholder=\"your name\" required=\"required\" "
     # signed.kata:8
-    "placeholder=\"your name\" required=\"required\" value=\"{escape name}\">"
+    "value=\"{escape (kata_at form "name")}\">"
+    # signed.kata:9
+    "{if ((kata_at form "problems")["name"] != none) (signed_k_9 form) ""}"
     "<textarea name=\"message\" placeholder=\"say something\" "
-    "required=\"required\"></textarea><button>Sign</button></form><ol "
-    "class=\"entries\">"
+    # signed.kata:11
+    "required=\"required\">{escape (kata_at form "message")}</textarea>"
     # signed.kata:12
-    "{each (kata_items signatures) (e -> signed_k_12 removals e)}</ol>"
+    "{if ((kata_at form "problems")["message"] != none) (signed_k_12 form) ""}"
+    "<button>Sign</button></form><ol class=\"entries\">"
+    # signed.kata:16
+    "{each (kata_items signatures) (e -> signed_k_16 removals e)}</ol>"
   ]
 # in views, by kata/views
 pub fn rendered node
@@ -169,10 +204,10 @@ fn kata_shown "layout" kata_l
 
 fn kata_shown "signed" kata_l
   signatures = kata_at kata_l "signatures"
-  name = kata_at kata_l "name"
+  form = kata_at kata_l "form"
   flash = kata_at kata_l "flash"
   removals = kata_at kata_l "removals"
-  signed_keyed signatures name flash removals
+  signed_keyed signatures form flash removals
 
 fn kata_shown _ _
   ""
@@ -187,28 +222,35 @@ fn signed_view_signatures_each x
 fn signed_view_signatures xs
   list/to_list (list/map xs signed_view_signatures_each)
 
-pub fn signed_view signatures name flash removals
+fn signed_view_form x
+  { "message":x.message "name":x.name "problems":x.problems }
+
+pub fn signed_view signatures form flash removals
   kata_locals = {
     "flash":flash
-    "name":name
+    "form":(signed_view_form form)
     "removals":removals
     "signatures":(signed_view_signatures signatures)
   }
   { "locals":kata_locals "view":"signed" }
 # in views, by kata/views
 pub fn answer req node
-  kata_answered req.headers["senro-view"] node
+  answer_as req 200 node
 
-fn kata_answered none node
-  http/html_page (rendered node)
+pub fn answer_as req code node
+  kata_answered req.headers["senro-view"] code node
 
-fn kata_answered _ node
+fn kata_answered none code node
+  page = ["content-type: text/html; charset=utf-8"]
+  http/respond code page (rendered node)
+
+fn kata_answered _ code node
   heard = [
     "cache-control: no-store"
     "content-type: application/json"
     "senro-view: 1"
   ]
-  http/respond 200 heard (json/encode node)
+  http/respond code heard (json/encode node)
 schema = { "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in signatures, by models/tables
 pub fn signature_from row
@@ -225,7 +267,9 @@ fn signature_cell v
 # in signatures, by models/tables
 pub signature_model = {
   "columns":["id" "name" "message"]
+  "create":create?
   "destroy":destroy?
+  "problems":problems
   "read":signature_from
   "table":"signatures"
 }

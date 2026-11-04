@@ -43,10 +43,13 @@ place, rendered on the server.
   signer's name and a one-time notice in a session, a cookie signed with
   HMAC-SHA-256, and the form comes back with the name filled in. A cookie
   whose signature does not match reads as an empty session.
-- `signatures.kso` declares the `signature` model and its policy.
-  `entries.kso` stores one with a parameterized insert, so what a visitor
-  types is stored as text and never read as SQL, and answers the list as a
-  page.
+- `signatures.kso` declares the `signature` model, its policies and its
+  rules: a name and a message, and a message under 280 characters.
+  `entries.kso` makes a signature through the model (`models/created`),
+  which stores it with a parameterized insert, so what a visitor types is
+  stored as text and never read as SQL. A signature that breaks a rule is
+  not stored: the page comes back with a 422, the form as the visitor
+  filled it in, and each problem beside its field.
 - `views/signed.kata` is the page and `views/layout.kata` the frame around
   it. `derive kata/views` in `main.kso` compiles each to a function of the
   `views` module while the app compiles. The page reads the `signature`

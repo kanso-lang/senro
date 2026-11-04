@@ -36,6 +36,20 @@ page.on("response", (r) => {
 await page.goto(`http://127.0.0.1:${port}/`);
 await page.waitForSelector("html.senro-ready", { state: "attached" });
 await page.evaluate(() => { window.senroMark = "kept"; });
+
+// A name of spaces passes the browser's required check and fails the
+// model's rule, so the form comes back with the problem and the message
+// still in it.
+await page.fill("input[name=name]", "   ");
+await page.fill("textarea[name=message]", "kept for the retry");
+await page.click("button");
+await page.waitForSelector("p.problem");
+const turned = await page.evaluate(() => ({
+  problem: document.querySelector("p.problem").textContent,
+  message: document.querySelector("textarea[name=message]").value,
+}));
+console.log(`a name of spaces: ${turned.problem} (message kept: ${turned.message})`);
+
 await page.fill("input[name=name]", "Ada");
 await page.fill("textarea[name=message]", "signed without a reload");
 await page.click("button");
