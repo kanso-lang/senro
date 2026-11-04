@@ -52,22 +52,43 @@ type shaped
   open
   classes
 
-# The template's name, which prefixes every helper, and the file it came
-# from, which the generated comments cite.
+# The template's name, which prefixes every helper; the file it came from,
+# which the generated comments cite; and whether this compile reads its
+# values as JSON decoded them, with each record a map of its fields.
 type origin
   name
   file
+  keyed
+
+# What a scan of an expression found: its text with every field read written
+# as `(kata_at e "name")`, and each chain of reads it rewrote, such as
+# `post.author.name`. Only code is read; the text of a string literal is
+# copied, though the code in its `{}` holes is not.
+type reading
+  text
+  chains
 
 # The kanso source for template `name`, read from `file`, whose text is
 # `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
 pub fn compiled name file src
+  written "pub fn" name (origin name file false) src
+
+# The same template compiled to read what JSON decoded: `{name}_keyed`, a
+# private function of the same parameters, in which `e.name` reads the key
+# `name` of a map. The browser renders a page with it from the data the
+# server sent, and the server renders the first request with it too. Its
+# helpers are named `{name}_k` and a line number, kept short because each
+# hole must fit on a line of the source kata writes.
+pub fn keyed name file src
+  written "fn" "{name}_keyed" (origin "{name}_k" file true) src
+
+fn written kind head o src
   rows = rows_of src
   declared = takes_of rows
   from = if (length declared == 0) 1 2
-  o = origin name file
   w = walk rows from (length rows + 1) declared o (woven [] [])
-  main = emitted "pub fn {name} {params_of declared}" w.units o
+  main = emitted "{kind} {head} {params_of declared}" w.units o
   "{text/join (push w.helpers main) "\n\n"}\n"
 
 fn rows_of src
@@ -129,7 +150,7 @@ fn step rows r i last stop scope o acc
   for_line = text/starts_with? b "for "
   return stepped (looped rows r i last scope o acc) last if for_line
   raw_line = text/starts_with? b "== "
-  return stepped (spliced acc (raw (after b 3)) at) last if raw_line
+  return stepped (spliced acc (raw (after b 3) o) at) last if raw_line
   out_line = text/starts_with? b "= "
   return stepped (spliced acc (escaped (after b 2)) at) last if out_line
   return stepped (texted acc (after b 2) at) last if text/starts_with? b "| "
@@ -179,7 +200,8 @@ fn looped rows r i last scope o acc
   over = text/join (list/to_list (list/drop ws 2)) " "
   body = helper rows (i + 1) last (push scope name) o r.line
   bound = if (list/any? (text/split body.call " ") (w -> w == name)) name "_"
-  hole = "\{each {wrapped over} ({bound} -> {body.call})}"
+  listed = if o.keyed "(kata_items {wrapped over})" (wrapped over)
+  hole = "\{each {listed} ({bound} -> {body.call})}"
   helpers = list/concat acc.helpers body.helpers
   woven (push acc.units (unit hole r.line true)) helpers
 
@@ -218,7 +240,10 @@ fn quoted c
 fn spliced acc hole at
   woven (push acc.units (unit hole at true)) acc.helpers
 
-fn raw e
+# Markup spliced in as it is. What JSON decoded may hold a page within the
+# page, such as a layout's body, which is rendered where it is spliced.
+fn raw e o
+  return "\{kata_raw {wrapped e}}" if o.keyed
   "\{{e}}"
 
 fn escaped e
@@ -275,7 +300,7 @@ fn tagged rows r i last scope o acc
   head = shorthand ws[1]
   tail = text/join (list/to_list (list/drop ws 1)) " "
   started = lit acc head.open r.line
-  opened = attributes tail head.classes started r.line
+  opened = attributes tail head.classes started r.line o
   inner = walk rows (i + 1) last scope o opened
   closing = if (void? head.name) "" "</{head.name}>"
   lit inner closing r.line
@@ -307,32 +332,32 @@ fn void? name
 # The words after a tag's head: attributes while they last, then the tag's
 # own content. A `class` attribute is joined onto the shorthand's classes,
 # and classes nothing joined are written when the tag closes.
-fn attributes rest classes acc at
+fn attributes rest classes acc at o
   s = text/trim rest
   first = first_word s
   shut_tag = lit acc "{named "class" classes}>" at
-  return content s shut_tag at if not attribute? first
+  return content s shut_tag at o if not attribute? first
   halves = text/split s "="
   return acc if length halves < 1
   key = halves[1]
   value = text/join (list/to_list (list/drop halves 1)) "="
-  return event key value classes acc at if text/starts_with? key "on-"
+  return event key value classes acc at o if text/starts_with? key "on-"
   joins = key == "class" and length classes > 0
   lead = if joins "{text/join classes " "} " ""
   left = if joins [] classes
   opened = lit acc " {key}=\"{lead}" at
-  return lettered value left opened at if text/starts_with? value "\""
+  return lettered value left opened at o if text/starts_with? value "\""
   word = first_word value
   shut = lit (spliced opened (escaped word) at) "\"" at
-  attributes (after value (length word)) left shut at
+  attributes (after value (length word)) left shut at o
 
 # `on-click=increment` binds an event to an action of the component, by
 # name: the page's script reads `data-on-click` and asks the component's
 # `act` for `increment`.
-fn event key value classes acc at
+fn event key value classes acc at o
   word = first_word value
   named_it = lit acc " data-{key}=\"{word}\"" at
-  attributes (after value (length word)) classes named_it at
+  attributes (after value (length word)) classes named_it at o
 
 # The actions a template binds, each once, in the order first written.
 pub fn actions src
@@ -352,12 +377,12 @@ pub fn takes src
   takes_of (rows_of src)
 
 # A quoted value is text, with `{expr}` holes like any other.
-fn lettered value classes acc at
+fn lettered value classes acc at o
   pieces = text/split (after value 1) "\""
   return acc if length pieces < 1
   shut = lit (texted acc pieces[1] at) "\"" at
   tail = text/join (list/to_list (list/drop pieces 1)) "\""
-  attributes tail classes shut at
+  attributes tail classes shut at o
 
 fn first_word s
   ws = text/split s " "
@@ -372,11 +397,11 @@ fn attribute? w
 fn key_char? c
   length (text/split "abcdefghijklmnopqrstuvwxyz-" c) > 1
 
-fn content "" acc _
+fn content "" acc _ _
   acc
 
-fn content s acc at
-  return spliced acc (raw (after s 3)) at if text/starts_with? s "== "
+fn content s acc at o
+  return spliced acc (raw (after s 3) o) at if text/starts_with? s "== "
   return spliced acc (escaped (after s 2)) at if text/starts_with? s "= "
   texted acc s at
 
@@ -384,7 +409,7 @@ fn content s acc at
 # short enough for the line, each preceded by the template lines its holes
 # came from.
 fn emitted head units o
-  chunks = packed units
+  chunks = packed (list/to_list (list/map units (u -> read_as u o)))
   return constant_of head chunks o if text/ends_with? head " ="
   "{head}\n{body_of chunks o}"
 
@@ -499,3 +524,203 @@ fn digit? s
 fn name_char? c
   letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_?!"
   length (text/split letters c) > 1
+
+# In the keyed compile a hole's field reads become reads of a map's keys.
+fn read_as u o
+  return u if not o.keyed or not u.hole
+  unit (scanned_reads u.text).text u.line true
+
+fn scanned_reads s
+  rewritten (text/chars s) 1 ["code"] (reading "" [])
+
+fn rewritten cs i modes acc
+  return acc if i < 1 or length cs < i
+  c = cs[i]
+  next = i + 1
+  return in_literal cs i modes acc if top modes == "text"
+  return chained cs i modes acc if starts_name? c and not after_name? cs i
+  return rewritten cs next (push modes "code") (on acc c) if c == "\{"
+  return rewritten cs next (popped modes) (on acc c) if c == "}"
+  return rewritten cs next (push modes "text") (on acc c) if c == "\""
+  rewritten cs next modes (on acc c)
+
+# Inside a string literal a `\` escapes the character after it, `{` opens
+# code, and `"` closes the literal.
+fn in_literal cs i modes acc
+  return acc if i < 1 or length cs < i
+  c = cs[i]
+  next = i + 1
+  pair = "{c}{char_at cs next}"
+  return rewritten cs (i + 2) modes (on acc pair) if c == "\\"
+  return rewritten cs next (push modes "code") (on acc c) if c == "\{"
+  return rewritten cs next (popped modes) (on acc c) if c == "\""
+  rewritten cs next modes (on acc c)
+
+fn on acc s
+  reading "{acc.text}{s}" acc.chains
+
+fn chained cs i modes acc
+  j = name_end cs i
+  name = word_from cs i j
+  fields_after cs i j modes acc name name
+
+# A read stands bare where it is the whole of a hole, a bracket or a group,
+# and in parentheses where it is one part of a larger expression.
+fn fields_after cs i j modes acc expr chain
+  more = char_at cs j == "." and starts_name? (char_at cs (j + 1))
+  return rewritten cs j modes (on acc expr) if not more and chain == expr
+  whole = alone? (char_at cs (i - 1)) (char_at cs j)
+  shown = if whole expr "({expr})"
+  ended_here = reading "{acc.text}{shown}" (push acc.chains chain)
+  return rewritten cs j modes ended_here if not more
+  k = name_end cs (j + 1)
+  f = word_from cs (j + 1) k
+  read = "kata_at {wrapped expr} \"{f}\""
+  fields_after cs i k modes acc read "{chain}.{f}"
+
+fn alone? before after_it
+  opened = list/any? ["" "\{" "(" "["] (c -> c == before)
+  opened and list/any? ["" "}" ")" "]"] (c -> c == after_it)
+
+fn name_end cs i
+  return i if i < 1 or length cs < i
+  if (name_char? cs[i]) (name_end cs (i + 1)) i
+
+fn word_from cs i j
+  text/join (list/to_list (list/take (list/drop cs (i - 1)) (j - i))) ""
+
+fn char_at cs i
+  return "" if i < 1 or length cs < i
+  cs[i]
+
+fn starts_name? c
+  c != "" and length (text/split name_starts c) > 1
+
+name_starts = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+
+fn after_name? cs i
+  before = char_at cs (i - 1)
+  before == "." or before == "/" or (before != "" and name_char? before)
+
+# The fields a template reads from each value it takes, as paths:
+# `post.title` for a field of a record and `posts.[].title` for a field of
+# each record in a list. A loop's name stands for an element of what it
+# walks, so `for e in signatures` and then `e.name` read
+# `signatures.[].name`. The reads are found in the template compiled, where
+# markup is string text and only expressions are code.
+pub fn reads src
+  rows = rows_of src
+  declared = takes_of rows
+  loops = list/fold rows {} looped_over
+  code = list/reject (text/split (compiled "kata" "" src) "\n") commented?
+  found = (scanned_reads (text/join (list/to_list code) "\n")).chains
+  paths = list/map found (c -> resolved c loops declared 0)
+  distinct (list/to_list (list/reject paths (p -> p == ""))) []
+
+fn commented? l
+  text/starts_with? (text/trim l) "#"
+
+fn looped_over acc r
+  return acc if not text/starts_with? r.body "for "
+  ws = words (after r.body 4)
+  return acc if length ws != 3 or ws[2] != "in"
+  put acc ws[1] ws[3]
+
+# A chain of reads as a path from what the template takes, or "" when it
+# starts from a name the template neither takes nor binds in a loop.
+fn resolved chain loops declared depth
+  parts = text/split chain "."
+  return "" if length parts < 1
+  root = parts[1]
+  rest = list/to_list (list/drop parts 1)
+  return chain if has? declared root
+  return "" if depth > length loops
+  looped_from loops[root] rest loops declared depth
+
+fn looped_from none _ _ _ _
+  ""
+
+fn looped_from over rest loops declared depth
+  base = resolved over loops declared (depth + 1)
+  return "" if base == ""
+  text/join (list/concat ["{base}.[]"] rest) "."
+
+# `{name}_view` takes what the template takes and answers the page as data:
+# the template's name and its values, each record cut down to a map of the
+# fields the template reads, so the page can travel as JSON. Reading those
+# fields here, from the records the action built, is what checks them.
+pub fn viewed name src
+  declared = takes src
+  paths = reads src
+  each = list/to_list (list/map declared (d -> local_of name d paths))
+  helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
+  pairs = list/to_list (list/sort (list/map each (e -> e.call)))
+  locals = map_literal pairs "  kata_locals = " "  "
+  head = "pub fn {name}_view {params_of declared}"
+  node = "  \{ \"locals\":kata_locals \"view\":\"{name}\" }"
+  main = "{head}\n{locals}\n{node}\n"
+  text/join (push helpers main) "\n"
+
+fn local_of name d paths
+  v = encoding name d d (under paths d)
+  helped "\"{d}\":{wrapped v.call}" v.helpers
+
+# The paths under `name`, with `name.` taken off.
+fn under paths name
+  lead = "{name}."
+  inside = list/select paths (p -> text/starts_with? p lead)
+  list/to_list (list/map inside (p -> after p (length lead)))
+
+fn first_step p
+  (text/split p ".")[1]
+
+fn rest_of p
+  text/join (list/to_list (list/drop (text/split p ".") 1)) "."
+
+# What the encoder writes for a value read by `expr`, given the paths read
+# beneath it: the value itself when nothing is read from it, each element
+# mapped when it is a list, and its fields picked when it is a record.
+fn encoding name slug expr subs
+  return helped expr [] if length subs == 0
+  each = list/to_list (list/select subs (s -> first_step s == "[]"))
+  return as_list name slug expr each if length each > 0
+  r = picked name slug subs
+  helped "{r.call} {wrapped expr}" r.helpers
+
+fn as_list name slug expr each
+  inner = list/to_list (list/reject (list/map each rest_of) (s -> s == ""))
+  return helped expr [] if length inner == 0
+  e = each_one name "{slug}_each" inner
+  h = "{name}_view_{slug}"
+  mapped = "fn {h} xs\n  list/to_list (list/map xs {e.call})\n"
+  helped "{h} {wrapped expr}" (push e.helpers mapped)
+
+fn each_one name slug subs
+  lists = list/any? subs (s -> first_step s == "[]")
+  return picked name slug subs if not lists
+  h = "{name}_view_{slug}"
+  s = encoding name slug "x" subs
+  helped h (push s.helpers "fn {h} x\n  {s.call}\n")
+
+# A record cut down to the fields read from it, as a function of the record.
+fn picked name slug subs
+  fields = distinct (list/to_list (list/map subs first_step)) []
+  each = list/to_list (list/map fields (f -> field_of name slug subs f))
+  helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
+  pairs = list/to_list (list/sort (list/map each (e -> e.call)))
+  h = "{name}_view_{slug}"
+  helped h (push helpers "fn {h} x\n{map_literal pairs "  " "  "}\n")
+
+fn field_of name slug subs f
+  below = list/select subs (s -> first_step s == f and s != f)
+  rests = list/to_list (list/map below rest_of)
+  v = encoding name "{slug}_{f}" "x.{f}" rests
+  helped "\"{f}\":{wrapped v.call}" v.helpers
+
+# A map literal on one line when it fits in 80 columns, and an entry to a
+# line when it does not, as the formatter asks.
+fn map_literal pairs lead indent
+  line = "{lead}\{ {text/join pairs " "} }"
+  return "{lead}\{}" if length pairs == 0
+  return line if length line <= 80
+  "{lead}\{\n{indent}  {text/join pairs "\n{indent}  "}\n{indent}}"

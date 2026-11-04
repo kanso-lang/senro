@@ -1,0 +1,7 @@
+import "../../../browser"
+import "../../../kata"
+import "./views"
+
+derive kata/views
+
+browser/answer_pages {} views/rendered

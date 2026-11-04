@@ -1,0 +1,14 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+import "std/json"
+
+derive kata/views
+
+# The page as data, then rendered from that data, then rendered by the
+# template from the records themselves. The two renderings are the same.
+listed = views/list_view posts/all "<saved>" posts/marks
+page = views/layout_view "Posts" listed
+print (json/encode page)
+print (views/rendered page)
+print (views/layout "Posts" (views/list posts/all "<saved>" posts/marks))

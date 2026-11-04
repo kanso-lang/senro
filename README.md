@@ -85,20 +85,24 @@ adds, counts, renames and removes things on a shelf without a page reload.
   `/senro.js`. A layout that loads it gets pages that update in place: a
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never
-  reloads. A field the visitor is typing in keeps what they typed, unless
-  it was in the form just sent. A form that POSTs a `_method` of `PATCH` or
+  reloads. Once the app's browser module has loaded, a page the app answers
+  with `views/answer` arrives as data and is rendered in the browser. A
+  field the visitor is typing in keeps what they typed, unless it was in
+  the form just sent. A form that POSTs a `_method` of `PATCH` or
   `DELETE` is routed as that method, as in Rails. When a request that isn't
   a GET finishes, the server notifies Postgres's `senro` channel, and every
   page holding `/senro/live` open fetches itself again, so one visitor's
   change shows on another's page.
-- `browser`: what an app's components need in the browser. `browser.kso`
-  beside the app's entry names its browser components with
-  `browser/answer`, and `sh browser/build.sh <app> <runtime.wasm>` builds it
-  for the browser into the app's `public/senro/`, beside kanso's runtime for
-  wasm32 (`scripts/build_runtime_wasm.sh` in kanso). Until the module has
-  loaded, an element marked `data-while-loading` shows and one marked
-  `data-when-loaded` is hidden; afterwards it is the other way round. senro
-  shows nothing of its own while loading.
+- `browser`: what an app's components and pages need in the browser.
+  `browser.kso` beside the app's entry names its browser components with
+  `browser/answer`, or with `browser/answer_pages` when the module renders
+  the app's pages too (see `kata/README.md`). `sh browser/build.sh <app>
+  <runtime.wasm>` builds it for the browser into the app's `public/senro/`,
+  beside kanso's runtime for wasm32 (`scripts/build_runtime_wasm.sh` in
+  kanso). Until the module has loaded, an element marked
+  `data-while-loading` shows and one marked `data-when-loaded` is hidden;
+  afterwards it is the other way round. senro shows nothing of its own
+  while loading.
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 
@@ -113,6 +117,8 @@ and example, compare the guestbook's derived schema and routes with
 `spec/guestbook.derived`, compare each view kata writes with the file beside
 its template, run each app under `spec/runs` on both engines against its
 `.stdout` golden, run each browser module's events in `spec/runs/<app>.events`
-natively, interpreted and as wasm against its `.answers` golden, run each app under `spec/db` the same way against a
-Postgres that trusts 127.0.0.1:54329 (`SENRO_NO_DB=1` skips them), and hold each app under `spec/errors` to the refusal its
-`.stderr` golden records. `SPEC_WRITE=1` rewrites the goldens.
+natively, interpreted and as wasm against its `.answers` golden, hold
+`spec/runs/pages`'s page rendered in the browser to the page the server
+rendered, run each app under `spec/db` the same way against a Postgres that
+trusts 127.0.0.1:54329 (`SENRO_NO_DB=1` skips them), and hold each app under
+`spec/errors` to the refusal its `.stderr` golden records. `SPEC_WRITE=1` rewrites the goldens.

@@ -1,4 +1,5 @@
-// The guestbook signed in a real browser, with senro's page script loaded.
+// The guestbook signed in a real browser, with senro's page script and the
+// guestbook's browser module loaded.
 // The page marks its window before signing; a page that reloaded would lose
 // the mark. Then the visitor removes her own entry, and is refused when she
 // asks to remove someone else's. Prints what a visitor sees, for spec.sh to
@@ -23,7 +24,17 @@ await bob.fill("textarea[name=message]", "from Bob");
 await bob.click("button");
 await bob.waitForSelector("p.flash");
 
+// Each page the script fetches after the first comes as data, which the
+// guestbook's views compiled for the browser render, once the module has
+// loaded.
+const fetched = [];
+page.on("response", (r) => {
+  const asked = r.request();
+  if (asked.resourceType() !== "fetch" || new URL(r.url()).pathname !== "/") return;
+  fetched.push(r.headers()["senro-view"] ? "data" : "html");
+});
 await page.goto(`http://127.0.0.1:${port}/`);
+await page.waitForSelector("html.senro-ready", { state: "attached" });
 await page.evaluate(() => { window.senroMark = "kept"; });
 await page.fill("input[name=name]", "Ada");
 await page.fill("textarea[name=message]", "signed without a reload");
@@ -79,5 +90,6 @@ const asked = await page.evaluate(async (state) => {
   return r.status;
 }, his);
 console.log(`Ada asking to remove Bob's entry: ${asked}`);
+console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
 for (const line of said) console.log(line);
 await browser.close();

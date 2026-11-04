@@ -114,6 +114,62 @@ id the session signed in, and it writes through a model
 one that calls `pg/query` or `pg/run` itself. In both cases the page morphs
 the component's next rendering into place.
 
+## Pages in the browser
+
+A template that binds no action is a page, and an app can have its pages
+rendered in the browser. The action describes the page instead of rendering
+it, and answers with `answer`:
+
+```
+page = views/signed_view signed name flash removals
+views/answer req (views/layout_view "Guestbook" page)
+```
+
+Once the app names `answer` or `rendered`, kata writes three more functions
+for each page in the module:
+
+- `signed_view` takes what `signed` takes and answers the page as data: the
+  template's name and its values. A record goes in cut down to a map of the
+  fields the template reads. `for e in signatures` followed by `e.name`
+  reads `name` from each record in `signatures`, so each record becomes a
+  map of `name` and the other fields read beside it. A value the template
+  reads no field of goes in whole. A page may hold another page as a value,
+  which is how a layout holds its body.
+- `signed_keyed` is the template compiled a second time, with each field
+  read written as a read of a map's key, so it renders from the data.
+- `rendered` renders a page from its data, choosing the template by name.
+
+`answer` renders the page on the server for a request the browser made
+itself. senro's page script asks with a `senro-view` header and gets the
+page's data as JSON, which the app's browser module renders with the same
+`rendered` before the script morphs it into the page. Because the server
+renders with `rendered` too, the HTML a first request gets and the HTML the
+browser renders come from one compile. `spec/runs/pages` prints both beside
+the template's rendering of the records themselves, and the three are the
+same bytes.
+
+The browser module hands `rendered` to `browser/answer_pages`, with the
+app's browser components, here none:
+
+```
+import "../../browser"
+import "../../kata"
+import "./views"
+
+derive kata/views
+
+browser/answer_pages {} views/rendered
+```
+
+A program that names `rendered` but not `answer`, as this one does, holds
+none of the records the pages read. kata writes a page's own function and
+its `_view` there only when the program names them.
+
+A template cannot yet read a record held inside a record, whether it renders
+records or data. A loop that walks something other than a value the template
+takes, or one of its fields, leaves the fields read in its body out of the
+data.
+
 ## What it does not do yet
 
 - A diagnostic in a template points at the module's derived source. The

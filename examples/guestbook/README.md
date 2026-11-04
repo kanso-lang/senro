@@ -7,7 +7,12 @@ sha256's HMAC and PBKDF2 with base64, and a view kata wrote.
 ```
 kanso run examples/guestbook      # Postgres on 127.0.0.1:54329, trust login
 kanso derived examples/guestbook  # the schema and route table derived
+KANSO=kanso sh browser/build.sh examples/guestbook <runtime.wasm>
 ```
+
+The third line builds the browser module the page loads, which renders the
+guestbook's pages in the browser. Without it the pages still update in
+place, rendered on the server.
 
 - `main.kso` connects, creates each table the schema names if it is
   missing, compares the database's tables with the schema it was compiled
@@ -38,10 +43,15 @@ kanso derived examples/guestbook  # the schema and route table derived
   signer's name and a one-time notice in a session, a cookie signed with
   HMAC-SHA-256, and the form comes back with the name filled in. A cookie
   whose signature does not match reads as an empty session.
-- `entries.kso` declares the `signature` model, stores one with a
-  parameterized insert, so what a visitor types is stored as text and never
-  read as SQL, and renders the list.
+- `signatures.kso` declares the `signature` model and its policy.
+  `entries.kso` stores one with a parameterized insert, so what a visitor
+  types is stored as text and never read as SQL, and answers the list as a
+  page.
 - `views/signed.kata` is the page and `views/layout.kata` the frame around
   it. `derive kata/views` in `main.kso` compiles each to a function of the
   `views` module while the app compiles. The page reads the `signature`
   records `entries.kso` builds by their fields, which needs no import.
+  `entries.kso` describes the page with `views/signed_view` and answers
+  with `views/answer`: HTML to a browser that asked for the page itself, and
+  the page as JSON to senro's script once `browser.kso`, built for the
+  browser, has loaded and can render it.

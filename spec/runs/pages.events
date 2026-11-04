@@ -1,0 +1,1 @@
+		{"locals":{"body":{"locals":{"flash":"<saved>","marks":{"1":"<b>new</b>","2":""},"posts":[{"author":"Ada","draft":false,"id":1,"tags":["kata","html"],"title":"On <tags>"},{"author":"Bob","draft":true,"id":2,"tags":[],"title":"Second"}]},"view":"list"},"title":"Posts"},"view":"layout"}
