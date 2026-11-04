@@ -6,6 +6,10 @@ import "./entries"
 import "./views"
 import "std/text"
 
+# One address may try to sign in ten times in three minutes, as Rails 8's
+# generated sessions controller allows, and is answered 429 past that.
+pub rate_limits = { "create":"10 per 3 minutes" }
+
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's name into it as the viewer.
 pub fn new req _

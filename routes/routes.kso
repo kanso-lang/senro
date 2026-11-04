@@ -22,6 +22,10 @@ type aliases
   routes
   refused
 
+type limits
+  by
+  refused
+
 # senro's routing convention, run while an app compiles (#2186). A pub
 # function in one of the app's modules is an action, and its module's name
 # and its own name place it: `entries/index` answers GET /entries,
@@ -44,6 +48,14 @@ type aliases
 # must name a route, take `:id` as its second segment exactly when its route
 # does, and answer no request a route or another alias answers.
 #
+# A module that lets one client call an action only so often declares
+# `rate_limits`, a map from the action's name to a count per a window, as
+# Rails' `rate_limit` reads: `{ "create": "10 per 3 minutes" }`. The window
+# is a number of seconds, minutes or hours, and "per minute" means one. A
+# limit names an action of its own module and reads as a count per a window,
+# or it is refused at the declaration. The table carries the count and the
+# window in milliseconds beside the action.
+#
 # It also writes a `path_to` arm for each record type declared in a module
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
@@ -53,8 +65,9 @@ pub fn rest p
   start = aliases [] []
   aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
   placed = list/concat conventional aliased.routes
-  rows = list/fold placed {} (acc r -> put acc (spelled r) (row r))
-  given = aliased.refused
+  limited = list/fold apps (limits {} []) limits_in
+  rows = list/fold placed {} (acc r -> put acc (spelled r) (row r limited.by))
+  given = list/concat aliased.refused limited.refused
   odd = list/fold apps given (acc m -> list/concat acc (strays m))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
@@ -146,9 +159,76 @@ fn id_fits false true c name
 fn spelled r
   "{r.method} {r.path}"
 
-fn row r
-  return { "action":r.action "id":r.id } if r.to == ""
-  { "action":r.action "id":r.id "to":r.to }
+fn row r by
+  return { "action":r.action "id":r.id "to":r.to } if r.to != ""
+  bounded { "action":r.action "id":r.id } by[r.origin]
+
+fn bounded base none
+  base
+
+fn bounded base found
+  put base "limit" found
+
+fn limits_in acc m
+  limits_from acc m m.constants["rate_limits"]
+
+fn limits_from acc _ none
+  acc
+
+fn limits_from acc m given
+  list/fold (entries given) acc (a e -> limit_of a m e.key e.value)
+
+fn limit_of acc m name said
+  origin = "{m.name}/rate_limits"
+  acts = list/any? m.functions (f -> acting? m f name)
+  stray = "`{name}` is not an action of `{m.name}`"
+  return limit_refused acc origin stray if not acts
+  words = text/split (widened said) " "
+  shape = "`{said}` is not a count per a window, such as \"10 per 3 minutes\""
+  return limit_refused acc origin shape if length words != 4
+  return limit_refused acc origin shape if words[2] != "per"
+  count = text/to_int words[1]
+  span = text/to_int words[3]
+  ms = unit_ms words[4]
+  unread = count == none or span == none or ms == 0
+  return limit_refused acc origin shape if unread
+  return limit_refused acc origin shape if count < 1 or span < 1
+  key = "{m.name}/{name}"
+  limit = { "count":count "key":key "within":(span * ms) }
+  limits (put acc.by key limit) acc.refused
+
+fn acting? m f name
+  f.name == name and path_of m.name f.name != none
+
+# "10 per minute" is a window of one.
+fn widened said
+  words = text/split said " "
+  return said if length words != 3
+  "{words[1]} {words[2]} 1 {words[3]}"
+
+fn unit_ms "second"
+  1000
+
+fn unit_ms "seconds"
+  1000
+
+fn unit_ms "minute"
+  60000
+
+fn unit_ms "minutes"
+  60000
+
+fn unit_ms "hour"
+  3600000
+
+fn unit_ms "hours"
+  3600000
+
+fn unit_ms _
+  0
+
+fn limit_refused acc origin said
+  limits acc.by (push acc.refused (derive/refuse origin said))
 
 fn routes_of m
   one = singular? m

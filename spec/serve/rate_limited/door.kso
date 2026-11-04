@@ -1,0 +1,8 @@
+import "../../../web"
+import "std/net/http"
+
+pub rate_limits = { "create":"2 per minute" }
+
+# Says who knocked, by the address the server read off the connection.
+pub fn create req _
+  effect (http/text_page "from {web/peer req}")

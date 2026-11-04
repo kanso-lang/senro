@@ -44,7 +44,13 @@ adds, counts, renames and removes things on a shelf without a page reload.
   `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308
   redirect to its action's route, and an alias that names no route, disagrees
   with it about `:id`, or overlaps another route is refused. `web/moved_to`
-  answers where a request `web/matched` found is redirected.
+  answers where a request `web/matched` found is redirected. A module that
+  lets one client call an action only so often declares `pub rate_limits`,
+  as in `{ "create":"10 per 3 minutes" }`. The server counts each client's
+  calls by its address, in memory, and answers a call past the limit with
+  429 Too Many Requests before it reaches the action. A limit on no action
+  of its module, or one that does not read as a count per a window, is
+  refused at the declaration. `web/peer req` answers the client's address.
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a

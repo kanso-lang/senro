@@ -391,4 +391,4 @@ pub signature_model = {
   "read":signature_from
   "table":"signatures"
 }
-routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" } "GET /accounts/new":{ "action":accounts/new "id":"" } "GET /entries":{ "action":entries/index "id":"" } "GET /session/new":{ "action":session/new "id":"" } "POST /accounts":{ "action":accounts/create "id":"" } "POST /entries":{ "action":entries/create "id":"" } "POST /session":{ "action":session/create "id":"" } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" } "GET /accounts/new":{ "action":accounts/new "id":"" } "GET /entries":{ "action":entries/index "id":"" } "GET /session/new":{ "action":session/new "id":"" } "POST /accounts":{ "action":accounts/create "id":"" } "POST /entries":{ "action":entries/create "id":"" } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "within":180000 } } }    # routes/rest
