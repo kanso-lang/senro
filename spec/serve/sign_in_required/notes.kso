@@ -1,0 +1,10 @@
+import "std/net/http"
+
+pub without_sign_in = ["index"]
+
+pub fn index _ _
+  effect (http/text_page "every note")
+
+# Writing a note needs a visitor who has signed in.
+pub fn new _ _
+  effect (http/text_page "a blank note")

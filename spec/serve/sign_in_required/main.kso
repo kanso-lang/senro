@@ -1,0 +1,14 @@
+import "../../../pg"
+import "../../../routes"
+import "../../../web"
+import "./nested"
+import "./notes"
+import "./session"
+
+derive routes/rest
+
+connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+
+guarded = web/requiring_sign_in routes session/secret
+
+web/serve 54405 guarded connected

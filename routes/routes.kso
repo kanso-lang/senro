@@ -69,8 +69,10 @@ pub fn rest p
   aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
   placed = list/concat conventional aliased.routes
   limited = list/fold apps (limits {} []) limits_in
-  rows = list/fold placed {} (acc r -> put acc (spelled r) (row r limited.by))
-  given = list/concat aliased.refused limited.refused
+  open = list/fold apps (limits {} []) opens_in
+  rows = list/fold placed {} (acc r -> put acc (spelled r) (row r limited open))
+  turned = list/concat limited.refused open.refused
+  given = list/concat aliased.refused turned
   odd = list/fold apps given (acc m -> list/concat acc (strays m))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
@@ -162,9 +164,36 @@ fn id_fits false true c name
 fn spelled r
   "{r.method} {r.path}"
 
-fn row r by
+fn row r limited open
   return { "action":r.action "id":r.id "to":r.to } if r.to != ""
-  bounded { "action":r.action "id":r.id } by[r.origin]
+  base = opened { "action":r.action "id":r.id } open.by[r.origin]
+  bounded base limited.by[r.origin]
+
+fn opened base none
+  base
+
+fn opened base _
+  put base "open" true
+
+# A module lists the actions anyone may reach, signed in or not, in
+# `without_sign_in`, and the table marks them open. An app that wraps its
+# table in `web/requiring_sign_in` sends a visitor who has not signed in from
+# any other action to sign in. Each name must be an action of its module.
+fn opens_in acc m
+  opens_from acc m m.constants["without_sign_in"]
+
+fn opens_from acc _ none
+  acc
+
+fn opens_from acc m given
+  list/fold given acc (a name -> open_of a m name)
+
+fn open_of acc m name
+  origin = "{m.name}/without_sign_in"
+  acts = list/any? m.functions (f -> acting? m f name)
+  stray = "`{name}` is not an action of `{m.name}`"
+  return limit_refused acc origin stray if not acts
+  limits (put acc.by "{m.name}/{name}" true) acc.refused
 
 fn bounded base none
   base

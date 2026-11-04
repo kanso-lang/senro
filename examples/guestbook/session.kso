@@ -11,6 +11,8 @@ import "std/text"
 # sign-in page again, saying why.
 pub rate_limits = { "create":"10 per 3 minutes" }
 
+pub without_sign_in = ["create" "new"]
+
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's name into it as the viewer.
 pub fn new req _
@@ -36,8 +38,10 @@ fn kept_digest rows
 fn entered req name kept password
   return refused req name if not passwords/matches? password kept
   s = web/session req entries/secret
-  welcomed = put s "flash" "Signed in as {name}."
-  effect (web/signed_in req (web/redirect "/") entries/secret welcomed name)
+  back = web/return_to req entries/secret "/"
+  welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
+  home = web/redirect back
+  effect (web/signed_in req home entries/secret welcomed name)
 
 fn refused req name
   wrong = { "password":"That name and password do not match." }

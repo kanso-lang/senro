@@ -52,6 +52,12 @@ adds, counts, renames and removes things on a shelf without a page reload.
   module's `over_limit req` answers when it writes one. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
+  An app that wraps its table in `web/requiring_sign_in routes secret` asks
+  every action for a visitor who has signed in, except those its module
+  lists in `pub without_sign_in`, as Rails 8's generated authentication
+  does. A visitor who has not is sent to `/session/new`, the path a GET
+  asked for is kept in the session, and `web/return_to req secret fallback`
+  answers it once the visitor has signed in.
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a

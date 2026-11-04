@@ -551,6 +551,56 @@ plain = "content-type: text/plain; charset=utf-8"
 pub fn redirect path
   http/respond 303 ["location: {path}"] ""
 
+# Every action in `routes` asks for a visitor who has signed in, except the
+# ones their module lists in `without_sign_in`, as Rails 8's generated
+# authentication requires one unless an action allows otherwise. A visitor
+# who has not signed in is sent to `/session/new`, and the path a GET asked
+# for is kept in the session, where `return_to` finds it once they have.
+# An alias's redirect and a component's action are left as they are: the
+# first answers no content, and the second asks its model's policy.
+pub fn requiring_sign_in routes secret
+  each = (acc e -> put acc e.key (guarded e.value secret))
+  list/fold (entries routes) {} each
+
+fn guarded row secret
+  return row if row["open"] != none or row["to"] != none
+  put row "action" (gated row["action"] (id_kind row["id"]) secret)
+
+fn id_kind none
+  ""
+
+fn id_kind kind
+  kind
+
+fn gated none _ _
+  none
+
+fn gated action kind secret
+  gated_by kind action secret
+
+fn gated_by "" action secret
+  (req db -> admitted req secret (_ -> action req db))
+
+fn gated_by _ action secret
+  (req db id -> admitted req secret (_ -> action req db id))
+
+fn admitted req secret go
+  return go 0 if viewer req secret != ""
+  return effect (redirect "/session/new") if req.method != "GET"
+  asked = put (session req secret) "return_to" req.path
+  effect (kept (redirect "/session/new") secret asked)
+
+# Where a visitor sent to sign in was going, or `fallback` when nobody sent
+# them. An app's sign-in redirects there once the password matches.
+pub fn return_to req secret fallback
+  went (session req secret)["return_to"] fallback
+
+fn went none fallback
+  fallback
+
+fn went path _
+  path
+
 # A session is a map of strings the browser keeps in a cookie and sends back
 # with each request. The cookie holds the map as JSON beside an HMAC-SHA-256
 # of it under the app's secret, so a session the browser altered, or one no

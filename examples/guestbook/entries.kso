@@ -11,6 +11,10 @@ type filled
   message
   problems
 
+# Anyone may read the book. Signing it needs an account, so `create` is
+# left out, and a visitor who has not signed in is sent to sign in first.
+pub without_sign_in = ["index"]
+
 # The session says who is signed in, and carries a notice across the
 # redirect that follows a signature or a sign-in; the page that shows the
 # notice clears it.
@@ -22,13 +26,11 @@ pub fn index req db
 pub secret = "the guestbook's development secret"
 
 # A signature is made through its model, whose rules decide whether it is
-# fit to keep. It is signed with the name of the account signed in, and a
-# visitor who is not signed in is sent to sign in. The fields go to Postgres
-# as parameters, so what a visitor types is stored as text and never read as
-# SQL.
+# fit to keep. It is signed with the name of the account signed in. The
+# fields go to Postgres as parameters, so what a visitor types is stored as
+# text and never read as SQL.
 pub fn create req db
   viewer = web/viewer req secret
-  return effect (web/redirect "/session/new") if viewer == ""
   f = put (web/form req.body) "name" viewer
   models/created viewer db signatures/signature_model f
     .> (w -> signed req db w)
