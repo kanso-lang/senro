@@ -39,7 +39,17 @@ const said = async (step) => {
 const rows = () => document.querySelectorAll(".items li").length;
 const row = (n) => page.locator(".items li").nth(n);
 
+// Each page the script fetches comes as data once the module has loaded,
+// and the pantry's views compiled for the browser render it.
+const fetched = [];
+page.on("response", (r) => {
+  if (r.request().resourceType() !== "fetch" || r.status() !== 200) return;
+  const path = new URL(r.url()).pathname;
+  if (path.startsWith("/senro/")) return;
+  fetched.push(r.headers()["senro-view"] ? "data" : "html");
+});
 await page.goto(`http://127.0.0.1:${port}/`);
+await page.waitForSelector("html.senro-ready", { state: "attached" });
 await page.evaluate(() => { window.senroMark = "kept"; });
 
 // Whatever an earlier run left on the shelf goes first, through the page.
@@ -191,4 +201,6 @@ const seen = await other.evaluate(() => ({
   count: document.querySelectorAll(".items li .count")[1].textContent,
 }));
 console.log(`the other visitor sees green tea at ${seen.count}, mark ${seen.mark}`);
+const asData = fetched.length > 0 && fetched.every((k) => k === "data");
+console.log(`every page the shelf fetched came as data: ${asData}`);
 await browser.close();

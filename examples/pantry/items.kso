@@ -5,14 +5,13 @@ import "./staple"
 import "./stock"
 import "./views"
 import "std/list"
-import "std/net/http"
 
-pub fn index _ db
-  shelf db ""
+pub fn index req db
+  shelf req db ""
 
 # The shelf with one item's name open for editing.
-pub fn edit _ db id:int
-  shelf db "{id}"
+pub fn edit req db id:int
+  shelf req db "{id}"
 
 pub fn create req db
   name = web/value (web/form req.body) "name"
@@ -34,15 +33,18 @@ fn changed db sql params
 
 back = effect (web/redirect "/")
 
-fn shelf db editing
-  pg/query db stocked [] .> (r -> shown r.rows editing)
+fn shelf req db editing
+  pg/query db stocked [] .> (r -> shown req r.rows editing)
 
-fn shown rows editing
+# The shelf goes out as HTML to a browser that asked for it, and as data to
+# senro's page script, which renders it with the views compiled for the
+# browser.
+fn shown req rows editing
   items = list/to_list (list/map rows stock/item_from)
   total = list/fold items 0 (n i -> n + i.quantity)
   stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
-  page = views/shelf items editing total (planner/view 3) stars
-  effect (http/html_page (views/layout "Pantry" page))
+  page = views/shelf_view items editing total (planner/view 3) stars
+  effect (views/answer req (views/layout_view "Pantry" page))
 
 # Each item's staple star, a component whose state is the item's id and flag.
 # Postgres sends a boolean as text, t or f.
