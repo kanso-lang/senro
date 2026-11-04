@@ -30,7 +30,9 @@ script = """
         const headers = \{ "senro-page": self };
         if (app) headers["senro-view"] = "1";
         const named = \{ ...init, headers };
-        await shown(mine, await fetch(url, named), init, pushed, form);
+        const r = await fetch(url, named);
+        if (stale(r)) return;
+        await shown(mine, r, init, pushed, form);
       } finally \{
         flying--;
         if (flying === 0 && changed) \{
@@ -38,6 +40,23 @@ script = """
           visit(location.href, \{}, false);
         }
       }
+    };
+
+    // An answer from a server whose browser modules are not the ones this
+    // page was opened with means a deploy came between them. The page loads
+    // itself again, once for each version, to take the new script and
+    // modules.
+    const stale = (r) => \{
+      const v = r.headers.get("senro-version");
+      if (v === null || v === senroVersion) return false;
+      try \{
+        if (sessionStorage.getItem("senro-reloaded") === v) return false;
+        sessionStorage.setItem("senro-reloaded", v);
+      } catch (e) \{
+        return false;
+      }
+      location.reload();
+      return true;
     };
 
     const refresh = () => \{
@@ -200,11 +219,37 @@ script = """
     let runtime = null;
     let app = null;
 
+    // Both modules are kept in the browser's Cache Storage, each under its
+    // own part of the version the server opened this script with, so a
+    // returning visitor compiles them without asking for them. A deploy that
+    // changes one module fetches that one and drops its older copy.
+    const stored = async (path, mark) => \{
+      const key = path + "?v=" + mark;
+      let store = null;
+      try \{
+        if (typeof caches !== "undefined") store = await caches.open("senro");
+      } catch (e) \{}
+      const hit = store && await store.match(key);
+      if (hit) return hit;
+      const r = await fetch(path);
+      if (!r.ok || !store) return r;
+      await store.put(key, r.clone());
+      for (const old of await store.keys()) \{
+        const u = new URL(old.url);
+        if (u.pathname === path && u.search !== "?v=" + mark) \{
+          await store.delete(old);
+        }
+      }
+      return r;
+    };
+
+    const [appMark, runtimeMark] = senroVersion.split("-");
+
     const ready = (async () => \{
-      const own = await fetch("/senro/app.wasm");
+      const own = await stored("/senro/app.wasm", appMark);
       if (!own.ok) return;
       const [r, a] = await Promise.all([
-        WebAssembly.compileStreaming(fetch("/senro/runtime.wasm")),
+        WebAssembly.compileStreaming(stored("/senro/runtime.wasm", runtimeMark)),
         WebAssembly.compileStreaming(own),
       ]);
       runtime = r;
@@ -300,6 +345,7 @@ script = """
         headers: \{ "senro-page": self },
         body: action + "\\n" + root.dataset.state,
       });
+      if (stale(r)) return null;
       return r.ok ? r.text() : null;
     };
 
