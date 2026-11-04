@@ -33,11 +33,12 @@ place, rendered on the server.
   `entries/show` taking `id` beside `entries/new` is an error until `id` is
   annotated `id:int`.
 - `../../web` serves the table and decodes a posted form. Each connection is
-  answered in a fiber of its own with a database connection of its own, so a
-  slow request holds up nobody else. A path whose segment after the module
-  names no route is tried as `:id`, and an `id:int` action is handed the
-  number or answers 404. A path under `public/` is served as a file, which is
-  where the stylesheet comes from.
+  answered in a fiber of its own, with a database session borrowed from the
+  server's pool (see senro's README), so a slow request holds up nobody
+  else. A path whose segment after the module names no route is tried as
+  `:id`, and an `id:int` action is handed the number or answers 404. A path
+  under `public/` is served as a file, which is where the stylesheet comes
+  from.
 - After a signature is stored, `entries/create` answers a redirect to the
   list, so reloading the page does not post the form again. It keeps the
   signer's name and a one-time notice in a session, a cookie signed with
@@ -55,6 +56,6 @@ place, rendered on the server.
   `views` module while the app compiles. The page reads the `signature`
   records `entries.kso` builds by their fields, which needs no import.
   `entries.kso` describes the page with `views/signed_view` and answers
-  with `views/answer`: HTML to a browser that asked for the page itself, and
-  the page as JSON to senro's script once `browser.kso`, built for the
-  browser, has loaded and can render it.
+  with `views/answer_as`, 200 or 422: HTML to a browser that asked for the
+  page itself, and the page as JSON to senro's script once `browser.kso`,
+  built for the browser, has loaded and can render it.

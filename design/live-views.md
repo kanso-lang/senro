@@ -29,6 +29,3 @@ about the language itself (kanso#2284, parked until an app needs it).
 
 - Encoding: JSON first; a binary encoding only if a measurement says the
   JSON is the cost.
-- A page's data holds the fields its templates read, and a record held
-  inside a record cannot be read yet (`kata/README.md`).
-- Firefox is the browser this is tuned and tested in first.
