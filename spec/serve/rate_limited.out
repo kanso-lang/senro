@@ -1,3 +1,5 @@
 HTTP/1.1 200 OK: from 127.0.0.1
 HTTP/1.1 200 OK: from 127.0.0.1
 HTTP/1.1 429 Too Many Requests: Too Many Requests
+HTTP/1.1 200 OK: through the gate
+HTTP/1.1 303 See Other: 

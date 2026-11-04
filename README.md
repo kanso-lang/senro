@@ -48,7 +48,8 @@ adds, counts, renames and removes things on a shelf without a page reload.
   lets one client call an action only so often declares `pub rate_limits`,
   as in `{ "create":"10 per 3 minutes" }`. The server counts each client's
   calls by its address, in memory, and answers a call past the limit with
-  429 Too Many Requests before it reaches the action. A limit on no action
+  429 Too Many Requests before it reaches the action, or with what the
+  module's `over_limit req` answers when it writes one. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
 - `models`: the schema, folded at compile time from the app's migrations,

@@ -2,6 +2,7 @@ import "../../../pg"
 import "../../../routes"
 import "../../../web"
 import "./door"
+import "./gate"
 import "./nested"
 
 derive routes/rest

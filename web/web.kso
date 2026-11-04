@@ -124,15 +124,38 @@ fn heard c s req
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
   answering = pool/with s.dbs (db -> responded c db method by (answer db))
+  turned = turned_away action req
   allowed s.calls action req
-    .> (fine -> let_in fine c answering)
+    .> (fine -> let_in fine c answering turned)
     .> (_ -> net/close_conn c)
 
-fn let_in true _ answering
+fn let_in true _ answering _
   answering
 
-fn let_in false c _
-  sent c (http/respond 429 [] "Too Many Requests\n")
+fn let_in false c _ turned
+  turned .> (r -> sent c r)
+
+# What a call past its action's limit is answered: the module's `over_limit`
+# when it writes one, and 429 Too Many Requests when it does not.
+fn turned_away none _
+  too_many
+
+fn turned_away (hit _ _ _ none) _
+  too_many
+
+fn turned_away (hit _ _ _ l) req
+  over_limit l["over"] req
+
+fn turned_away _ _
+  too_many
+
+fn over_limit none _
+  too_many
+
+fn over_limit over req
+  over req
+
+too_many = effect (http/respond 429 [] "Too Many Requests\n")
 
 fn allowed _ none _
   effect true

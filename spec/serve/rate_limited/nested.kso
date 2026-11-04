@@ -6,14 +6,19 @@ import "std/text"
 # Knocks three times on a door that lets one client in twice a minute. Each
 # knock claims another address in `senro-peer`, which the server replaces
 # with the one it read off the connection, so all three count against this
-# client and the third is turned away.
+# client and the third is turned away. Then twice on a gate that lets it in
+# once and sends it back to the door after.
 pub fn index _ _
-  knocked .> (a -> knocked .> (b -> knocked .> (c -> said [a b c])))
+  thrice = (a b -> knocked "/door" .> (c -> effect [a b c]))
+  doors = knocked "/door" .> (a -> knocked "/door" .> (b -> thrice a b))
+  gates = knocked "/gate" .> (d -> knocked "/gate" .> (e -> effect [d e]))
+  doors .> (ds -> gates .> (gs -> said (list/concat ds gs)))
 
-knocked = net/dial "127.0.0.1" 54404 .> knocking
+fn knocked path
+  net/dial "127.0.0.1" 54404 .> (c -> knocking c path)
 
-fn knocking c
-  head = "POST /door HTTP/1.1\r\nhost: localhost\r\nsenro-peer: 10.0.0.9"
+fn knocking c path
+  head = "POST {path} HTTP/1.1\r\nhost: localhost\r\nsenro-peer: 10.0.0.9"
   net/write c "{head}\r\ncontent-length: 0\r\n\r\n"
     .> (_ -> net/read c)
     .> (raw -> net/close_conn c .> (_ -> effect raw))

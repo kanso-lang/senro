@@ -54,7 +54,10 @@ type limits
 # is a number of seconds, minutes or hours, and "per minute" means one. A
 # limit names an action of its own module and reads as a count per a window,
 # or it is refused at the declaration. The table carries the count and the
-# window in milliseconds beside the action.
+# window in milliseconds beside the action. A call past the limit is answered
+# 429 Too Many Requests, or by the module's `over_limit req` when it writes
+# one, as Rails' `with:` does: the guestbook answers its sign-in page again,
+# saying why.
 #
 # It also writes a `path_to` arm for each record type declared in a module
 # that has a `show` action, and refuses a `path_to` whose route name is no
@@ -195,7 +198,10 @@ fn limit_of acc m name said
   return limit_refused acc origin shape if count < 1 or span < 1
   key = "{m.name}/{name}"
   limit = { "count":count "key":key "within":(span * ms) }
-  limits (put acc.by key limit) acc.refused
+  over = list/to_list (list/select m.functions (f -> f.name == "over_limit"))
+  return limits (put acc.by key limit) acc.refused if length over == 0
+  turned = put limit "over" over[1].reference
+  limits (put acc.by key turned) acc.refused
 
 fn acting? m f name
   f.name == name and path_of m.name f.name != none
@@ -331,7 +337,7 @@ fn strays m
   list/concat (list/concat odd (indexed m)) (mixed m)
 
 fn policy? name
-  modeled = ["create?" "update?" "destroy?" "visible?" "problems"]
+  modeled = ["create?" "update?" "destroy?" "visible?" "problems" "over_limit"]
   list/any? modeled (p -> p == name)
 
 # A singular resource has no `index`: there is one of it.
