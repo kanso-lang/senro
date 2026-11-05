@@ -657,13 +657,25 @@ pub fn redirect path
 # for is kept in the session, where `return_to` finds it once they have.
 # An alias's redirect and a component's action are left as they are: the
 # first answers no content, and the second asks its model's policy.
-pub fn requiring_sign_in routes secret
-  each = (acc e -> put acc e.key (guarded e.value secret))
+#
+# A sign-in rests on something the account holds, its password's digest in
+# the guestbook, and `signed_in` keeps a fingerprint of it in the session.
+# `bound_of db id` reads it now. When the two differ, as they do once the
+# password has changed, the session is signed out at its next gated action
+# and sent to sign in again, so a new password ends every older sign-in, as
+# Devise's does. An app whose sign-ins rest on nothing passes `unbound` here
+# and "" to `signed_in`.
+pub fn requiring_sign_in routes secret bound_of
+  each = (acc e -> put acc e.key (guarded e.value secret bound_of))
   list/fold (entries routes) {} each
 
-fn guarded row secret
+# What a sign-in rests on, for an app whose sign-ins rest on nothing.
+pub unbound = (_ _ -> effect "")
+
+fn guarded row secret bound_of
   return row if row["open"] != none or row["to"] != none
-  put row "action" (gated row["action"] (id_kind row["id"]) secret)
+  kind = id_kind row["id"]
+  put row "action" (gated row["action"] kind secret bound_of)
 
 fn id_kind none
   ""
@@ -671,23 +683,31 @@ fn id_kind none
 fn id_kind kind
   kind
 
-fn gated none _ _
+fn gated none _ _ _
   none
 
-fn gated action kind secret
-  gated_by kind action secret
+fn gated action kind secret bound_of
+  gated_by kind action secret bound_of
 
-fn gated_by "" action secret
-  (req db -> admitted req secret (_ -> action req db))
+fn gated_by "" action secret bound_of
+  (req db -> admitted req db secret bound_of (_ -> action req db))
 
-fn gated_by _ action secret
-  (req db id -> admitted req secret (_ -> action req db id))
+fn gated_by _ action secret bound_of
+  (req db id -> admitted req db secret bound_of (_ -> action req db id))
 
-fn admitted req secret go
-  return go 0 if viewer req secret != ""
-  return effect (redirect "/session/new") if req.method != "GET"
-  asked = put (session req secret) "return_to" req.path
-  effect (kept (redirect "/session/new") secret asked)
+fn admitted req db secret bound_of go
+  who = viewer req secret
+  s = session req secret
+  return turned_back req secret s if who == ""
+  bound_of db who .> (b -> current req secret s b go)
+
+fn current req secret s bound go
+  return go 0 if said s["bound"] == fingerprint secret bound
+  turned_back req secret (forgotten s)
+
+fn turned_back req secret s
+  return effect (kept (redirect "/session/new") secret s) if req.method != "GET"
+  effect (kept (redirect "/session/new") secret (put s "return_to" req.path))
 
 # Where a visitor sent to sign in was going, or `fallback` when nobody sent
 # them. An app's sign-in redirects there once the password matches.
@@ -732,7 +752,7 @@ fn aged m at since
   m
 
 fn forgotten m
-  delete (delete m "viewer") "since"
+  delete (delete (delete m "viewer") "since") "bound"
 
 fn said none
   ""
@@ -754,9 +774,18 @@ fn signed_as v
 # The response to `req`, signing `id` in: the session the next request reads
 # names them as its viewer, beside whatever else `held` keeps, until
 # `session_days` after `req` arrived.
-pub fn signed_in req r secret held id
+#
+# The sign-in rests on `bound`, the account's password digest in the
+# guestbook. The session keeps an HMAC of it rather than the value itself,
+# since a session is signed and not secret; `requiring_sign_in` compares it
+# with what the account holds at each gated action.
+pub fn signed_in req r secret held id bound
   since = said req.headers["senro-at"]
-  kept r secret (put (put held "viewer" id) "since" since)
+  viewing = put (put held "viewer" id) "since" since
+  kept r secret (put viewing "bound" (fingerprint secret bound))
+
+fn fingerprint secret bound
+  hexed (sha256/hmac (text/bytes secret) (text/bytes "signed in {bound}"))
 
 # The response, with `held` kept as the session the next request reads.
 #

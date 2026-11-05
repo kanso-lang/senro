@@ -62,7 +62,10 @@ place, rendered on the server.
   PATCH /resets/:id sets the new password. Setting it changes the digest, so
   the link works once, and it stops working after fifteen minutes. Setting a
   password this way also confirms an address that was not yet, since the
-  link proves the visitor reads its mail.
+  link proves the visitor reads its mail. Every sign-in rests on the digest
+  the account kept when it was made (`session/signed_against`), so setting
+  a password, even the same one, signs out every older session at its next
+  action that needs a sign-in.
 - A new account confirms its address before it can sign in, as Devise's
   `confirmable` asks. Sign-up mails a link and does not sign the visitor in;
   signing in with the right password before confirming is refused with a

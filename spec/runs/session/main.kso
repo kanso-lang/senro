@@ -28,7 +28,7 @@ signing = cookies/asked_at "" began
 
 held = { "flash":"hello" }
 
-signed = web/signed_in signing (http/text_page "ok") secret held "ada"
+signed = web/signed_in signing (http/text_page "ok") secret held "ada" ""
 
 kept_in = cookies/sealed_from (http/rendered signed)
 

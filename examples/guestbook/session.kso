@@ -24,6 +24,21 @@ pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub without_sign_in = ["create" "new"]
 
+# What a sign-in rests on: the digest the account keeps now. A new password
+# changes it, so a password reset signs out every session made before it.
+pub signed_against = (db name -> pg/query db digest_by [name] .> kept_of)
+
+digest_by = "select digest from accounts where name = $1"
+
+fn kept_of r
+  effect (digest_in (list/first r.rows))
+
+fn digest_in none
+  ""
+
+fn digest_in row
+  models/cell row "digest"
+
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's name into it as the viewer.
 pub fn new req _
@@ -59,7 +74,7 @@ fn entered req name a password remember
   back = web/return_to req entries/secret "/"
   welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
   home = web/redirect back
-  signed = web/signed_in req home entries/secret welcomed name
+  signed = web/signed_in req home entries/secret welcomed name a.digest
   effect (kept_if signed remember)
 
 # A visitor who ticked "Keep me signed in" keeps the sign-in after the

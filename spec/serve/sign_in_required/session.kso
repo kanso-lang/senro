@@ -12,4 +12,4 @@ pub fn new _ _
 pub fn create req _
   back = web/return_to req secret "/notes"
   s = delete (web/session req secret) "return_to"
-  effect (web/signed_in req (web/redirect back) secret s "ada")
+  effect (web/signed_in req (web/redirect back) secret s "ada" "")

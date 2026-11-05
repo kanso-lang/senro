@@ -57,12 +57,18 @@ adds, counts, renames and removes things on a shelf without a page reload.
   out, and `web/remembered` says how many it holds. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
-  An app that wraps its table in `web/requiring_sign_in routes secret` asks
-  every action for a visitor who has signed in, except those its module
-  lists in `pub without_sign_in`, as Rails 8's generated authentication
-  does. A visitor who has not is sent to `/session/new`, the path a GET
-  asked for is kept in the session, and `web/return_to req secret fallback`
-  answers it once the visitor has signed in.
+  An app that wraps its table in `web/requiring_sign_in routes secret
+  bound_of` asks every action for a visitor who has signed in, except those
+  its module lists in `pub without_sign_in`, as Rails 8's generated
+  authentication does. A visitor who has not is sent to `/session/new`, the
+  path a GET asked for is kept in the session, and `web/return_to req
+  secret fallback` answers it once the visitor has signed in. A sign-in
+  rests on something the account holds, which `web/signed_in` is given and
+  keeps an HMAC of in the session; the guestbook's is the password's
+  digest. `bound_of db id` reads it at each gated action, and a session
+  whose sign-in rested on something else is signed out there, so a new
+  password ends every older sign-in, as Devise's does. An app whose
+  sign-ins rest on nothing passes `web/unbound` and "".
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a

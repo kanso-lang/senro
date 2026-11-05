@@ -23,3 +23,5 @@ after signing out: Signed out.
 modules fetched by a second load: 0
 after a deploy, fetched: /senro/app.wasm
 Ada's page fetched / as: data, data, data, data
+Bob's older session, signing after the reset: sent to /session/new
+and the book then sees him as: signed out
