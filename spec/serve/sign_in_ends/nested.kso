@@ -21,7 +21,7 @@ fn gated a b c d
   asked "GET" "/notes/new" (cookie_of c) "" .> (e -> said [a b c d e])
 
 fn asked method path cookie form
-  net/dial "127.0.0.1" 54407 .> (c -> sent c method path cookie form)
+  net/dial "127.0.0.1" 24407 .> (c -> sent c method path cookie form)
 
 fn sent c method path cookie form
   head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"

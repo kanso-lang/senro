@@ -6,7 +6,7 @@ import "std/text"
 # server while this one waits. A server that answers one connection at a time
 # never gets to the second.
 pub fn index _ _
-  net/dial "127.0.0.1" 54401 .> asked
+  net/dial "127.0.0.1" 24401 .> asked
 
 fn asked c
   net/write c asking .> (_ -> net/read c) .> (raw -> told c raw)

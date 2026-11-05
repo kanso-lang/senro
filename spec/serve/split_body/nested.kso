@@ -16,7 +16,7 @@ fn both one two
   http/text_page "nested saw {one}\nnested saw {two}"
 
 fn asked body
-  net/dial "127.0.0.1" 54409 .> (c -> sent c body)
+  net/dial "127.0.0.1" 24409 .> (c -> sent c body)
 
 fn sent c body
   net/write c (head_for body)

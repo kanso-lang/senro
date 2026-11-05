@@ -14,7 +14,7 @@ fn forged one two
     .> (three -> effect (http/text_page "{one}\n{two}\n{three}"))
 
 fn asked path extra
-  net/dial "127.0.0.1" 54411 .> (c -> sent c path extra)
+  net/dial "127.0.0.1" 24411 .> (c -> sent c path extra)
 
 fn sent c path extra
   net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n{extra}\r\n"

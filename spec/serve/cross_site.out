@@ -1,9 +1,9 @@
 POST /door: HTTP/1.1 200 OK: let in
-POST /door with origin: http://localhost:54406: HTTP/1.1 200 OK: let in
+POST /door with origin: http://localhost:24406: HTTP/1.1 200 OK: let in
 POST /door with origin: https://elsewhere.example: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
 POST /door with origin: null: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
 POST /door with sec-fetch-site: same-origin: HTTP/1.1 200 OK: let in
 POST /door with sec-fetch-site: cross-site: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
 POST /door with sec-fetch-site: same-site: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
-POST /door with sec-fetch-site: cross-site, origin: http://localhost:54406: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
+POST /door with sec-fetch-site: cross-site, origin: http://localhost:24406: HTTP/1.1 403 Forbidden: Forbidden: a request from another site
 GET /door with sec-fetch-site: cross-site: HTTP/1.1 200 OK: looked
