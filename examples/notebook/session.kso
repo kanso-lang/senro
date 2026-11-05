@@ -1,0 +1,100 @@
+import "../../models"
+import "../../passwords"
+import "../../pg"
+import "../../web"
+import "./views"
+import "std/list"
+import "std/text"
+
+# What a sign-in checks of the account an address holds. An address with no
+# account holds the stand-in digest, which no password matches.
+type holder
+  email
+  digest
+
+# The key that signs every session. `generate authentication` made it at
+# random. Keep it out of any repository the public can read; changing it
+# signs every visitor out.
+pub secret = "made at random by generate authentication"
+
+# One address may try to sign in ten times in three minutes, as Rails 8's
+# generated sessions controller allows. Past that, `over_limit` answers the
+# sign-in page again, saying why.
+pub rate_limits = { "create":"10 per 3 minutes" }
+
+pub without_sign_in = ["create" "new"]
+
+# What a sign-in rests on: the digest the account keeps now. A new password
+# changes it, so a password reset signs out every session made before it.
+pub signed_against = (db email -> pg/query db digest_by [email] .> kept_of)
+
+digest_by = "select digest from users where email = $1"
+
+fn kept_of r
+  effect (digest_in (list/first r.rows))
+
+fn digest_in none
+  ""
+
+fn digest_in row
+  models/cell row "digest"
+
+# Signing in and out. The session is the signed cookie `web` keeps, and
+# signing in writes the account's address into it as the viewer.
+pub fn new req _
+  effect (opened req "" {} 200)
+
+# An address with no account is checked against the stand-in at the same
+# cost, so a refusal takes as long whether or not the account exists, and
+# says the same thing.
+pub fn create req db
+  f = web/form req.body
+  email = text/lowercase (text/trim (web/value f "email"))
+  password = web/value f "password"
+  pg/query db digest_by [email]
+    .> (r -> held email (list/first r.rows))
+    .> (a -> entered req email a password)
+
+fn held _ none
+  passwords/stand_in .> (d -> effect (holder "" d))
+
+fn held email row
+  effect (holder email (models/cell row "digest"))
+
+fn entered req email a password
+  right = passwords/matches? password a.digest
+  return effect (refused req email) if not right
+  s = web/session req secret
+  back = web/return_to req secret "/"
+  welcomed = put (delete s "return_to") "flash" "Signed in."
+  home = web/redirect back
+  effect (web/signed_in req home secret welcomed a.email a.digest)
+
+fn refused req email
+  wrong = { "password":"That address and password do not match." }
+  opened req email wrong 422
+
+pub fn over_limit req
+  wait = { "password":"Too many tries. Try again in a few minutes." }
+  effect (opened req "" wait 429)
+
+# Signing out keeps the rest of the session and forgets the sign-in.
+pub fn destroy req _
+  s = web/signed_out (web/session req secret)
+  r = web/redirect "/session/new"
+  effect (web/kept r secret (put s "flash" "Signed out."))
+
+# The sign-in form shows the address as typed, the problem if any, and a
+# notice the session holds, which it then forgets.
+fn opened req email problems code
+  s = web/session req secret
+  flash = said s["flash"]
+  page = views/door_view "Sign in" "/session" email problems flash true
+  r = views/answer_as req code (views/layout_view "Sign in" page)
+  web/kept r secret (put s "flash" "")
+
+fn said none
+  ""
+
+fn said v
+  v

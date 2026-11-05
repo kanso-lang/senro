@@ -1,0 +1,21 @@
+takes heading path email problems flash signing_in
+header
+  h1 = heading
+if flash != ""
+  p.flash = flash
+form method="post" action=path
+  input type="email" name="email" placeholder="email" required="required" value=email
+  if problems["email"] != none
+    p.problem = problems["email"]
+  input type="password" name="password" placeholder="password" required="required"
+  if problems["password"] != none
+    p.problem = problems["password"]
+  button = heading
+if signing_in
+  p
+    a href="/registration/new" Make an account
+  p
+    a href="/resets/new" Forgot your password?
+if not signing_in
+  p
+    a href="/session/new" Sign in instead

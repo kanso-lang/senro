@@ -1,4 +1,6 @@
+import "../../jobs"
 import "../../kata"
+import "../../mail"
 import "../../models"
 import "../../pg"
 import "../../routes"
@@ -7,6 +9,9 @@ import "./home"
 import "./migrations"
 import "./notes"
 import "./pages"
+import "./registration"
+import "./resets"
+import "./session"
 import "./views"
 
 derive kata/views
@@ -18,8 +23,15 @@ derive routes/rest
 # sets them.
 connected = pg/from_env
 
+# Every action asks for a sign-in unless its module lists it in
+# `without_sign_in`, and a worker beside the server sends the mail the app
+# queues.
+signed = web/requiring_sign_in routes session/secret session/signed_against
+
+serving = web/serve 3000 signed connected
+
 connected
   .> (db -> models/migrated db "notebook" migrations/all)
   .> (db -> models/compared db schema)
   .> (db -> pg/close db)
-  .> (_ -> web/serve 3000 routes connected)
+  .> (_ -> jobs/beside connected "mail" mail/performers serving)

@@ -1,0 +1,90 @@
+import "../web"
+import "./app"
+import "std/list"
+import "std/text"
+
+# What `generate authentication` writes, as Rails 8's authentication
+# generator does: an account an address and a password make, signing in and
+# out, and a password reset by mail. The files are copied from
+# generate/authentication, where they are written as an app two
+# directories below senro would hold them, and each import of senro is
+# pointed at the app's own path back to it.
+pub copied = [
+  "password_mailer.kso"
+  "registration.kso"
+  "resets.kso"
+  "session.kso"
+  "views/door.kata"
+  "views/reset_asked.kata"
+  "views/reset_chosen.kata"
+]
+
+pub source = "generate/authentication"
+
+# A template's text as the app at `senro` holds it, signing its sessions
+# with `secret`.
+pub fn localized t senro secret
+  pointed = swapped t "import \"../../" "import \"{senro}/"
+  swapped pointed "pub secret = \"SECRET\"" "pub secret = \"{secret}\""
+
+fn swapped t old new
+  text/join (text/split t old) new
+
+# A secret of 32 random bytes, written as hex.
+pub fn secret_of bytes
+  web/hexed bytes
+
+# The fields of the `users` table, as `scaffold` reads them.
+pub fields = ["email:text" "digest:text"]
+
+serve_line = "  .> (_ -> web/serve 3000 routes connected)"
+
+connect_line = "connected = pg/from_env"
+
+# The entry `generate new` wrote, signed: every action asks for a sign-in
+# unless its module says otherwise, and a worker beside the server sends the
+# mail the app queues. None when the entry no longer reads as `new` wrote
+# it.
+pub fn entry_signed main senro
+  lines = text/split main "\n"
+  return none if not list/any? lines (l -> l == serve_line)
+  return none if not list/any? lines (l -> l == connect_line)
+  served = list/to_list (list/map lines (l -> signed_line l senro))
+  own = text/join served "\n"
+  locals = list/fold ["registration" "resets" "session"] own (e n -> with e n)
+  locals
+
+fn with entry name
+  answered (app/entry_with entry name) entry
+
+fn answered none entry
+  entry
+
+fn answered changed _
+  changed
+
+fn signed_line line senro
+  kata = "import \"{senro}/kata\""
+  models = "import \"{senro}/models\""
+  return walled if line == connect_line
+  return beside_line if line == serve_line
+  return "import \"{senro}/jobs\"\n{line}" if line == kata
+  return "import \"{senro}/mail\"\n{line}" if line == models
+  line
+
+beside_line = "  .> (_ -> {beside})"
+
+beside = "jobs/beside connected \"mail\" mail/performers serving"
+
+walled = text/join walled_lines "\n"
+
+walled_lines = [
+  connect_line
+  ""
+  "# Every action asks for a sign-in unless its module lists it in"
+  "# `without_sign_in`, and a worker beside the server sends the mail the app"
+  "# queues."
+  "signed = web/requiring_sign_in routes session/secret session/signed_against"
+  ""
+  "serving = web/serve 3000 signed connected"
+]

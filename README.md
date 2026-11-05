@@ -34,6 +34,7 @@ from senro's own directory, and take the app's path relative to it:
 kanso run generate -- new apps/notebook
 kanso run generate -- scaffold apps/notebook note title:text pages:int
 kanso run generate -- scaffold apps/notebook page body:text note:references
+kanso run generate -- authentication apps/notebook
 ```
 
 `new` writes an entry, a home page, a layout and a migrations module with no
@@ -60,9 +61,22 @@ column and a foreign key to `notes` that removes a note's pages with it
 note's resource must be there already, a resource names one parent, and a
 reference's name is at most 12 characters.
 
+`authentication` adds accounts, as Rails 8's authentication generator does,
+with a sign-up page as Devise's registerable adds. It writes a `users` table
+of addresses and password digests, `registration` (/registration/new),
+`session` (signing in at /session/new and out with DELETE /session) and
+`resets` (a lost password, by a link mailed through `password_mailer`),
+with their views. The entry then serves every route behind
+`web/requiring_sign_in`, so an action asks for a sign-in unless its module
+lists it in `without_sign_in`, and runs a mail worker beside the server
+(`jobs/beside`). `session.kso` holds the secret that signs sessions, 32
+random bytes made when the generator ran; keep it out of a public
+repository. The files are copied from `generate/authentication`, which
+holds them as an app two directories below senro would.
+
 Each generator prints the files it writes and changes. A file that is there
 already stops it before it writes anything, and so does a name or field it
-cannot read. `examples/notebook` is the app the three commands above write
+cannot read. `examples/notebook` is the app the four commands above write
 when they are given that path. The specs write it again and compare the two.
 
 ## What is here

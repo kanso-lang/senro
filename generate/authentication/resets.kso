@@ -1,0 +1,126 @@
+import "../../models"
+import "../../passwords"
+import "../../pg"
+import "../../web"
+import "./password_mailer"
+import "./session"
+import "./views"
+import "std/io"
+import "std/list"
+import "std/text"
+import "std/time"
+
+# A visitor who has lost a password asks for a link by email, follows it,
+# and chooses a new one, as Rails 8's generated PasswordsController has it.
+# The link carries a token `passwords/reset_token` signs over the account
+# and the digest it keeps, so nothing is stored, and a link works once and
+# for fifteen minutes.
+pub without_sign_in = ["create" "edit" "new" "update"]
+
+# Asking is limited as signing in is, so the form cannot be used to fill
+# someone's inbox.
+pub rate_limits = { "create":"10 per 3 minutes" }
+
+pub fn new req _
+  s = web/session req session/secret
+  effect (asked req s 200)
+
+# The answer is the same whether or not the address has an account, and
+# whether or not the mail could be queued, so the form says nothing about
+# which addresses are registered. A failure to queue goes to standard error,
+# and the worker logs a failure to send.
+pub fn create req db
+  f = web/form req.body
+  email = text/lowercase (text/trim (web/value f "email"))
+  pg/query db holder [email]
+    .> (r -> sent db (list/first r.rows) email)
+    .? (u -> io/write_err "no reset mail: {u.reason}\n")
+    .> (_ -> effect (told req "/session/new" on_its_way))
+
+holder = "select id, digest from users where email = $1"
+
+on_its_way = "If that address has an account, a link is on its way to it."
+
+fn sent _ none _
+  effect ""
+
+fn sent db row email
+  id = models/cell row "id"
+  password_mailer/reset db id email (models/cell row "digest")
+
+# The `id` a reset's member routes take is the token itself.
+pub fn edit req db id
+  checked db id .> (good -> offered req id good)
+
+fn offered req token true
+  effect (chosen req token {} 200)
+
+fn offered req _ false
+  effect (told req "/resets/new" expired)
+
+expired = "That link has expired or was used. Ask for another."
+
+# A new password of eight characters or more, set through a link that is
+# still good. Setting it changes the digest, which is what retires the link
+# and ends every sign-in made with the old password.
+pub fn update req db id
+  password = web/value (web/form req.body) "password"
+  checked db id .> (good -> chose req db id password good)
+
+fn chose req _ _ _ false
+  effect (told req "/resets/new" expired)
+
+fn chose req db token password true
+  short = { "password":"Use eight characters or more." }
+  return effect (chosen req token short 422) if length password < 8
+  id = id_of (passwords/reset_id token)
+  passwords/digested password
+    .> (d -> pg/query db reset [d id])
+    .> (_ -> effect (told req "/session/new" changed))
+
+reset = "update users set digest = $1 where id = $2"
+
+changed = "Your password is changed. Sign in with it."
+
+# Whether `token` is good now for the account it names.
+fn checked db token
+  id = id_of (passwords/reset_id token)
+  pg/query db digest_by_id [id]
+    .> (r -> time/now .> (t -> effect (good? token (list/first r.rows) t)))
+
+digest_by_id = "select digest from users where id = $1"
+
+fn good? _ none _
+  false
+
+fn good? token row t
+  kept = models/cell row "digest"
+  passwords/reset_valid? session/secret token kept t
+
+fn id_of none
+  "0"
+
+fn id_of n
+  "{n}"
+
+# A redirect carrying a notice for the page it lands on.
+fn told req to notice
+  s = web/session req session/secret
+  web/kept (web/redirect to) session/secret (put s "flash" notice)
+
+fn asked req s code
+  flash = said s["flash"]
+  page = views/reset_asked_view flash {}
+  framed = views/layout_view "Forgot your password" page
+  r = views/answer_as req code framed
+  web/kept r session/secret (put s "flash" "")
+
+fn chosen req token problems code
+  page = views/reset_chosen_view "/resets/{token}" problems
+  views/answer_as req code (views/layout_view "A new password" page)
+
+fn said none
+  ""
+
+fn said v
+  v
