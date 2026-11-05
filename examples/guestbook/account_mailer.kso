@@ -62,3 +62,31 @@ fn confirm_letter email link
   ]
   subject = "Confirm your guestbook address"
   mail/composed entries/sender email subject (text/join lines "\n")
+
+# A link to unlock an account that too many wrong passwords locked. It is
+# bound to the moment of the lock, so it works once, and not at all once the
+# lock has ended.
+pub fn unlock id email stamp
+  time/now
+    .> (t -> mail/url_for "/unlocks/{unlock_token id stamp t}/edit")
+    .> (link -> mail/delivered (unlock_letter email link))
+
+fn unlock_token id stamp t
+  tokens/made "unlock" entries/secret id stamp t 1440
+
+# Whether `token` unlocks the account whose lock began at `stamp`, at `t`.
+pub fn unlocks? token stamp t
+  tokens/valid? "unlock" entries/secret token stamp t
+
+fn unlock_letter email link
+  lines = [
+    "Your guestbook account was locked after too many wrong passwords."
+    ""
+    "It unlocks by itself within the hour, or at once here:"
+    ""
+    link
+    ""
+    "If the wrong passwords were not yours, someone may be guessing it."
+  ]
+  subject = "Unlock your guestbook account"
+  mail/composed entries/sender email subject (text/join lines "\n")
