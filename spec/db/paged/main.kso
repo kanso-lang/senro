@@ -1,0 +1,41 @@
+import "../../../models"
+import "../../../pg"
+import "./told"
+import "std/list"
+import "std/text"
+
+# Five rows, two to a page. The first page has a page after it and the
+# third has none; a fourth is empty. A filter's parameter comes before the
+# page's own, which are numbered after it. The page a query string names is
+# its whole number when that is 1 or more, and 1 otherwise.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+id = models/column "id" "serial primary key"
+
+title = models/column "title" "text"
+
+all = [(models/create_table "items" [id title])]
+
+written = "insert into items (title) values ('a'), ('b'), ('c'), ('d'), ('e')"
+
+listed = "select title from items order by id"
+
+after = "select title from items where id > $1 order by id"
+
+asked = ["2" "" "x" "0" "-3" "2.5"]
+
+numbers = list/to_list (list/map asked (a -> "{models/page_number a}"))
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "paged" all)
+  .> (db -> pg/run db written .> (_ -> db))
+  .> (db -> told/told db listed [] 1)
+  .> (db -> told/told db listed [] 3)
+  .> (db -> told/told db listed [] 4)
+  .> (db -> told/told db after ["1"] 2)
+  .> (_ -> print "asked {text/join asked ","}: {text/join numbers " "}")

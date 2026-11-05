@@ -1,0 +1,8 @@
+import "../../../web"
+import "std/net/http"
+
+# What the action read from the query string.
+pub fn index req _
+  q = web/query req
+  shown = "q={web/value q "q"} page={web/value q "page"}"
+  effect (http/text_page "{req.path}: {shown}")
