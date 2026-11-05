@@ -78,7 +78,7 @@ fn written path content
   os/write_file path content .> (_ -> io/write "  create {path}\n")
 
 fn given f:scaffold/unreadable _ _
-  refused "cannot read `{f.word}`: a field is name:text or name:int"
+  refused "cannot read `{f.word}`: {f.why}"
 
 fn given fields app singular
   plural = models/plural singular

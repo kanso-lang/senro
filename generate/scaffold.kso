@@ -14,9 +14,11 @@ pub type field
   name
   kind
 
-# The fields a command line names, or the first that cannot be read.
+# The fields a command line names, or the first that cannot be read, and
+# why it cannot.
 pub type unreadable
   word
+  why
 
 # A comment being wrapped: the lines it has filled, and the one it is on.
 type wrap
@@ -25,14 +27,19 @@ type wrap
 
 pub fn fields_of words
   read = list/to_list (list/map words field_of)
-  bad = list/to_list (list/select read (f -> f.kind == ""))
-  unread (list/first bad) read
+  unread (list/first (list/to_list (list/select read bad?))) read
 
 fn unread none read
   read
 
 fn unread f _
-  unreadable f.name
+  f
+
+fn bad? _:unreadable
+  true
+
+fn bad? _
+  false
 
 # Each of `xs` made a list by `f`, the lists joined end to end.
 fn spread xs f
@@ -40,10 +47,37 @@ fn spread xs f
 
 fn field_of word
   parts = text/split word ":"
-  return field word "" if length parts != 2
+  return unreadable word kinds if length parts != 2
   kind = column_kind parts[2]
-  return field word "" if kind == ""
-  field parts[1] kind
+  return unreadable word kinds if kind == ""
+  checked_name word parts[1] kind
+
+kinds = "a field is name:text or name:int"
+
+# A name the scaffold can write: a lowercase letter, then lowercase letters,
+# digits and underscores; short enough that every line written with it fits
+# in 80 columns; and not `id`, which every table has already.
+fn checked_name word name kind
+  return unreadable word "`id` is a column every table has" if name == "id"
+  return unreadable word spelling if not spelled_well? name
+  long = "a field's name is at most 24 characters"
+  return unreadable word long if length name > 24
+  field name kind
+
+spelling = "a field's name is a lowercase letter, then letters, digits and _"
+
+fn spelled_well? name
+  cs = list/to_list (text/chars name)
+  return false if length cs == 0
+  lower? cs[1] and list/all? cs (c -> lower? c or digit? c or c == "_")
+
+fn lower? c
+  code = text/char_code c
+  code >= 97 and code <= 122
+
+fn digit? c
+  code = text/char_code c
+  code >= 48 and code <= 57
 
 fn column_kind "text"
   "text"
@@ -59,8 +93,8 @@ fn column_kind _
 # two tables' columns never share a name.
 pub fn migration plural fields
   cols = list/to_list (list/map fields (f -> "{plural}_{f.name}"))
-  named = text/join (list/concat ["{plural}_id"] cols) " "
-  made = "{plural}_made = models/create_table \"{plural}\" [{named}]"
+  named = list/concat ["{plural}_id"] cols
+  made = list_line "{plural}_made = models/create_table \"{plural}\"" "" named
   each = list/to_list (list/map fields (f -> column_line plural f))
   id = "{plural}_id = models/column \"id\" \"serial\""
   lines = list/concat [made "" id] (spread each (l -> ["" l]))
@@ -118,12 +152,11 @@ pub fn migrations_new senro plural fields
 # actions Rails' scaffold writes.
 pub fn resource senro singular fields
   plural = models/plural singular
-  cols = text/join (list/concat ["id"] (names_of fields)) ", "
   parts = [
     (imports senro)
     (record singular plural fields)
-    (policies singular)
-    (actions plural cols)
+    (policies singular fields)
+    (actions plural fields)
     (helpers singular plural fields)
   ]
   "{text/join parts "\n"}\n"
@@ -139,6 +172,7 @@ fn imports senro
     "import \"./views\""
     "import \"std/list\""
     "import \"std/net/http\""
+    "import \"std/text\""
     ""
   ]
   text/join lines "\n"
@@ -166,12 +200,12 @@ fn record singular plural fields
   each = list/to_list (list/map fields (f -> "  {f.name}"))
   text/join (list/concat head (list/concat each [""])) "\n"
 
-fn policies singular
+fn policies singular fields
   about = [
     "Anyone may make, change and remove a {singular}. The models module asks"
     "these before it writes; narrow them to the visitors who should."
   ]
-  lines = [
+  head = [
     (comment (text/join about " "))
     "pub fn create? _ _"
     "  true"
@@ -182,21 +216,48 @@ fn policies singular
     "pub fn destroy? _ _"
     "  true"
     ""
-    "model = {singular}_model"
-    ""
   ]
+  tail = ["model = {singular}_model" ""]
+  lines = list/concat (list/concat head (problems_of singular fields)) tail
   text/join lines "\n"
 
-fn actions plural cols
+# The lines of the rules a record breaks when a number is not one its column
+# takes, or none when the record has no number.
+fn problems_of singular fields
+  whole = list/to_list (list/select fields (f -> f.kind == "integer"))
+  return [] if length whole == 0
+  rules = list/to_list (list/map whole (f -> rule_of f))
+  fit = "What makes a {singular} fit to keep:"
+  about = "{fit} each number is one its column takes."
+  listed = list_line "  models/problems" "  " rules
+  [(comment about) "pub fn problems r" listed ""]
+
+fn rule_of f
+  "(models/whole_number \"{f.name}\" r.{f.name})"
+
+# A list as one line when it fits, and one item to a line when it does not.
+fn list_line head indent items
+  one = "{head} [{text/join items " "}]"
+  return one if length one <= 80
+  each = list/to_list (list/map items (i -> "{indent}  {i}"))
+  "{head} [\n{text/join each "\n"}\n{indent}]"
+
+fn actions plural fields
+  names = list/concat ["id"] (names_of fields)
+  quoted = list/to_list (list/map names (n -> "\"{n}\""))
   shown_then = ".> (r -> effect (shown req (list/first r.rows)))"
   changed_then = ".> (w -> effect (changed req id w))"
   lines = [
     "pub fn index req db"
     "  pg/query db listed [] .> (r -> effect (listing req r.rows))"
     ""
-    "listed = \"select {cols} from {plural} order by id\""
+    (list_line "column_names =" "" quoted)
     ""
-    "found = \"select {cols} from {plural} where id = $1::integer\""
+    "columns = text/join column_names \", \""
+    ""
+    "listed = \"select \{columns} from {plural} order by id\""
+    ""
+    "found = \"select \{columns} from {plural} where id = $1::integer\""
     ""
     "pub fn show req db id:int"
     "  pg/query db found [\"\{id}\"] {shown_then}"

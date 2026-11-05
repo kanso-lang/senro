@@ -189,16 +189,34 @@ fn guarded m r
   return [] if not list/any? r.fields (f -> f == "id")
   t = r.name
   names = list/to_list (list/map r.fields (f -> "\"{f}\""))
+  inline = "[{text/join names " "}]"
+  fits = length inline <= 68
   base = [
     "\"table\":\"{plural t}\""
-    "\"columns\":[{text/join names " "}]"
+    "\"columns\":{columns_of fits inline t}"
     "\"read\":{t}_from"
   ]
   owned = ["create?" "update?" "destroy?" "visible?" "problems"]
   policies = list/select owned (p -> declares? m p)
   said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
   all = list/to_list (list/sort (list/concat base (list/to_list said)))
-  [(derive/define m.name (model_value t all))]
+  value = [(derive/define m.name (model_value t all))]
+  list/concat value (columns_given fits m t names)
+
+# A model's column names sit in its value when they fit on the line the
+# value gives them (`  "columns":` and 68 more), and in a constant of their
+# own, one name to a line, when they do not.
+fn columns_of true inline _
+  inline
+
+fn columns_of false _ t
+  "{t}_columns"
+
+fn columns_given true _ _ _
+  []
+
+fn columns_given false m t names
+  [(derive/define m.name "{t}_columns = [\n  {text/join names "\n  "}\n]\n")]
 
 fn declares? m name
   list/any? m.functions (f -> f.name == name)
@@ -255,6 +273,23 @@ fn noted acc r
 # Whether a record has any problem.
 pub fn problems? found
   length found > 0
+
+# Whether a value, such as a form's field, is one an `integer` column takes:
+# a whole number, written in digits with a sign or without, inside the
+# column's range. Postgres refuses any other value, so a model whose field
+# reads into an `integer` column asks this in its `problems`.
+pub fn integer? v
+  in_range? (text/to_int (text/trim "{v}"))
+
+fn in_range? none
+  false
+
+fn in_range? n
+  n >= -2147483648 and n <= 2147483647
+
+# The rule that a field is a whole number an `integer` column takes.
+pub fn whole_number field v
+  rule field (not integer? v) "Give a whole number."
 
 # A record made through its model. The values, such as a form's fields, are
 # read into a record by the model's reader, with any `id` left out, since

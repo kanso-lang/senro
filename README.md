@@ -41,11 +41,14 @@ changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 serves on port 3000.
 
 `scaffold` takes a singular name and its fields, each `name:text` or
-`name:int`. It writes a module whose seven actions list, show, make, change
-and remove rows through the model, and the three views they render. It adds
-the migration that makes the table to the end of `migrations/all`, and the
-module's import to the entry. The policies it writes let anyone write; narrow
-them before the app is public.
+`name:int`, where a name is a lowercase letter and then letters, digits and
+underscores, at most 24 in all. It writes a module whose seven actions list,
+show, make, change and remove rows through the model, and the three views
+they render. Each `int` field gets a rule that the value is a whole number,
+so a form that says otherwise is shown again with the problem rather than
+refused by Postgres. It adds the migration that makes the table to the end
+of `migrations/all`, and the module's import to the entry. The policies it
+writes let anyone write; narrow them before the app is public.
 
 Each generator prints the files it writes and changes. A file that is there
 already stops it before it writes anything, and so does a field it cannot
@@ -126,7 +129,9 @@ they are given that path. The specs write it again and compare the two.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. A model's module may declare
+  such policy cannot be written this way. A model with too many columns to
+  list on the value's line has them in a constant of their own,
+  `signature_columns`, one to a line. A model's module may declare
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row
   shows: a missing read policy can show a row but never change one, so reads
@@ -136,9 +141,12 @@ they are given that path. The specs write it again and compare the two.
   module's `problems`, and inserts only when both pass; `models/updated`
   checks `problems` too, on the record as the change leaves it.
   `problems` takes the record and answers `models/problems` of a list of
-  `models/rule field broken message`. A record that breaks a rule comes
-  back as `models/invalid`, holding each broken field's message and the
-  record as given, so the action can show the form again with both.
+  `models/rule field broken message`. `models/whole_number field value` is
+  the rule that a value is one an `integer` column takes, which
+  `models/integer? value` answers: digits with or without a sign, inside the
+  column's range. A record that breaks a rule comes back as
+  `models/invalid`, holding each broken field's message and the record as
+  given, so the action can show the form again with both.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres

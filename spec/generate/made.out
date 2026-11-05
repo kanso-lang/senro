@@ -11,3 +11,5 @@
   change spec/notebook/main.kso
 generate: spec/notebook/notes.kso is there already
 generate: cannot read `title:words`: a field is name:text or name:int
+generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _
+generate: cannot read `id:int`: `id` is a column every table has

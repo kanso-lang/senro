@@ -4,6 +4,7 @@ import "../../web"
 import "./views"
 import "std/list"
 import "std/net/http"
+import "std/text"
 
 # A note as the `notes` table stores it. The models derivation checks each
 # field against the table's columns, and writes `note_from`, which builds
@@ -24,14 +25,22 @@ pub fn update? _ _
 pub fn destroy? _ _
   true
 
+# What makes a note fit to keep: each number is one its column takes.
+pub fn problems r
+  models/problems [(models/whole_number "pages" r.pages)]
+
 model = note_model
 
 pub fn index req db
   pg/query db listed [] .> (r -> effect (listing req r.rows))
 
-listed = "select id, title, pages from notes order by id"
+column_names = ["id" "title" "pages"]
 
-found = "select id, title, pages from notes where id = $1::integer"
+columns = text/join column_names ", "
+
+listed = "select {columns} from notes order by id"
+
+found = "select {columns} from notes where id = $1::integer"
 
 pub fn show req db id:int
   pg/query db found ["{id}"] .> (r -> effect (shown req (list/first r.rows)))

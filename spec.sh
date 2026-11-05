@@ -225,6 +225,8 @@ made=$({
   "$KANSO" run generate -- scaffold "$gen" note title:text pages:int
   "$KANSO" run generate -- scaffold "$gen" note title:text
   "$KANSO" run generate -- scaffold "$gen" book title:words
+  "$KANSO" run generate -- scaffold "$gen" book Title:text
+  "$KANSO" run generate -- scaffold "$gen" book id:int
 } 2>&1)
 if [ "${SPEC_WRITE:-}" = 1 ]; then
   printf '%s\n' "$made" > spec/generate/made.out
@@ -279,6 +281,16 @@ else
     fi
     rm -f "$log"
   done
+fi
+# A resource with many fields, written into the same app, still checks:
+# every list the scaffold writes spans lines once it is too long for one.
+wide="title:text author:text summary:text published_year:int page_count:int"
+"$KANSO" run generate -- scaffold "$gen" book $wide isbn:text >/dev/null
+if out=$("$KANSO" check "$gen" 2>&1); then
+  note "ok: a resource with many fields checks"
+else
+  bad "a resource with many fields checks"
+  echo "$out"
 fi
 rm -rf "$gen"
 
