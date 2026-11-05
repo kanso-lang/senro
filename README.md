@@ -136,11 +136,17 @@ adds, counts, renames and removes things on a shelf without a page reload.
   `SENRO_PASSWORD_ROUNDS`, or 100,000 when it is unset; the comment above
   `default_rounds` says why that is below OWASP's figure. The specs set 30.
   `passwords/reset_token secret id kept t` makes the token a password reset
-  link carries, as Rails 8's `generates_token_for` does: the account's id,
-  an expiry fifteen minutes on, and an HMAC over both and the digest the
-  account keeps. Nothing is stored; a new password changes the digest, so a
-  token works once. `passwords/reset_id` reads the id to look the digest up
-  by, and `passwords/reset_valid?` checks the token against it.
+  link carries: a `tokens` token bound to the digest the account keeps, so
+  a new password retires it, good for fifteen minutes. `passwords/reset_id`
+  reads the id to look the digest up by, and `passwords/reset_valid?` checks
+  the token against it.
+- `tokens`: signed tokens for links an app mails out, as Rails 8's
+  `generates_token_for` makes them. `tokens/made purpose secret id bound t
+  minutes` names a record, an expiry, and an HMAC over both, the purpose and
+  a value the record holds now. Nothing is stored: when the bound value
+  changes, the tokens made over the old one stop working, and a token made
+  for one purpose opens nothing else. `tokens/id_of` reads the record's id,
+  and `tokens/valid? purpose secret token bound t` checks the rest.
 - `mail`: mail an app sends, such as a password reset. `mail/composed from
   to subject body` makes a plain-text message, and `mail/delivered m` sends
   it the way `SENRO_MAIL` names: to standard error when it is unset, as

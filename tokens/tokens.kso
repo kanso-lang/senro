@@ -1,0 +1,62 @@
+import "../web"
+import "std/list"
+import "std/sha256"
+import "std/text"
+
+# Signed tokens for links an app mails out, as Rails 8's
+# `generates_token_for` makes them. A token names a record, the moment it
+# stops working, and a signature over both, its purpose, and a value the
+# record holds now, which the app chooses:
+#
+#   <id>.<expiry, in milliseconds since the epoch>.<HMAC-SHA-256, in hex>
+#
+# Nothing is stored. When the bound value changes, every token made over the
+# old one stops working, which is how a password reset link works once: it is
+# bound to the digest the reset replaces. The purpose keeps a token made for
+# one link from opening another. A token is made of digits, dots and hex, so
+# it sits in a URL's path as it is.
+pub fn made purpose secret id bound t minutes
+  until = t + minutes * 60000
+  "{id}.{until}.{signature purpose secret id until bound}"
+
+fn signature purpose secret id until bound
+  said = text/bytes "{purpose} {id} {until} {bound}"
+  web/hexed (sha256/hmac (text/bytes secret) said)
+
+# The record a token names, to look up the value it is bound to, or none for
+# text that is no token. It says nothing about whether the token is good.
+pub fn id_of token
+  parts = text/split token "."
+  return none if length parts != 3
+  text/to_int (list/first parts)
+
+# Whether `token` was made for `purpose` under `secret` for a record that
+# holds `bound` now, and is still in time at `t`. The signatures are compared
+# over every byte, whichever differs first, so the time a refusal takes says
+# nothing about how much of a guess was right.
+pub fn valid? purpose secret token bound t
+  parts = text/split token "."
+  return false if length parts != 3
+  id = number_of (text/to_int (list/first parts))
+  middle = list/first (list/to_list (list/drop parts 1))
+  until = number_of (text/to_int middle)
+  return false if t > until
+  made_now = signature purpose secret id until bound
+  want = list/to_list (text/bytes made_now)
+  got = list/to_list (text/bytes (signature_of (list/last parts)))
+  return false if length want != length got
+  list/count (list/to_list (list/zip want got)) (p -> p[1] != p[2]) == 0
+
+# A part that is no number reads as 0: as an expiry it has passed, and as an
+# id it names no record the signature was made for.
+fn number_of none
+  0
+
+fn number_of n
+  n
+
+fn signature_of none
+  ""
+
+fn signature_of s
+  s
