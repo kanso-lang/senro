@@ -138,6 +138,7 @@ pub fn peer req
 fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
+  return crossed c if forged? method req
   action = matched s.routes method req.path
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
@@ -146,6 +147,40 @@ fn heard c s req
   allowed s.calls action req
     .> (fine -> let_in fine c answering turned)
     .> (_ -> net/close_conn c)
+
+# A request that would change something, sent by a page on another site, as
+# Rails' `protect_from_forgery` refuses one. The session cookie is
+# SameSite=Lax, so a browser should not send it on such a request at all;
+# this refuses the request even when it does. A browser says where a
+# request came from in `Sec-Fetch-Site`, and in `Origin` when it is older
+# than that header: anything but the app's own origin is refused. A request
+# with neither header comes from a program, not a page, and is let through.
+fn forged? method req
+  return false if method == "GET" or method == "HEAD"
+  elsewhere? req.headers["sec-fetch-site"] req
+
+fn elsewhere? none req
+  foreign? req.headers["origin"] req.headers["host"]
+
+fn elsewhere? where _
+  where != "same-origin" and where != "none"
+
+fn foreign? none none
+  false
+
+fn foreign? none _
+  false
+
+fn foreign? _ none
+  true
+
+fn foreign? origin host
+  parts = text/split origin "://"
+  length parts != 2 or list/last parts != host
+
+fn crossed c
+  r = http/respond 403 [] "Forbidden: a request from another site\n"
+  sent c r .> (_ -> net/close_conn c)
 
 fn let_in true _ answering _
   answering
