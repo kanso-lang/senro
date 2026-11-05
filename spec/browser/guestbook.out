@@ -8,6 +8,10 @@ mail to cy@guestbook.test: Reset your guestbook password; mail sent: 1
 after choosing: Your password is changed. Sign in with it.
 signing in with the new password: Signed in as Cy.
 the link again: That link has expired or was used. Ask for another.
+changing with a wrong password: That is not your password.
+changing with hers: Your password is changed.
+and then her account page: /account/edit
+the old one again: That is not your password.
 a message of spaces: Say something.
 window mark: kept
 path: /

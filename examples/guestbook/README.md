@@ -43,17 +43,21 @@ place, rendered on the server.
   `:id`, and an `id:int` action is handed the number or answers 404. A path
   under `public/` is served as a file, which is where the stylesheet comes
   from.
-- A visitor signs the book with an account. `accounts.kso` declares the
+- A visitor signs the book with an account. `account.kso` declares the
   `account` model, a name, a password digest and an email address, and its
-  actions: `accounts/new` and `accounts/create` answer GET /accounts/new and
-  POST /accounts. A name or an address already taken, an address with no
-  `@`, or a password under eight characters, brings the form back with a
-  422. Otherwise the password is digested with
-  `passwords/digested`, the account is made through its model, and the
-  visitor is signed in. `session.kso` is a singular resource: GET
-  /session/new is the sign-in form, POST /session checks the password with
-  `passwords/matches?`, and a DELETE signs out. A wrong password and a name
-  with no account get the same message, after the same work.
+  actions. It is a singular resource, since a visitor only ever has the one:
+  `account/new` and `account/create` answer GET /account/new and POST
+  /account. A name or an address already taken, an address with no `@`, or
+  a password under eight characters, brings the form back with a 422.
+  Otherwise the password is digested with `passwords/digested`, the account
+  is made through its model, and its address is mailed a link to confirm.
+  GET /account/edit lets a signed-in visitor choose a new password, and
+  PATCH /account checks the current one before setting it, ten tries in
+  three minutes, as Devise's registrations do. `session.kso` is a singular
+  resource too: GET /session/new is the sign-in form, POST /session checks
+  the password with `passwords/matches?`, and a DELETE signs out. A wrong
+  password and a name with no account get the same message, after the same
+  work.
 - A visitor who has lost a password follows "Forgot your password?" on the
   sign-in form to `resets.kso`. GET /resets/new asks for the address, and
   POST /resets mails a link to it when an account has it, answering the same
@@ -65,7 +69,9 @@ place, rendered on the server.
   link proves the visitor reads its mail. Every sign-in rests on the digest
   the account kept when it was made (`session/signed_against`), so setting
   a password, even the same one, signs out every older session at its next
-  action that needs a sign-in.
+  action that needs a sign-in. A password changed from the account page
+  signs the browser that changed it in again on the new digest, so only the
+  others are signed out.
 - A new account confirms its address before it can sign in, as Devise's
   `confirmable` asks. Sign-up mails a link and does not sign the visitor in;
   signing in with the right password before confirming is refused with a
@@ -76,7 +82,7 @@ place, rendered on the server.
   to that column being empty, so it works once, and it lasts a day.
 - `account_mailer.kso` holds both letters and the links they carry, which
   start with `mail/url_for`. A module whose name ends in `_mailer` is no
-  resource, so `accounts`, `session`, `resets` and `confirmations` can all
+  resource, so `account`, `session`, `resets` and `confirmations` can all
   call it. Mail goes where `SENRO_MAIL` says (see senro's README); unset, it
   is printed to standard error, which is where a developer finds the link.
 - Signing in keeps the account's name in the session, a cookie signed with

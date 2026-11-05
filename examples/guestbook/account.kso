@@ -6,6 +6,7 @@ import "./account_mailer"
 import "./entries"
 import "./views"
 import "std/io"
+import "std/list"
 import "std/text"
 
 # What a sign-up form asked for.
@@ -24,7 +25,11 @@ pub type account
   email
   confirmed
 
-# Anyone may make an account.
+# One address may try the current password ten times in three minutes, as
+# it may try to sign in.
+pub rate_limits = { "update":"10 per 3 minutes" }
+
+# Anyone may make an account. Changing its password asks for a sign-in.
 pub without_sign_in = ["create" "new"]
 
 pub fn create? _ _
@@ -86,11 +91,60 @@ fn made req kept:account
 fn made _ _
   effect web/denied
 
+# The account of whoever is signed in, as Devise's registrations edit it:
+# a new password, given the current one. The account is a singular
+# resource, since a visitor only ever edits their own.
+pub fn edit req _
+  effect (changing req {} 200)
+
+# The current password must match, and the new one is eight characters or
+# more. Changing it ends every other sign-in, since a sign-in rests on the
+# digest, and this browser is signed in again on the new one so that it
+# stays.
+pub fn update req db
+  f = web/form req.body
+  name = web/viewer req entries/secret
+  current = web/value f "current"
+  password = web/value f "password"
+  pg/query db digest_by [name]
+    .> (r -> changed req db name current password (list/first r.rows))
+
+digest_by = "select digest from accounts where name = $1"
+
+fn changed _ _ _ _ _ none
+  effect web/denied
+
+fn changed req db name current password row
+  wrong = { "current":"That is not your password." }
+  short = { "password":"Use eight characters or more." }
+  kept = models/cell row "digest"
+  return effect (changing req wrong 422) if not passwords/matches? current kept
+  return effect (changing req short 422) if length password < 8
+  passwords/digested password
+    .> (d -> pg/query db set_digest [d name] .> (_ -> kept_on req name d))
+
+set_digest = "update accounts set digest = $1 where name = $2"
+
+fn kept_on req name digest
+  s = web/session req entries/secret
+  noticed = put s "flash" "Your password is changed."
+  home = web/redirect "/"
+  effect (web/signed_in req home entries/secret noticed name digest)
+
+pub fn over_limit req
+  wait = { "current":"Too many tries. Try again in a few minutes." }
+  effect (changing req wait 429)
+
+fn changing req problems code
+  page = views/account_view "/account" problems
+  framed = views/layout_view "Your account · Guestbook" page
+  views/answer_as req code framed
+
 # The sign-up form shows the name and address as typed and the problem with
 # each field, if any. A password is never sent back.
 fn opened req name email problems code
   heading = "Make an account"
-  to = "/accounts"
+  to = "/account"
   page = views/door_view heading to "Make it" name email problems true false
   framed = views/layout_view "Make an account · Guestbook" page
   views/answer_as req code framed
