@@ -1,7 +1,12 @@
 a visitor sees: Sign in, Make an account; sign form: none
 Bob, a wrong password: That name and password do not match.
 a name with no account: That name and password do not match.
-taking Bob's name with a short password: That name is taken. Use eight characters or more.
+taking Bob's name and address with a short password: That name is taken. That address has an account. Use eight characters or more.
+a link for an address with no account: If that address has an account, a link is on its way to it.; mail sent: 0
+mail to cy@guestbook.test: Reset your guestbook password; mail sent: 1
+after choosing: Your password is changed. Sign in with it.
+signing in with the new password: Signed in as Cy.
+the link again: That link has expired or was used. Ask for another.
 a message of spaces: Say something.
 window mark: kept
 path: /

@@ -2,7 +2,7 @@ import "../../models"
 
 # The guestbook's schema, as the changes that built it, oldest first. The
 # models derivation folds these into the schema the app is compiled against.
-pub all = [signed joined]
+pub all = [signed joined emailed]
 
 signed = models/create_table "signatures" [id name message]
 
@@ -10,8 +10,13 @@ id = models/column "id" "serial"
 
 joined = models/create_table "accounts" [id name digest]
 
+# The address a reset link is sent to.
+emailed = models/add_column "accounts" email
+
 name = models/column "name" "text"
 
 message = models/column "message" "text"
 
 digest = models/column "digest" "text"
+
+email = models/column "email" "text"

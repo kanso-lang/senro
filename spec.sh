@@ -239,7 +239,9 @@ else
       flag=""
       [ "$engine" = interp ] && flag=--interp
       log=$(mktemp)
-      (cd "examples/$name" && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+      # The app's mail is written to files here, where the spec reads it.
+      outbox=$(mktemp -d)
+      (cd "examples/$name" && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
       server=$!
       tries=0
       while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
@@ -247,7 +249,7 @@ else
         tries=$((tries + 1))
       done
       for browser in ${SENRO_BROWSERS:-chromium}; do
-        got=$(node "spec/browser/$name.mjs" "$port" "$browser" 2>&1)
+        got=$(node "spec/browser/$name.mjs" "$port" "$browser" "$outbox" 2>&1)
         if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
           printf '%s\n' "$got" > "$want"
         fi
@@ -263,6 +265,7 @@ else
       kill "$server" 2>/dev/null
       wait "$server" 2>/dev/null
       rm -f "$log"
+      rm -rf "$outbox"
     done
   done
 fi

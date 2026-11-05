@@ -68,5 +68,6 @@ pub fn destroy req _
   effect (web/kept r entries/secret (put s "flash" "Signed out."))
 
 fn opened req name problems code
-  page = views/door_view "Sign in" "/session" "Sign in" name problems true
+  to = "/session"
+  page = views/door_view "Sign in" to "Sign in" name "" problems false true
   views/answer_as req code (views/layout_view "Sign in · Guestbook" page)

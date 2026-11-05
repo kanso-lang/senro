@@ -1,4 +1,4 @@
-takes heading path button name problems remembers
+takes heading path button name email problems asks remembers
 header
   h1 = heading
   p.lede
@@ -7,6 +7,10 @@ form method="post" action=path
   input name="name" placeholder="name" required="required" value=name
   if problems["name"] != none
     p.problem = problems["name"]
+  if asks
+    input type="email" name="email" placeholder="email, for a lost password" required="required" value=email
+    if problems["email"] != none
+      p.problem = problems["email"]
   input type="password" name="password" placeholder="password" required="required"
   if problems["password"] != none
     p.problem = problems["password"]
@@ -15,3 +19,6 @@ form method="post" action=path
       input type="checkbox" name="remember" value="yes"
       | Keep me signed in
   button = button
+if remembers
+  p.forgot
+    a href="/resets/new" Forgot your password?

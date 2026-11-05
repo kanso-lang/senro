@@ -1,0 +1,158 @@
+import "../../mail"
+import "../../models"
+import "../../passwords"
+import "../../pg"
+import "../../web"
+import "./entries"
+import "./views"
+import "std/io"
+import "std/list"
+import "std/os"
+import "std/text"
+import "std/time"
+
+# A visitor who has lost a password asks for a link by email, follows it,
+# and chooses a new one, as Rails 8's generated PasswordsController has it.
+# The link carries a token `passwords/reset_token` signs over the account
+# and the digest it keeps, so nothing is stored, and a link works once and
+# for fifteen minutes.
+pub without_sign_in = ["create" "edit" "new" "update"]
+
+# Asking is limited as signing in is, so the form cannot be used to fill
+# someone's inbox.
+pub rate_limits = { "create":"10 per 3 minutes" }
+
+pub fn new req _
+  s = web/session req entries/secret
+  effect (asked req s 200)
+
+# The answer is the same whether or not the address has an account, and
+# whether or not the mail could be sent, so the form says nothing about
+# which addresses are registered. A failure to send goes to standard error.
+pub fn create req db
+  f = web/form req.body
+  email = text/lowercase (text/trim (web/value f "email"))
+  pg/query db holder [email]
+    .> (r -> sent (list/first r.rows) email)
+    .? (u -> io/write_err "guestbook: no reset mail: {u.reason}\n")
+    .> (_ -> effect (told req "/" on_its_way))
+
+holder = "select id, digest from accounts where email = $1"
+
+on_its_way = "If that address has an account, a link is on its way to it."
+
+fn sent none _
+  effect ""
+
+fn sent row email
+  id = models/cell row "id"
+  kept = models/cell row "digest"
+  time/now
+    .> (t -> site .> (base -> effect (linked base id kept t)))
+    .> (link -> mail/delivered (letter email link))
+
+fn linked base id kept t
+  "{base}/resets/{passwords/reset_token entries/secret id kept t}/edit"
+
+# Where a link in a mail points. It is configured, never read from the
+# request's Host header: whoever sends a request chooses that header, and a
+# reset link built from it would carry the token to a site of their choosing.
+site = os/env "SENRO_URL" .> (u -> effect (base_of u))
+
+fn base_of none
+  "http://127.0.0.1:3000"
+
+fn base_of u
+  u
+
+sender = "Guestbook <noreply@guestbook.test>"
+
+fn letter email link
+  lines = [
+    "Someone asked to reset the password of your guestbook account."
+    ""
+    "Choose a new one here, within fifteen minutes:"
+    ""
+    link
+    ""
+    "If it was not you, there is nothing to do: your password is unchanged."
+  ]
+  body = text/join lines "\n"
+  mail/composed sender email "Reset your guestbook password" body
+
+# The `id` a reset's member routes take is the token itself.
+pub fn edit req db id
+  checked db id .> (good -> offered req id good)
+
+fn offered req token true
+  effect (chosen req token {} 200)
+
+fn offered req _ false
+  effect (told req "/resets/new" expired)
+
+expired = "That link has expired or was used. Ask for another."
+
+# A new password of eight characters or more, set through a link that is
+# still good. Setting it changes the digest, which is what retires the link.
+pub fn update req db id
+  password = web/value (web/form req.body) "password"
+  checked db id .> (good -> chose req db id password good)
+
+fn chose req _ _ _ false
+  effect (told req "/resets/new" expired)
+
+fn chose req db token password true
+  short = { "password":"Use eight characters or more." }
+  return effect (chosen req token short 422) if length password < 8
+  id = id_of (passwords/reset_id token)
+  passwords/digested password
+    .> (d -> pg/query db reset [d id])
+    .> (_ -> effect (told req "/" changed))
+
+reset = "update accounts set digest = $1 where id = $2"
+
+changed = "Your password is changed. Sign in with it."
+
+# Whether `token` is good now for the account it names.
+fn checked db token
+  id = id_of (passwords/reset_id token)
+  pg/query db digest_by_id [id]
+    .> (r -> time/now .> (t -> effect (good? token (list/first r.rows) t)))
+
+digest_by_id = "select digest from accounts where id = $1"
+
+fn good? _ none _
+  false
+
+fn good? token row t
+  kept = models/cell row "digest"
+  passwords/reset_valid? entries/secret token kept t
+
+fn id_of none
+  "0"
+
+fn id_of n
+  "{n}"
+
+# A redirect carrying a notice for the page it lands on.
+fn told req to notice
+  s = web/session req entries/secret
+  web/kept (web/redirect to) entries/secret (put s "flash" notice)
+
+fn asked req s code
+  flash = said s["flash"]
+  page = views/reset_asked_view flash {}
+  framed = views/layout_view "Forgot your password · Guestbook" page
+  r = views/answer_as req code framed
+  web/kept r entries/secret (put s "flash" "")
+
+fn chosen req token problems code
+  page = views/reset_chosen_view "/resets/{token}" problems
+  framed = views/layout_view "A new password · Guestbook" page
+  views/answer_as req code framed
+
+fn said none
+  ""
+
+fn said v
+  v

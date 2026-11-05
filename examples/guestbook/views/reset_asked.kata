@@ -1,0 +1,12 @@
+takes flash problems
+header
+  h1 Forgot your password?
+  p.lede
+    a href="/session/new" Back to signing in
+if flash != ""
+  p.flash = flash
+form method="post" action="/resets"
+  input type="email" name="email" placeholder="the address your account has" required="required"
+  if problems["email"] != none
+    p.problem = problems["email"]
+  button Send me a link

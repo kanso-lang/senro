@@ -6,12 +6,20 @@ import "./entries"
 import "./views"
 import "std/text"
 
+# What a sign-up form asked for.
+type signup
+  name
+  email
+  password
+
 # An account, as the `accounts` table stores it: the name its holder signs
-# with, and a digest of the password. The password itself is never stored.
+# with, a digest of the password, and the address a reset link goes to. The
+# password itself is never stored.
 pub type account
   id
   name
   digest
+  email
 
 # Anyone may make an account.
 pub without_sign_in = ["create" "new"]
@@ -20,30 +28,45 @@ pub fn create? _ _
   true
 
 pub fn new req _
-  effect (opened req "" {} 200)
+  effect (opened req "" "" {} 200)
 
-# An account needs a name nobody holds and a password of eight characters or
-# more. The name is looked up before the password is stretched, so a sign-up
-# that cannot succeed costs no hashing.
+# An account needs a name and an address nobody holds, and a password of
+# eight characters or more. Both are looked up before the password is
+# stretched, so a sign-up that cannot succeed costs no hashing.
 pub fn create req db
   f = web/form req.body
   name = text/trim (web/value f "name")
+  email = text/lowercase (text/trim (web/value f "email"))
   password = web/value f "password"
-  pg/query db held [name] .> (r -> joined req db name password r.rows)
+  asked = signup name email password
+  pg/query db held [name]
+    .> (n -> pg/query db addressed [email] .> (m -> joined req db asked n m))
 
 held = "select id from accounts where name = $1"
 
-fn joined req db name password rows
+addressed = "select id from accounts where email = $1"
+
+fn joined req db asked by_name by_email
+  name = asked.name
+  email = asked.email
+  password = asked.password
   short = "Use eight characters or more."
+  taken = "That address has an account."
   found = models/problems [
     (models/rule "name" (name == "") "Choose a name.")
-    (models/rule "name" (length rows > 0) "That name is taken.")
+    (models/rule "name" (length by_name.rows > 0) "That name is taken.")
+    (models/rule "email" (not addressed? email) "Give an email address.")
+    (models/rule "email" (length by_email.rows > 0) taken)
     (models/rule "password" (length password < 8) short)
   ]
-  return effect (opened req name found 422) if models/problems? found
+  return effect (opened req name email found 422) if models/problems? found
+  fields = { "email":email "name":name }
   passwords/digested password
-    .> (d -> models/created "" db account_model { "digest":d "name":name })
+    .> (d -> models/created "" db account_model (put fields "digest" d))
     .> (w -> made req w)
+
+fn addressed? email
+  length (text/split email "@") == 2
 
 fn made req kept:account
   s = web/session req entries/secret
@@ -54,10 +77,11 @@ fn made req kept:account
 fn made _ _
   effect web/denied
 
-# The sign-up form shows the name as typed and the problem with each field,
-# if any. A password is never sent back.
-fn opened req name problems code
+# The sign-up form shows the name and address as typed and the problem with
+# each field, if any. A password is never sent back.
+fn opened req name email problems code
   heading = "Make an account"
-  page = views/door_view heading "/accounts" "Make it" name problems false
+  to = "/accounts"
+  page = views/door_view heading to "Make it" name email problems true false
   framed = views/layout_view "Make an account · Guestbook" page
   views/answer_as req code framed
