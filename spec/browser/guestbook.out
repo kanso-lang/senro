@@ -29,12 +29,13 @@ message field: ""
 Ada's cookie, kept: 14 days
 remove buttons only on Ada's entries: true
 newest entry after Ada removes hers: from Bob, by Bob
+signed with a photo: 200 image/png, as sent; window mark: kept
 Ada asking to remove Bob's entry: 403
 after signing out: Signed out.
 and her cookie: until the browser closes
 modules fetched by a second load: 0
 after a deploy, fetched: /senro/app.wasm
-Ada's page fetched / as: data, data, data, data
+Ada's page fetched / as: data, data, data, data, data, data
 Bob's older session, removing his own entry after the reset: 403
 and his cookie then names: nobody
 and the book then sees him as: signed out

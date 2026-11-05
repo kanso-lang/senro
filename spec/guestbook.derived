@@ -253,21 +253,33 @@ fn signed_20 form
 
 fn signed_17 form
   joined [
-    "<form method=\"post\" action=\"/entries\" class=\"sign\"><textarea "
+    "<form method=\"post\" action=\"/entries\" "
+    "enctype=\"multipart/form-data\" class=\"sign\"><textarea "
     "name=\"message\" placeholder=\"say something\" required=\"required\">"
     # signed.kata:19
     "{escape form.message}</textarea>"
     # signed.kata:20
-    "{if (form.problems["message"] != none) (signed_20 form) ""}<button>"
-    "Sign</button></form>"
+    "{if (form.problems["message"] != none) (signed_20 form) ""}<label><span>"
+    "A photo, if you like</span><input type=\"file\" name=\"photo\" "
+    "accept=\"image/*\"></label><button>Sign</button></form>"
   ]
 
-fn signed_24 removals e
+fn signed_30 e
   joined [
-    # signed.kata:26
-    "<li><p class=\"message\">{escape e.message}</p><p class=\"who\">"
-    # signed.kata:27, 28
-    "{escape e.name}</p>{removals["{e.id}"]}</li>"
+    # signed.kata:31
+    "<img src=\"/senro/blobs/{escape e.photo}\" alt=\"a photo from "
+    # signed.kata:31
+    "{escape e.name}\" class=\"photo\">"
+  ]
+
+fn signed_27 removals e
+  joined [
+    # signed.kata:29
+    "<li><p class=\"message\">{escape e.message}</p>"
+    # signed.kata:30, 32
+    "{if (e.photo != "") (signed_30 e) ""}<p class=\"who\">{escape e.name}"
+    # signed.kata:33
+    "</p>{removals["{e.id}"]}</li>"
   ]
 
 pub fn signed signatures form flash removals viewer
@@ -279,8 +291,8 @@ pub fn signed signatures form flash removals viewer
     "{if (flash != "") (signed_15 flash) ""}"
     # signed.kata:17
     "{if (viewer != "") (signed_17 form) ""}<ol class=\"entries\">"
-    # signed.kata:24
-    "{each signatures (e -> signed_24 removals e)}</ol>"
+    # signed.kata:27
+    "{each signatures (e -> signed_27 removals e)}</ol>"
   ]
 # in views, by kata/views
 pub fn unlock_offered path
@@ -456,23 +468,34 @@ fn signed_k_20 form
 
 fn signed_k_17 form
   joined [
-    "<form method=\"post\" action=\"/entries\" class=\"sign\"><textarea "
+    "<form method=\"post\" action=\"/entries\" "
+    "enctype=\"multipart/form-data\" class=\"sign\"><textarea "
     "name=\"message\" placeholder=\"say something\" required=\"required\">"
     # signed.kata:19
     "{escape (kata_at form "message")}</textarea>"
     # signed.kata:20
     "{if ((kata_at form "problems")["message"] != none) (signed_k_20 form) ""}"
-    "<button>Sign</button></form>"
+    "<label><span>A photo, if you like</span><input type=\"file\" "
+    "name=\"photo\" accept=\"image/*\"></label><button>Sign</button></form>"
   ]
 
-fn signed_k_24 removals e
+fn signed_k_30 e
   joined [
-    # signed.kata:26
-    "<li><p class=\"message\">{escape (kata_at e "message")}</p><p "
-    # signed.kata:27
-    "class=\"who\">{escape (kata_at e "name")}</p>"
-    # signed.kata:28
-    "{kata_raw removals["{kata_at e "id"}"]}</li>"
+    # signed.kata:31
+    "<img src=\"/senro/blobs/{escape (kata_at e "photo")}\" alt=\"a photo "
+    # signed.kata:31
+    "from {escape (kata_at e "name")}\" class=\"photo\">"
+  ]
+
+fn signed_k_27 removals e
+  joined [
+    # signed.kata:29
+    "<li><p class=\"message\">{escape (kata_at e "message")}</p>"
+    # signed.kata:30
+    "{if (kata_at e "photo" != "") (signed_k_30 e) ""}<p class=\"who\">"
+    # signed.kata:32, 33
+    "{escape (kata_at e "name")}</p>{kata_raw removals["{kata_at e "id"}"]}"
+    "</li>"
   ]
 
 fn signed_keyed signatures form flash removals viewer
@@ -485,8 +508,8 @@ fn signed_keyed signatures form flash removals viewer
     "{if (flash != "") (signed_k_15 flash) ""}"
     # signed.kata:17
     "{if (viewer != "") (signed_k_17 form) ""}<ol class=\"entries\">"
-    # signed.kata:24
-    "{each (kata_items signatures) (e -> signed_k_24 removals e)}</ol>"
+    # signed.kata:27
+    "{each (kata_items signatures) (e -> signed_k_27 removals e)}</ol>"
   ]
 # in views, by kata/views
 fn unlock_offered_keyed path
@@ -586,7 +609,7 @@ pub fn reset_chosen_view path problems
   { "locals":kata_locals "view":"reset_chosen" }
 # in views, by kata/views
 fn signed_view_signatures_each x
-  { "id":x.id "message":x.message "name":x.name }
+  { "id":x.id "message":x.message "name":x.name "photo":x.photo }
 
 fn signed_view_signatures xs
   list/to_list (list/map xs signed_view_signatures_each)
@@ -625,7 +648,7 @@ fn kata_answered _ code node
     "senro-view: 1"
   ]
   http/respond code heard (json/encode node)
-schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text"] }    # models/tables
+schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # models/tables
 # in account, by models/tables
 pub fn account_from row
   id = account_cell row["id"]
@@ -652,7 +675,8 @@ pub fn signature_from row
   id = signature_cell row["id"]
   name = signature_cell row["name"]
   message = signature_cell row["message"]
-  signature id name message
+  photo = signature_cell row["photo"]
+  signature id name message photo
 # in signatures, by models/tables
 fn signature_cell none
   ""
@@ -661,7 +685,7 @@ fn signature_cell v
   v
 # in signatures, by models/tables
 pub signature_model = {
-  "columns":["id" "name" "message"]
+  "columns":["id" "name" "message" "photo"]
   "create":create?
   "destroy":destroy?
   "problems":problems

@@ -232,7 +232,8 @@ when they are given that path. The specs write it again and compare the two.
   senro's page script at `/senro.js`. A layout that loads it gets pages that
   update in place: a link followed or a form sent on the app's own origin is
   fetched, and the page the server answers is morphed into the live one, so the
-  browser never reloads. Once the app's browser module has loaded, a page the
+  browser never reloads. A form whose `enctype` is `multipart/form-data` is
+  sent that way, with its files; any other is sent urlencoded. Once the app's browser module has loaded, a page the
   app answers with `views/answer` arrives as data and is rendered in the
   browser. The script keeps the app's module and the runtime in the browser's
   Cache Storage, each under its modification time, which the server writes into

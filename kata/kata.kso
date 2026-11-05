@@ -607,11 +607,12 @@ fn chained cs i modes acc
   fields_after cs i j modes acc name name
 
 # A read stands bare where it is the whole of a hole, a bracket or a group,
-# and in parentheses where it is one part of a larger expression.
+# or an operand of a binary operator there, since a call binds tighter than
+# any operator. Anywhere else, such as an argument, it is in parentheses.
 fn fields_after cs i j modes acc expr chain
   more = char_at cs j == "." and starts_name? (char_at cs (j + 1))
   return rewritten cs j modes (on acc expr) if not more and chain == expr
-  whole = alone? (char_at cs (i - 1)) (char_at cs j)
+  whole = alone? cs i j
   shown = if whole expr "({expr})"
   ended_here = reading "{acc.text}{shown}" (push acc.chains chain)
   return rewritten cs j modes ended_here if not more
@@ -620,9 +621,38 @@ fn fields_after cs i j modes acc expr chain
   read = "kata_at {wrapped expr} \"{f}\""
   fields_after cs i k modes acc read "{chain}.{f}"
 
-fn alone? before after_it
+fn alone? cs i j
+  before = char_at cs (i - 1)
   opened = list/any? ["" "\{" "(" "["] (c -> c == before)
-  opened and list/any? ["" "}" ")" "]"] (c -> c == after_it)
+  closed = list/any? ["" "}" ")" "]"] (c -> c == char_at cs j)
+  left = opened or operator? (word_before cs (i - 2))
+  left and (closed or operator? (word_after cs (j + 1)))
+
+binary_operators = ["==" "!=" "<" "<=" ">" ">=" "+" "-" "*" "/" "and" "or"]
+
+fn operator? word
+  list/any? binary_operators (o -> o == word)
+
+# The word that ends at `i`, after a space, or "" when the space is missing.
+fn word_before cs i
+  return "" if char_at cs (i + 1) != " "
+  word_from cs (spaced_from cs i) (i + 1)
+
+fn spaced_from cs i
+  return i + 1 if i < 1 or cs[i] == " "
+  spaced_from cs (i - 1)
+
+# The word that starts at `j`, before a space, or "" when the space is
+# missing.
+fn word_after cs j
+  return "" if char_at cs (j - 1) != " "
+  ends = spaced_to cs j
+  return "" if char_at cs ends != " "
+  word_from cs j ends
+
+fn spaced_to cs j
+  return j if length cs < j or cs[j] == " "
+  spaced_to cs (j + 1)
 
 fn name_end cs i
   return i if i < 1 or length cs < i
