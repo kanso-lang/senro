@@ -110,9 +110,41 @@ fn forked l c s
   served l s
 
 fn answered c s
-  net/read c
+  gathered c ""
     .> (raw -> time/now .> (t -> net/peer c .> (from -> heard_from raw t from)))
     .> (req -> heard c s req)
+
+# A read is one segment of what the client sent, and a browser often sends a
+# request's head in one packet and its body in the next. The server reads
+# again until the body is as long as content-length promised, or the client
+# stops sending.
+fn gathered c had
+  net/read c .> (more -> gathered_after c had more)
+
+fn gathered_after _ had ""
+  effect had
+
+fn gathered_after c had more
+  raw = "{had}{more}"
+  return effect raw if whole? raw
+  gathered c raw
+
+fn whole? raw
+  return false if length (text/split raw "\r\n\r\n") < 2
+  req = http/parsed raw
+  length (text/bytes req.body) >= promised req.headers["content-length"]
+
+fn promised none
+  0
+
+fn promised n
+  counted (text/to_int n)
+
+fn counted none
+  0
+
+fn counted n
+  n
 
 fn heard_from raw t from
   effect (arrived raw t from)

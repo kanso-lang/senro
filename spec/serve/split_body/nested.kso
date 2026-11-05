@@ -1,0 +1,27 @@
+import "std/net"
+import "std/net/http"
+import "std/text"
+import "std/time"
+
+# A browser often sends a request's head in one packet and its body in the
+# next. This asks the server the same way: the head, a pause long enough for
+# the server to read what has come, and then the body.
+pub fn index _ _
+  net/dial "127.0.0.1" 54409 .> asked
+
+fn asked c
+  net/write c head
+    .> (_ -> time/sleep 300)
+    .> (_ -> net/write c "title=split")
+    .> (_ -> net/read c)
+    .> (raw -> told c raw)
+
+head = "POST /note HTTP/1.1\r\nhost: localhost\r\ncontent-length: 11\r\n\r\n"
+
+fn told c raw
+  net/close_conn c .> (_ -> effect (http/text_page "nested saw {body raw}"))
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  parts[2]
