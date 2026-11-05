@@ -355,14 +355,20 @@ console.log(`Ada asking to remove Bob's entry: ${asked}`);
 // Signing out leaves the door where the form was.
 const failed = [];
 page.on("requestfailed", (q) => failed.push(`${q.method()} ${q.url()} ${q.failure()?.errorText}`));
-page.on("response", (r) => failed.push(`answer ${r.status()} ${r.request().method()} ${r.url()}`));
+page.on("response", async (r) => {
+  const h = r.headers();
+  let body = "";
+  try { body = (await r.text()).slice(0, 600); } catch (e) { body = `unread: ${e.message}`; }
+  failed.push(`answer ${r.status()} ${r.request().method()} ${r.url()} view=${h["senro-view"]} type=${h["content-type"]} length=${h["content-length"]} body=${JSON.stringify(body)}`);
+});
+page.on("console", (m) => failed.push(`console ${m.type()}: ${m.text()}`));
 await page.click("form.out button");
 try {
   await page.waitForSelector("nav.door");
 } catch (e) {
   console.log(`PROBE requests: ${failed.join(" | ")}`);
   console.log(`PROBE url: ${page.url()}`);
-  console.log(`PROBE body: ${(await page.evaluate(() => document.body.innerText)).slice(0, 400)}`);
+  console.log(`PROBE body: ${(await page.evaluate(() => document.body.innerHTML)).slice(0, 1500)}`);
   console.log(`PROBE said: ${said.join(" | ")}`);
   throw e;
 }
