@@ -170,7 +170,13 @@ when they are given that path. The specs write it again and compare the two.
   the viewer may not see it, and `models/where viewer db model field value`
   answers the records whose field holds the value, oldest first, that the
   viewer may see: a post's comments are `models/where viewer db
-  comment/comment_model "post_id" id`. A field written out is checked
+  comment/comment_model "post_id" id`. `models/paged db sql params number
+  per` reads one page of a query, as Pagy does: its rows, its number, and
+  whether another follows, which it learns by asking for one row more than
+  the page shows. `models/page_number` reads the page a query string names,
+  so `/notes?page=2` is `models/page_number (web/value (web/query req)
+  "page")`, and anything but a whole number of at least 1 is page 1. A field
+  written out is checked
   against the model's columns while the app compiles. A model with too many
   columns to list on the value's line has them in a constant of their own,
   `signature_columns`, one to a line. A model's module may declare
@@ -197,7 +203,10 @@ when they are given that path. The specs write it again and compare the two.
   from `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD`, with
   libpq's defaults for any that are unset.
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. A request is read as bytes until its body is as long
+  decodes a posted form. A path's query string is taken off before the route
+  is matched, so `/notes?page=2` answers as `/notes` does, and `web/query req`
+  reads it as a form: `web/value (web/query req) "page"` is "2". A request is
+  read as bytes until its body is as long
   as its `Content-Length` says, since a browser often sends the head and the
   body in separate packets. A body over 10 MiB is refused with a 413 before it
   is read, and a client that sends `Expect: 100-continue`, as curl does before

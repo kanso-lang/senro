@@ -1,0 +1,13 @@
+import "../../../models"
+import "std/list"
+import "std/text"
+
+fn shown p
+  titles = list/to_list (list/map p.rows (r -> r["title"]))
+  "page {p.number}: {text/join titles " "}, more: {p.more}"
+
+# Page `number` of `sql`, two to a page, printed; then the session again.
+pub fn told db sql params number
+  models/paged db sql params number 2
+    .> (p -> print (shown p))
+    .> (_ -> effect db)
