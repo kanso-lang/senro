@@ -818,6 +818,16 @@ fn unescaped bs at acc
   byte = hex bs[at + 1] * 16 + hex bs[at + 2]
   unescaped bs (at + 3) (push acc byte)
 
+# Bytes as lowercase hex, two characters to a byte.
+pub fn hexed bs
+  text/join (list/to_list (list/map (list/to_list bs) (b -> byte_hex b))) ""
+
+fn byte_hex b
+  "{hexit (b / 16)}{hexit (b % 16)}"
+
+fn hexit n
+  given (text/slice "0123456789abcdef" (n + 1) (n + 1))
+
 fn hex c
   return c - 48 if c >= 48 and c <= 57
   return c - 55 if c >= 65 and c <= 70

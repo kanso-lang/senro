@@ -2,16 +2,18 @@
 // guestbook's browser module loaded. Each visitor makes an account and signs
 // with it. The page marks its window before signing; a page that reloaded
 // would lose the mark. Then the visitor removes her own entry, and is refused
-// when she asks to remove someone else's. Prints what a visitor sees, for
-// spec.sh to compare with spec/browser/guestbook.out. Run as:
+// when she asks to remove someone else's. A visitor who has lost her password
+// asks for a link, reads it in the mail the app wrote to <outbox>, and
+// chooses a new one. Prints what a visitor sees, for spec.sh to compare with
+// spec/browser/guestbook.out. Run as:
 //
-//   node spec/browser/guestbook.mjs <port> <browser>
+//   node spec/browser/guestbook.mjs <port> <browser> <outbox>
 import { createRequire } from "node:module";
-import { statSync, utimesSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, utimesSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 const playwright = require("playwright");
-const [port, kind] = process.argv.slice(2);
+const [port, kind, outbox] = process.argv.slice(2);
 const browser = await playwright[kind].launch();
 const page = await browser.newPage();
 const said = [];
@@ -26,6 +28,7 @@ async function joined(p, name, password) {
   await p.click("a[href='/accounts/new']");
   await p.waitForSelector("input[type=password]");
   await p.fill("input[name=name]", name);
+  await p.fill("input[name=email]", `${name.toLowerCase()}@guestbook.test`);
   await p.fill("input[name=password]", password);
   await p.click("form button");
   await p.waitForSelector("form.out, p.problem");
@@ -66,15 +69,65 @@ async function refused(name) {
 console.log(`Bob, a wrong password: ${await refused("Bob")}`);
 console.log(`a name with no account: ${await refused("Nobody")}`);
 
-// A name already taken and a short password are both turned back.
+// A name and an address already taken and a short password are all turned
+// back.
 await visitor.goto(at("/accounts/new"));
 await visitor.fill("input[name=name]", "Bob");
+await visitor.fill("input[name=email]", "BOB@guestbook.test");
 await visitor.fill("input[name=password]", "short");
 await visitor.click("form button");
 await visitor.waitForSelector("p.problem");
 const taken = await visitor.evaluate(() =>
   [...document.querySelectorAll("p.problem")].map((p) => p.textContent).join(" "));
-console.log(`taking Bob's name with a short password: ${taken}`);
+console.log(`taking Bob's name and address with a short password: ${taken}`);
+
+// Cy has lost her password. She asks for a link from the sign-in page, and
+// the guestbook answers the same whether or not the address has an account.
+// The link in the mail lets her choose a new password, which she signs in
+// with, and it works only once. A run that finds her account already made
+// resets it all the same.
+const cy = await (await browser.newContext()).newPage();
+await cy.goto(at("/accounts/new"));
+await cy.fill("input[name=name]", "Cy");
+await cy.fill("input[name=email]", "cy@guestbook.test");
+await cy.fill("input[name=password]", "cys first password");
+await cy.click("form button");
+await cy.waitForSelector("form.out, p.problem");
+await cy.goto(at("/session/new"));
+await cy.click("a[href='/resets/new']");
+const sentBefore = mails().length;
+await cy.fill("input[name=email]", "nobody@guestbook.test");
+await cy.click("form button");
+await cy.waitForFunction(() => document.querySelector("p.flash"));
+const nobody = await cy.evaluate(() => document.querySelector("p.flash").textContent);
+console.log(`a link for an address with no account: ${nobody}; mail sent: ${mails().length - sentBefore}`);
+await cy.goto(at("/resets/new"));
+await cy.fill("input[name=email]", "cy@guestbook.test");
+await cy.click("form button");
+await cy.waitForFunction(() => document.querySelector("p.flash"));
+const mail = readFileSync(`${outbox}/${mails().at(-1)}`, "utf8");
+const header = (name) => mail.match(new RegExp(`^${name}: (.*)\r$`, "m"))[1];
+console.log(`mail to ${header("To")}: ${header("Subject")}; mail sent: ${mails().length - sentBefore}`);
+const link = mail.match(/^(http:\/\/\S+\/edit)\r$/m)[1];
+await cy.goto(link);
+await cy.fill("input[name=password]", "cys second password");
+await cy.click("form button");
+await cy.waitForFunction(() => document.querySelector("p.flash"));
+console.log(`after choosing: ${await cy.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await cy.goto(at("/session/new"));
+await cy.fill("input[name=name]", "Cy");
+await cy.fill("input[name=password]", "cys second password");
+await cy.click("form button");
+await cy.waitForSelector("form.out");
+console.log(`signing in with the new password: ${await cy.evaluate(() => document.querySelector("form.out span").textContent)}`);
+await cy.goto(link);
+await cy.waitForSelector("p.flash");
+console.log(`the link again: ${await cy.evaluate(() => document.querySelector("p.flash").textContent)}`);
+
+// The mail the app has written so far, oldest first.
+function mails() {
+  return readdirSync(outbox).sort((a, b) => parseInt(a) - parseInt(b));
+}
 
 // Each page the script fetches after the first comes as data, which the
 // guestbook's views compiled for the browser render, once the module has

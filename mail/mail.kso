@@ -52,7 +52,7 @@ fn drawn m
   time/now .> (t -> os/random_bytes 12 .> (b -> stamped m t b))
 
 fn stamped m t b
-  effect (text_at m t (hexits (list/to_list b)))
+  effect (text_at m t (web/hexed b))
 
 # The text of `m` as it goes on the wire, dated `t`, in milliseconds since
 # the epoch, with `id` before the `@` of its Message-ID. Lines end in CRLF.
@@ -181,17 +181,6 @@ fn wrapped s at acc
 
 fn min a b
   if (a < b) a b
-
-digits = "0123456789abcdef"
-
-fn hexits bs
-  text/join (list/to_list (list/map bs (b -> byte_hex b))) ""
-
-fn byte_hex b
-  "{hexit (b / 16)}{hexit (b % 16)}"
-
-fn hexit n
-  piece digits (n + 1) (n + 1)
 
 # `text`, which `text_at` wrote for `m`, sent the way `way` names. Exposed so
 # a spec, or an app that keeps its own setting, can name the way itself.

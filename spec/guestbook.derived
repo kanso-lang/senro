@@ -92,16 +92,34 @@ fn door_8 problems
   # door.kata:9
   "<p class=\"problem\">{escape problems["name"]}</p>"
 
-fn door_11 problems
-  # door.kata:12
+fn door_12 problems
+  # door.kata:13
+  "<p class=\"problem\">{escape problems["email"]}</p>"
+
+fn door_10 email problems
+  joined [
+    "<input type=\"email\" name=\"email\" placeholder=\"email, for a lost "
+    # door.kata:11
+    "password\" required=\"required\" value=\"{escape email}\">"
+    # door.kata:12
+    "{if (problems["email"] != none) (door_12 problems) ""}"
+  ]
+
+fn door_15 problems
+  # door.kata:16
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-door_13 = joined [
+door_17 = joined [
   "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
   "value=\"yes\">Keep me signed in</label>"
 ]
 
-pub fn door heading path button name problems remembers
+door_22 = joined [
+  "<p class=\"forgot\"><a href=\"/resets/new\">Forgot your password?</a>"
+  "</p>"
+]
+
+pub fn door heading path button name email problems asks remembers
   joined [
     # door.kata:3
     "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
@@ -111,13 +129,16 @@ pub fn door heading path button name problems remembers
     # door.kata:7
     "value=\"{escape name}\">"
     # door.kata:8
-    "{if (problems["name"] != none) (door_8 problems) ""}<input "
-    "type=\"password\" name=\"password\" placeholder=\"password\" "
-    "required=\"required\">"
-    # door.kata:11
-    "{if (problems["password"] != none) (door_11 problems) ""}"
-    # door.kata:13, 17
-    "{if remembers door_13 ""}<button>{escape button}</button></form>"
+    "{if (problems["name"] != none) (door_8 problems) ""}"
+    # door.kata:10
+    "{if asks (door_10 email problems) ""}<input type=\"password\" "
+    "name=\"password\" placeholder=\"password\" required=\"required\">"
+    # door.kata:15
+    "{if (problems["password"] != none) (door_15 problems) ""}"
+    # door.kata:17, 21
+    "{if remembers door_17 ""}<button>{escape button}</button></form>"
+    # door.kata:22
+    "{if remembers door_22 ""}"
   ]
 # in views, by kata/views
 pub fn layout title body
@@ -129,6 +150,43 @@ pub fn layout title body
     "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
     # layout.kata:12
     "</head><body><main>{body}</main></body></html>"
+  ]
+# in views, by kata/views
+fn reset_asked_6 flash
+  # reset_asked.kata:7
+  "<p class=\"flash\">{escape flash}</p>"
+
+fn reset_asked_10 problems
+  # reset_asked.kata:11
+  "<p class=\"problem\">{escape problems["email"]}</p>"
+
+pub fn reset_asked flash problems
+  joined [
+    "<header><h1>Forgot your password?</h1><p class=\"lede\"><a "
+    "href=\"/session/new\">Back to signing in</a></p></header>"
+    # reset_asked.kata:6
+    "{if (flash != "") (reset_asked_6 flash) ""}<form method=\"post\" "
+    "action=\"/resets\"><input type=\"email\" name=\"email\" "
+    "placeholder=\"the address your account has\" required=\"required\">"
+    # reset_asked.kata:10
+    "{if (problems["email"] != none) (reset_asked_10 problems) ""}<button>"
+    "Send me a link</button></form>"
+  ]
+# in views, by kata/views
+fn reset_chosen_7 problems
+  # reset_chosen.kata:8
+  "<p class=\"problem\">{escape problems["password"]}</p>"
+
+pub fn reset_chosen path problems
+  joined [
+    "<header><h1>Choose a new password</h1></header><form method=\"post\" "
+    # reset_chosen.kata:4
+    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
+    "value=\"PATCH\"><input type=\"password\" name=\"password\" "
+    "placeholder=\"new password\" required=\"required\">"
+    # reset_chosen.kata:7
+    "{if (problems["password"] != none) (reset_chosen_7 problems) ""}<button>"
+    "Save it</button></form>"
   ]
 # in views, by kata/views
 signed_5 = joined [
@@ -188,16 +246,34 @@ fn door_k_8 problems
   # door.kata:9
   "<p class=\"problem\">{escape problems["name"]}</p>"
 
-fn door_k_11 problems
-  # door.kata:12
+fn door_k_12 problems
+  # door.kata:13
+  "<p class=\"problem\">{escape problems["email"]}</p>"
+
+fn door_k_10 email problems
+  joined [
+    "<input type=\"email\" name=\"email\" placeholder=\"email, for a lost "
+    # door.kata:11
+    "password\" required=\"required\" value=\"{escape email}\">"
+    # door.kata:12
+    "{if (problems["email"] != none) (door_k_12 problems) ""}"
+  ]
+
+fn door_k_15 problems
+  # door.kata:16
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-door_k_13 = joined [
+door_k_17 = joined [
   "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
   "value=\"yes\">Keep me signed in</label>"
 ]
 
-fn door_keyed heading path button name problems remembers
+door_k_22 = joined [
+  "<p class=\"forgot\"><a href=\"/resets/new\">Forgot your password?</a>"
+  "</p>"
+]
+
+fn door_keyed heading path button name email problems asks remembers
   joined [
     # door.kata:3
     "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
@@ -207,13 +283,16 @@ fn door_keyed heading path button name problems remembers
     # door.kata:7
     "value=\"{escape name}\">"
     # door.kata:8
-    "{if (problems["name"] != none) (door_k_8 problems) ""}<input "
-    "type=\"password\" name=\"password\" placeholder=\"password\" "
-    "required=\"required\">"
-    # door.kata:11
-    "{if (problems["password"] != none) (door_k_11 problems) ""}"
-    # door.kata:13, 17
-    "{if remembers door_k_13 ""}<button>{escape button}</button></form>"
+    "{if (problems["name"] != none) (door_k_8 problems) ""}"
+    # door.kata:10
+    "{if asks (door_k_10 email problems) ""}<input type=\"password\" "
+    "name=\"password\" placeholder=\"password\" required=\"required\">"
+    # door.kata:15
+    "{if (problems["password"] != none) (door_k_15 problems) ""}"
+    # door.kata:17, 21
+    "{if remembers door_k_17 ""}<button>{escape button}</button></form>"
+    # door.kata:22
+    "{if remembers door_k_22 ""}"
   ]
 # in views, by kata/views
 fn layout_keyed title body
@@ -225,6 +304,43 @@ fn layout_keyed title body
     "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
     # layout.kata:12
     "</head><body><main>{kata_raw body}</main></body></html>"
+  ]
+# in views, by kata/views
+fn reset_asked_k_6 flash
+  # reset_asked.kata:7
+  "<p class=\"flash\">{escape flash}</p>"
+
+fn reset_asked_k_10 problems
+  # reset_asked.kata:11
+  "<p class=\"problem\">{escape problems["email"]}</p>"
+
+fn reset_asked_keyed flash problems
+  joined [
+    "<header><h1>Forgot your password?</h1><p class=\"lede\"><a "
+    "href=\"/session/new\">Back to signing in</a></p></header>"
+    # reset_asked.kata:6
+    "{if (flash != "") (reset_asked_k_6 flash) ""}<form method=\"post\" "
+    "action=\"/resets\"><input type=\"email\" name=\"email\" "
+    "placeholder=\"the address your account has\" required=\"required\">"
+    # reset_asked.kata:10
+    "{if (problems["email"] != none) (reset_asked_k_10 problems) ""}<button>"
+    "Send me a link</button></form>"
+  ]
+# in views, by kata/views
+fn reset_chosen_k_7 problems
+  # reset_chosen.kata:8
+  "<p class=\"problem\">{escape problems["password"]}</p>"
+
+fn reset_chosen_keyed path problems
+  joined [
+    "<header><h1>Choose a new password</h1></header><form method=\"post\" "
+    # reset_chosen.kata:4
+    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
+    "value=\"PATCH\"><input type=\"password\" name=\"password\" "
+    "placeholder=\"new password\" required=\"required\">"
+    # reset_chosen.kata:7
+    "{if (problems["password"] != none) (reset_chosen_k_7 problems) ""}"
+    "<button>Save it</button></form>"
   ]
 # in views, by kata/views
 signed_k_5 = joined [
@@ -291,14 +407,26 @@ fn kata_shown "door" kata_l
   path = kata_at kata_l "path"
   button = kata_at kata_l "button"
   name = kata_at kata_l "name"
+  email = kata_at kata_l "email"
   problems = kata_at kata_l "problems"
+  asks = kata_at kata_l "asks"
   remembers = kata_at kata_l "remembers"
-  door_keyed heading path button name problems remembers
+  door_keyed heading path button name email problems asks remembers
 
 fn kata_shown "layout" kata_l
   title = kata_at kata_l "title"
   body = kata_at kata_l "body"
   layout_keyed title body
+
+fn kata_shown "reset_asked" kata_l
+  flash = kata_at kata_l "flash"
+  problems = kata_at kata_l "problems"
+  reset_asked_keyed flash problems
+
+fn kata_shown "reset_chosen" kata_l
+  path = kata_at kata_l "path"
+  problems = kata_at kata_l "problems"
+  reset_chosen_keyed path problems
 
 fn kata_shown "signed" kata_l
   signatures = kata_at kata_l "signatures"
@@ -311,9 +439,11 @@ fn kata_shown "signed" kata_l
 fn kata_shown _ _
   ""
 # in views, by kata/views
-pub fn door_view heading path button name problems remembers
+pub fn door_view heading path button name email problems asks remembers
   kata_locals = {
+    "asks":asks
     "button":button
+    "email":email
     "heading":heading
     "name":name
     "path":path
@@ -325,6 +455,14 @@ pub fn door_view heading path button name problems remembers
 pub fn layout_view title body
   kata_locals = { "body":body "title":title }
   { "locals":kata_locals "view":"layout" }
+# in views, by kata/views
+pub fn reset_asked_view flash problems
+  kata_locals = { "flash":flash "problems":problems }
+  { "locals":kata_locals "view":"reset_asked" }
+# in views, by kata/views
+pub fn reset_chosen_view path problems
+  kata_locals = { "path":path "problems":problems }
+  { "locals":kata_locals "view":"reset_chosen" }
 # in views, by kata/views
 fn signed_view_signatures_each x
   { "id":x.id "message":x.message "name":x.name }
@@ -362,13 +500,14 @@ fn kata_answered _ code node
     "senro-view: 1"
   ]
   http/respond code heard (json/encode node)
-schema = { "accounts":["id serial" "name text" "digest text"] "signatures":["id serial" "name text" "message text"] }    # models/tables
+schema = { "accounts":["id serial" "name text" "digest text" "email text"] "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in accounts, by models/tables
 pub fn account_from row
   id = account_cell row["id"]
   name = account_cell row["name"]
   digest = account_cell row["digest"]
-  account id name digest
+  email = account_cell row["email"]
+  account id name digest email
 # in accounts, by models/tables
 fn account_cell none
   ""
@@ -377,7 +516,7 @@ fn account_cell v
   v
 # in accounts, by models/tables
 pub account_model = {
-  "columns":["id" "name" "digest"]
+  "columns":["id" "name" "digest" "email"]
   "create":create?
   "read":account_from
   "table":"accounts"
@@ -403,4 +542,4 @@ pub signature_model = {
   "read":signature_from
   "table":"signatures"
 }
-routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /accounts/new":{ "action":accounts/new "id":"" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "POST /accounts":{ "action":accounts/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /accounts/new":{ "action":accounts/new "id":"" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "POST /accounts":{ "action":accounts/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest

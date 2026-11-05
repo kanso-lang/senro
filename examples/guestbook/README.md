@@ -44,15 +44,27 @@ place, rendered on the server.
   under `public/` is served as a file, which is where the stylesheet comes
   from.
 - A visitor signs the book with an account. `accounts.kso` declares the
-  `account` model, a name and a password digest, and its actions:
-  `accounts/new` and `accounts/create` answer GET /accounts/new and POST
-  /accounts. A name already taken, or a password under eight characters,
-  brings the form back with a 422. Otherwise the password is digested with
+  `account` model, a name, a password digest and an email address, and its
+  actions: `accounts/new` and `accounts/create` answer GET /accounts/new and
+  POST /accounts. A name or an address already taken, an address with no
+  `@`, or a password under eight characters, brings the form back with a
+  422. Otherwise the password is digested with
   `passwords/digested`, the account is made through its model, and the
   visitor is signed in. `session.kso` is a singular resource: GET
   /session/new is the sign-in form, POST /session checks the password with
   `passwords/matches?`, and a DELETE signs out. A wrong password and a name
   with no account get the same message, after the same work.
+- A visitor who has lost a password follows "Forgot your password?" on the
+  sign-in form to `resets.kso`. GET /resets/new asks for the address, and
+  POST /resets mails a link to it when an account has it, answering the same
+  either way. The link is GET /resets/:id/edit, where the id is a token from
+  `passwords/reset_token`, signed over the account and the digest it keeps;
+  PATCH /resets/:id sets the new password. Setting it changes the digest, so
+  the link works once, and it stops working after fifteen minutes. The link
+  starts with `SENRO_URL` (`http://127.0.0.1:3000` when unset) and never with
+  the request's Host header, which the sender chooses. Mail goes where
+  `SENRO_MAIL` says (see senro's README); unset, it is printed to standard
+  error, which is where a developer finds the link.
 - Signing in keeps the account's name in the session, a cookie signed with
   HMAC-SHA-256, as its viewer; a cookie whose signature does not match reads
   as an empty session. `entries/create` signs with the viewer's name, so

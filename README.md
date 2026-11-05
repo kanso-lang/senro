@@ -135,6 +135,12 @@ adds, counts, renames and removes things on a shelf without a page reload.
   refusal's timing does not say whether the name exists. The rounds are
   `SENRO_PASSWORD_ROUNDS`, or 100,000 when it is unset; the comment above
   `default_rounds` says why that is below OWASP's figure. The specs set 30.
+  `passwords/reset_token secret id kept t` makes the token a password reset
+  link carries, as Rails 8's `generates_token_for` does: the account's id,
+  an expiry fifteen minutes on, and an HMAC over both and the digest the
+  account keeps. Nothing is stored; a new password changes the digest, so a
+  token works once. `passwords/reset_id` reads the id to look the digest up
+  by, and `passwords/reset_valid?` checks the token against it.
 - `mail`: mail an app sends, such as a password reset. `mail/composed from
   to subject body` makes a plain-text message, and `mail/delivered m` sends
   it the way `SENRO_MAIL` names: to standard error when it is unset, as
