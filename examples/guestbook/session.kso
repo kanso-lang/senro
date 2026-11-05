@@ -25,9 +25,10 @@ pub fn create req db
   f = web/form req.body
   name = text/trim (web/value f "name")
   password = web/value f "password"
+  remember = web/value f "remember" == "yes"
   pg/query db digest_of [name]
     .> (r -> kept_digest r.rows)
-    .> (kept -> entered req name kept password)
+    .> (kept -> entered req name kept password remember)
 
 digest_of = "select digest from accounts where name = $1"
 
@@ -35,13 +36,22 @@ fn kept_digest rows
   return passwords/stand_in if length rows == 0
   effect (models/cell rows[1] "digest")
 
-fn entered req name kept password
+fn entered req name kept password remember
   return refused req name if not passwords/matches? password kept
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
   welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
   home = web/redirect back
-  effect (web/signed_in req home entries/secret welcomed name)
+  signed = web/signed_in req home entries/secret welcomed name
+  effect (kept_if signed remember)
+
+# A visitor who ticked "Keep me signed in" keeps the sign-in after the
+# browser closes.
+fn kept_if r true
+  web/lasting r
+
+fn kept_if r false
+  r
 
 fn refused req name
   wrong = { "password":"That name and password do not match." }
@@ -58,5 +68,5 @@ pub fn destroy req _
   effect (web/kept r entries/secret (put s "flash" "Signed out."))
 
 fn opened req name problems code
-  page = views/door_view "Sign in" "/session" "Sign in" name problems
+  page = views/door_view "Sign in" "/session" "Sign in" name problems true
   views/answer_as req code (views/layout_view "Sign in · Guestbook" page)
