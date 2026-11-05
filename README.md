@@ -101,7 +101,14 @@ adds, counts, renames and removes things on a shelf without a page reload.
   it starts (`sessions` in `web.kso`); each request borrows one and gives it
   back when it has answered, and a request that finds them all lent waits. An
   action that fails is answered with a 500, its reason goes to standard
-  error, and the server keeps serving. A failure the app expects should be a
+  error, and the server keeps serving. A request that would change
+  something (any method but GET and HEAD) is refused with a 403 when a
+  browser says another site sent it: `Sec-Fetch-Site` anything but
+  `same-origin` or `none`, or, from a browser too old for that header, an
+  `Origin` other than the app's own. The session cookie is SameSite=Lax, so
+  a browser should not carry it on such a request anyway; this is the check
+  Rails' `protect_from_forgery` makes. A request with neither header comes
+  from a program, and is let through. A failure the app expects should be a
   value its action answers. It serves files under the app's `public/`,
   answers `web/redirect`, and keeps a session in a signed cookie
   (`web/session` and `web/kept`). The server stamps each request with the

@@ -1,0 +1,61 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Knocks on the door as a program does, with no word of where it came from,
+# and as a browser does, naming its origin or the kind of site that sent it.
+# Only the knocks from the app's own origin, and the program's, are let in;
+# a GET from anywhere looks.
+knocks = [
+  "POST /door|"
+  "POST /door|origin: http://localhost:54406"
+  "POST /door|origin: https://elsewhere.example"
+  "POST /door|origin: null"
+  "POST /door|sec-fetch-site: same-origin"
+  "POST /door|sec-fetch-site: cross-site"
+  "POST /door|sec-fetch-site: same-site"
+  "POST /door|sec-fetch-site: cross-site\r\norigin: http://localhost:54406"
+  "GET /door|sec-fetch-site: cross-site"
+]
+
+pub fn index _ _
+  list/fold knocks (effect []) (acc k -> acc .> (got -> more got k))
+    .> (got -> said got)
+
+fn more got k
+  knocked k .> (raw -> effect (push got "{shown k}: {heard raw}"))
+
+fn knocked k
+  net/dial "127.0.0.1" 54406 .> (c -> knocking c k)
+
+fn knocking c k
+  parts = text/split k "|"
+  first = list/first parts
+  extra = text/join (list/to_list (list/drop parts 1)) ""
+  more_head = if (extra == "") "" "{extra}\r\n"
+  head = "{first} HTTP/1.1\r\nhost: localhost:54406\r\n{more_head}"
+  net/write c "{head}content-length: 0\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+# A knock as the golden shows it: the request line, and its headers after a
+# "with", one after another.
+fn shown k
+  parts = text/split k "|"
+  extra = text/join (text/split (list/last parts) "\r\n") ", "
+  if (extra == "") (list/first parts) "{list/first parts} with {extra}"
+
+fn said answers
+  effect (http/text_page (text/join answers "\n"))
+
+fn heard raw
+  "{status raw}: {body raw}"
+
+fn status raw
+  list/first (text/split raw "\r\n")
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim (list/last parts)

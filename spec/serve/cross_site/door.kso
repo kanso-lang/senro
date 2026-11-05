@@ -1,0 +1,8 @@
+import "std/net/http"
+
+# A door that changes something when it is knocked on, and says so.
+pub fn index _ _
+  effect (http/text_page "looked")
+
+pub fn create _ _
+  effect (http/text_page "let in")
