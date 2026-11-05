@@ -56,6 +56,13 @@ type ruled
   broken
   message
 
+# A page of a query's rows: the rows on it, its number, counted from 1, and
+# whether another page follows it.
+pub type page
+  rows
+  number
+  more
+
 pub fn create_table name columns
   new_table name columns
 
@@ -371,6 +378,31 @@ fn in_range? none
 
 fn in_range? n
   n >= -2147483648 and n <= 2147483647
+
+# Page `number` of what `sql` selects, `per` rows to a page, as Pagy reads
+# one for a Rails app. The query is asked for one row more than a page
+# holds, which says whether another page follows, and that row is not shown.
+# `sql` ends where a limit may follow it, after its `order by`.
+pub fn paged db sql params number per
+  n = length params
+  limited = "{sql} limit ${n + 1} offset ${n + 2}"
+  asked = list/concat params ["{per + 1}" "{(number - 1) * per}"]
+  pg/query db limited asked .> (r -> effect (page_of r.rows number per))
+
+fn page_of rows number per
+  on_it = list/to_list (list/take rows per)
+  page on_it number (length rows > per)
+
+# The page a query string asks for: its whole number when that is 1 or
+# more, and 1 for anything else, a missing `page` among them.
+pub fn page_number asked
+  at_least_one (text/to_int asked)
+
+fn at_least_one none
+  1
+
+fn at_least_one n
+  if (n < 1) 1 n
 
 # The rule that a field is a whole number an `integer` column takes.
 pub fn whole_number field v

@@ -170,7 +170,13 @@ when they are given that path. The specs write it again and compare the two.
   the viewer may not see it, and `models/where viewer db model field value`
   answers the records whose field holds the value, oldest first, that the
   viewer may see: a post's comments are `models/where viewer db
-  comment/comment_model "post_id" id`. A field written out is checked
+  comment/comment_model "post_id" id`. `models/paged db sql params number
+  per` reads one page of a query, as Pagy does: its rows, its number, and
+  whether another follows, which it learns by asking for one row more than
+  the page shows. `models/page_number` reads the page a query string names,
+  so `/notes?page=2` is `models/page_number (web/value (web/query req)
+  "page")`, and anything but a whole number of at least 1 is page 1. A field
+  written out is checked
   against the model's columns while the app compiles. A model with too many
   columns to list on the value's line has them in a constant of their own,
   `signature_columns`, one to a line. A model's module may declare
