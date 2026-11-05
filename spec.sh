@@ -212,21 +212,26 @@ fi
 
 note "== the generator writes examples/notebook, which checks and serves"
 # `generate new` and `generate scaffold` write an app at spec/notebook, made
-# afresh each run, and refuse a resource that is there and a field they
-# cannot read. What they write must be examples/notebook byte for byte: the
+# afresh each run, and refuse a resource that is there, a name or field they
+# cannot read, and a parent the app does not have. What they write must be examples/notebook byte for byte: the
 # two sit at the same depth, so their imports of senro read the same. The
 # app must check, and served natively and interpreted it must list, make,
-# show, change and remove a note (spec/generate/drive.sh). Serving uses
+# show, change and remove a note, and a page under it
+# (spec/generate/drive.sh). Serving uses
 # Postgres, so SENRO_NO_DB=1 skips that part.
 gen=spec/notebook
 rm -rf "$gen"
 made=$({
   "$KANSO" run generate -- new "$gen"
   "$KANSO" run generate -- scaffold "$gen" note title:text pages:int
+  "$KANSO" run generate -- scaffold "$gen" page body:text note:references
   "$KANSO" run generate -- scaffold "$gen" note title:text
   "$KANSO" run generate -- scaffold "$gen" book title:words
   "$KANSO" run generate -- scaffold "$gen" book Title:text
   "$KANSO" run generate -- scaffold "$gen" book id:int
+  "$KANSO" run generate -- scaffold "$gen" Book title:text
+  "$KANSO" run generate -- scaffold "$gen" chapter body:text volume:references
+  "$KANSO" run generate -- scaffold "$gen" book note:references page:references
 } 2>&1)
 if [ "${SPEC_WRITE:-}" = 1 ]; then
   printf '%s\n' "$made" > spec/generate/made.out
@@ -284,8 +289,11 @@ else
 fi
 # A resource with many fields, written into the same app, still checks:
 # every list the scaffold writes spans lines once it is too long for one.
+# So does one nested under a note with a name as long as one may be.
 wide="title:text author:text summary:text published_year:int page_count:int"
 "$KANSO" run generate -- scaffold "$gen" book $wide isbn:text >/dev/null
+"$KANSO" run generate -- scaffold "$gen" margin_footnote words:text \
+  year:int note:references >/dev/null
 if out=$("$KANSO" check "$gen" 2>&1); then
   note "ok: a resource with many fields checks"
 else

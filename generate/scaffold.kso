@@ -9,7 +9,10 @@ import "std/text"
 # without writing it.
 #
 # A field is written `name:kind` on the command line. A kind is `text` or
-# `int`, the two a form's fields read back as without a parser of their own.
+# `int`, the two a form's fields read back as without a parser of their own,
+# or `references`: `note:references` is a column `note_id` holding a row of
+# `notes`, and the resource is nested under them, as Rails' generator reads
+# it.
 pub type field
   name
   kind
@@ -25,9 +28,28 @@ type wrap
   lines
   line
 
+# How far `read_line` has read a migrations module: the lines before `all`,
+# its names, the lines after it, and which of the three it is in.
+type reading
+  head
+  names
+  tail
+  state
+
 pub fn fields_of words
   read = list/to_list (list/map words field_of)
-  unread (list/first (list/to_list (list/select read bad?))) read
+  first_bad = list/first (list/to_list (list/select read bad?))
+  nested_once words (unread first_bad read)
+
+# A route nests one level deep, so a resource names one parent.
+fn nested_once _ f:unreadable
+  f
+
+fn nested_once words read
+  refs = list/to_list (list/select words (w -> text/ends_with? w ":references"))
+  one = "a resource nests under one parent"
+  return unreadable (said refs[2]) one if length refs > 1
+  read
 
 fn unread none read
   read
@@ -50,9 +72,20 @@ fn field_of word
   return unreadable word kinds if length parts != 2
   kind = column_kind parts[2]
   return unreadable word kinds if kind == ""
-  checked_name word parts[1] kind
+  referred word (checked_name word parts[1] kind)
 
-kinds = "a field is name:text or name:int"
+kinds = "a field is name:text, name:int or name:references"
+
+# A reference's field is the parent's id. Its name is kept short, since the
+# nested actions write the id's name twice on some lines.
+fn referred _ f:unreadable
+  f
+
+fn referred word f
+  return f if f.kind != "references"
+  long = "a reference's name is at most 12 characters"
+  return unreadable word long if length f.name > 12
+  field "{f.name}_id" f.kind
 
 # A name the scaffold can write: a lowercase letter, then lowercase letters,
 # digits and underscores; short enough that every line written with it fits
@@ -65,6 +98,15 @@ fn checked_name word name kind
   field name kind
 
 spelling = "a field's name is a lowercase letter, then letters, digits and _"
+
+# What is wrong with a resource's name, or "" when nothing is. It is spelled
+# as a field's is, and short enough that the lines written with it, beside
+# a parent's name and a field's, fit in 80 columns.
+pub fn resource_named singular
+  spelled = spelled_well? singular
+  return "a resource's name is spelled as a field's is" if not spelled
+  return "a resource's name is at most 16 characters" if length singular > 16
+  ""
 
 fn spelled_well? name
   cs = list/to_list (text/chars name)
@@ -85,6 +127,9 @@ fn column_kind "text"
 fn column_kind "int"
   "integer"
 
+fn column_kind "references"
+  "references"
+
 fn column_kind _
   ""
 
@@ -96,34 +141,92 @@ pub fn migration plural fields
   named = list/concat ["{plural}_id"] cols
   made = list_line "{plural}_made = models/create_table \"{plural}\"" "" named
   each = list/to_list (list/map fields (f -> column_line plural f))
-  id = "{plural}_id = models/column \"id\" \"serial\""
-  lines = list/concat [made "" id] (spread each (l -> ["" l]))
+  id = "{plural}_id = models/column \"id\" \"serial primary key\""
+  head = list/concat [made] (keyed plural (parent_of fields))
+  lines = list/concat (list/concat head ["" id]) (spread each (l -> ["" l]))
   text/join lines "\n"
 
 fn column_line plural f
-  "{plural}_{f.name} = models/column \"{f.name}\" \"{f.kind}\""
+  args = ["\"{f.name}\"" "\"{column_type f.kind}\""]
+  call_line "{plural}_{f.name} = models/column" args
 
-# A migrations module's text with the change added at the end of `all`, or
-# none when its `all` is not one line this can read.
+fn column_type "references"
+  "integer not null"
+
+fn column_type kind
+  kind
+
+# A nested resource's key: its parent's id names a row of the parent's table,
+# and removing that row removes the rows that name it.
+fn keyed _ none
+  []
+
+fn keyed plural f
+  parents = models/plural (parent_name f)
+  args = ["\"{plural}\"" "\"{f.name}\"" "\"{parents}\""]
+  ["" (call_line "{plural}_to_{parents} = models/add_foreign_key" args)]
+
+# The changes a resource adds to `all`: its table, and its key when nested.
+fn changes plural fields
+  list/concat ["{plural}_made"] (key_named plural (parent_of fields))
+
+fn key_named _ none
+  []
+
+fn key_named plural f
+  ["{plural}_to_{models/plural (parent_name f)}"]
+
+# A call on one line when it fits, and one argument to a line when it does
+# not.
+fn call_line head args
+  one = "{head} {text/join args " "}"
+  return one if length one <= 80
+  each = list/to_list (list/map args (a -> "  {a}"))
+  "{head}\n{text/join each "\n"}"
+
+# The reference among a resource's fields, or none when it is not nested.
+pub fn parent_of fields
+  list/first (list/to_list (list/select fields (f -> f.kind == "references")))
+
+# The parent a reference names: `note_id` names `note`.
+pub fn parent_name f
+  said (text/slice f.name 1 (length f.name - 3))
+
+# The fields a form shows. A nested resource's parent comes from its path.
+fn own fields
+  list/to_list (list/select fields (f -> f.kind != "references"))
+
+# A migrations module's text with the changes added at the end of `all`, or
+# none when it has no `all` this can read: one line, or one name to a line
+# with `]` on a line of its own, as `all_line` writes it.
 pub fn migrations_with old plural fields
-  lines = text/split old "\n"
-  at = list/to_list (list/select lines (l -> text/starts_with? l "pub all = ["))
-  return none if length at != 1
-  was = said at[1]
-  listed = listed_after was "{plural}_made"
-  kept = list/to_list (list/map lines (l -> replaced l was listed))
+  lines = list/to_list (text/split old "\n")
+  read = list/fold lines (reading [] [] [] "before") read_line
+  return none if read.state != "after"
+  names = list/concat read.names (changes plural fields)
+  kept = list/concat (list/concat read.head [(all_line names)]) read.tail
   added = migration plural fields
   "{text/trim (text/join kept "\n")}\n\n{added}\n"
 
-fn replaced line was now
-  return now if line == was
-  line
+fn read_line r line
+  after = list/concat r.tail [line]
+  return reading r.head r.names after r.state if r.state == "after"
+  return named_line r line if r.state == "inside"
+  return reading (list/concat r.head [line]) [] [] r.state if not opens? line
+  return reading r.head [] [] "inside" if line == "pub all = ["
+  inner = said (text/slice line 12 (length line - 1))
+  reading r.head (words_of inner) [] "after"
 
-# `pub all = [a b]` with `name` added, one name to a line once the list is
-# too long for one.
-fn listed_after line name
-  inner = text/slice line 12 (length line - 1)
-  names = list/concat (words_of (said inner)) [name]
+fn opens? line
+  bare = line == "pub all = ["
+  text/starts_with? line "pub all = [" and (bare or text/ends_with? line "]")
+
+fn named_line r line
+  return reading r.head r.names [] "after" if line == "]"
+  reading r.head (list/concat r.names (words_of line)) [] "inside"
+
+# `pub all = [a b]`, one name to a line once the list is too long for one.
+fn all_line names
   one = "pub all = [{text/join names " "}]"
   return one if length one <= 80
   "pub all = [\n  {text/join names "\n  "}\n]"
@@ -143,7 +246,7 @@ pub fn migrations_new senro plural fields
     "import \"{senro}/models\""
     ""
     "# The app's schema, as the changes that built it, oldest first."
-    "pub all = [{plural}_made]"
+    (all_line (changes plural fields))
     ""
   ]
   "{text/join head "\n"}{migration plural fields}\n"
@@ -156,8 +259,8 @@ pub fn resource senro singular fields
     (imports senro)
     (record singular plural fields)
     (policies singular fields)
-    (actions plural fields)
-    (helpers singular plural fields)
+    (actions_of plural fields (parent_of fields))
+    (helpers_of singular plural fields (parent_of fields))
   ]
   "{text/join parts "\n"}\n"
 
@@ -242,6 +345,18 @@ fn list_line head indent items
   each = list/to_list (list/map items (i -> "{indent}  {i}"))
   "{head} [\n{text/join each "\n"}\n{indent}]"
 
+fn actions_of plural fields none
+  actions plural fields
+
+fn actions_of plural fields parent
+  nested_actions plural fields parent
+
+fn helpers_of singular plural fields none
+  helpers singular plural fields
+
+fn helpers_of singular plural fields parent
+  nested_helpers singular plural fields parent
+
 fn actions plural fields
   names = list/concat ["id"] (names_of fields)
   quoted = list/to_list (list/map names (n -> "\"{n}\""))
@@ -304,7 +419,8 @@ fn helpers singular plural fields
     "  http/not_found"
     ""
     "fn editing req id row"
-    "  form req {path} \"PATCH\" (filled ({singular}_from row)) \{} 200"
+    "  kept = filled ({singular}_from row)"
+    "  form req {path} \"PATCH\" kept \{} 200"
     ""
     "fn made req w:models/invalid"
     "  form req \"/{plural}\" \"POST\" (filled w.record) w.problems 422"
@@ -349,6 +465,176 @@ fn helpers singular plural fields
   ]
   text/join lines "\n"
 
+# A nested resource's actions each take the parent's id after the request
+# and the database, which places their routes under the parent's. A row is
+# found only under its own parent, and a parent that is not there has none
+# to list or make.
+fn nested_actions plural fields parent
+  k = parent.name
+  name = parent_name parent
+  parents = models/plural name
+  names = list/concat ["id"] (names_of fields)
+  quoted = list/to_list (list/map names (n -> "\"{n}\""))
+  about = [
+    "A row of `{plural}` belongs to a {name}, so each action takes the"
+    "{name}'s id and the routes nest under it: `index` answers"
+    "GET /{parents}/:{k}/{plural}. A row is found only under its own {name},"
+    "and a {name} that is not there has none to list or make."
+  ]
+  lines = [
+    (comment (text/join about " "))
+    "pub fn index req db {k}:int"
+    "  asked = pg/query db listed [\"\{{k}}\"]"
+    "  listing_of = (r -> effect (listing req {k} r.rows))"
+    "  within db {k} (asked .> listing_of)"
+    ""
+    (list_line "column_names =" "" quoted)
+    ""
+    "columns = text/join column_names \", \""
+    ""
+    "listed = \"\"\""
+    "  select \{columns} from {plural}"
+    "  where {k} = $1::integer order by id"
+    "\"\"\""
+    ""
+    "found = \"\"\""
+    "  select \{columns} from {plural}"
+    "  where id = $1::integer and {k} = $2::integer"
+    "\"\"\""
+    ""
+    "parent = \"select id from {parents} where id = $1::integer\""
+    ""
+    "pub fn show req db {k}:int id:int"
+    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
+    "    .> (r -> effect (shown req (list/first r.rows)))"
+    ""
+    "pub fn new req db {k}:int"
+    "  path = listed_path {k}"
+    "  within db {k} (effect (form req path \"POST\" blank \{} 200))"
+    ""
+    "pub fn create req db {k}:int"
+    "  given = put (picked (web/form req.body)) \"{k}\" \"\{{k}}\""
+    "  making = models/created \"\" db model given"
+    "  made_of = (w -> effect (made req {k} w))"
+    "  within db {k} (making .> made_of)"
+    ""
+    "pub fn edit req db {k}:int id:int"
+    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
+    "    .> (r -> effect (editing req {k} id (list/first r.rows)))"
+    ""
+    "pub fn update req db {k}:int id:int"
+    "  given = picked (web/form req.body)"
+    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
+    "    .> (r -> updating db id given (list/first r.rows))"
+    "    .> (w -> effect (changed req {k} id w))"
+    ""
+    "pub fn destroy _ db {k}:int id:int"
+    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
+    "    .> (r -> removing db id (list/first r.rows))"
+    "    .> (w -> effect (gone {k} w))"
+    ""
+    (comment "`then` when the {name} is there, and a 404 when it is not.")
+    "fn within db id then"
+    "  pg/query db parent [\"\{id}\"] .> (r -> held (list/first r.rows) then)"
+    ""
+    "fn held none _"
+    "  effect http/not_found"
+    ""
+    "fn held _ then"
+    "  then"
+    ""
+    (comment "A write to a row under another {name} finds nothing.")
+    "fn updating _ _ _ none"
+    "  effect web/absent"
+    ""
+    "fn updating db id given _"
+    "  models/updated \"\" db model \"\{id}\" given"
+    ""
+    "fn removing _ _ none"
+    "  effect web/absent"
+    ""
+    "fn removing db id _"
+    "  models/destroyed \"\" db model \"\{id}\""
+    ""
+    "fn listed_path {k}"
+    "  \"/{parents}/\{{k}}/{plural}\""
+    ""
+    "fn shown_path {k} id"
+    "  \"\{listed_path {k}}/\{id}\""
+    ""
+  ]
+  text/join lines "\n"
+
+fn nested_helpers singular plural fields parent
+  k = parent.name
+  title = capitalized singular
+  every_title = capitalized plural
+  mine = own fields
+  lines = [
+    "fn listing req {k} rows"
+    "  every = list/to_list (list/map rows {singular}_from)"
+    "  page = views/{plural}_index_view {k} every"
+    "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
+    ""
+    "fn shown _ none"
+    "  http/not_found"
+    ""
+    "fn shown req row"
+    "  page = views/{singular}_shown_view ({singular}_from row)"
+    "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
+    ""
+    "fn editing _ _ _ none"
+    "  http/not_found"
+    ""
+    "fn editing req {k} id row"
+    "  kept = filled ({singular}_from row)"
+    "  form req (shown_path {k} id) \"PATCH\" kept \{} 200"
+    ""
+    "fn made req {k} w:models/invalid"
+    "  path = listed_path {k}"
+    "  form req path \"POST\" (filled w.record) w.problems 422"
+    ""
+    "fn made _ _ w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn made _ {k} w"
+    "  web/redirect (shown_path {k} w.id)"
+    ""
+    "fn changed req {k} id w:models/invalid"
+    "  path = shown_path {k} id"
+    "  form req path \"PATCH\" (filled w.record) w.problems 422"
+    ""
+    "fn changed _ _ _ w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn changed _ _ _ w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn changed _ {k} id _"
+    "  web/redirect (shown_path {k} id)"
+    ""
+    "fn gone _ w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn gone _ w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn gone {k} _"
+    "  web/redirect (listed_path {k})"
+    ""
+    (comment (form_about singular))
+    "fn form req path method fields problems code"
+    "  page = views/{singular}_form_view path method fields problems"
+    "  views/answer_as req code (views/layout_view \"{title}\" page)"
+    ""
+    (map_line "blank" "" mine (_ -> "\"\""))
+    ""
+    (map_line "fn filled r" "  " mine (f -> "\"\{r.{f.name}}\""))
+    ""
+    (map_line "fn picked f" "  " mine (f -> "(web/value f \"{f.name}\")"))
+  ]
+  text/join lines "\n"
+
 fn form_about singular
   about = [
     "The form a {singular} is made and changed with: its fields as typed,"
@@ -390,6 +676,9 @@ fn capitalized word
 
 # The views: a list, a record shown, and the form that makes and changes one.
 pub fn index_view singular fields
+  index_of singular fields (parent_of fields)
+
+fn index_of singular fields none
   plural = models/plural singular
   first = (said_field (list/first fields)).name
   lines = [
@@ -405,6 +694,26 @@ pub fn index_view singular fields
   ]
   "{text/join lines "\n"}\n"
 
+fn index_of singular fields parent
+  plural = models/plural singular
+  k = parent.name
+  name = parent_name parent
+  at = "/{models/plural name}/\{{k}}"
+  first = (said_field (list/first (own fields))).name
+  lines = [
+    "takes {k} rows"
+    "header"
+    "  h1 {capitalized plural}"
+    "  p.lede"
+    "    a href=\"{at}/{plural}/new\" New {singular}"
+    "    a href=\"{at}\" Back to the {name}"
+    "ul.{plural}"
+    "  for r in rows"
+    "    li"
+    "      a href=\"{at}/{plural}/\{r.id}\" = r.{first}"
+  ]
+  "{text/join lines "\n"}\n"
+
 fn said_field none
   field "id" ""
 
@@ -413,20 +722,32 @@ fn said_field f
 
 pub fn shown_view singular fields
   plural = models/plural singular
-  each = spread fields (f -> ["  dt {f.name}" "  dd = row.{f.name}"])
+  shown_under singular fields (listed_at plural (parent_of fields))
+
+# Where a resource's rows are listed: under the parent its row names, when
+# it is nested.
+fn listed_at plural none
+  "/{plural}"
+
+fn listed_at plural parent
+  "/{models/plural (parent_name parent)}/\{row.{parent.name}}/{plural}"
+
+fn shown_under singular fields at
+  plural = models/plural singular
+  each = spread (own fields) (f -> ["  dt {f.name}" "  dd = row.{f.name}"])
   head = [
     "takes row"
     "header"
     "  h1 {capitalized singular} \{row.id}"
     "  p.lede"
-    "    a href=\"/{plural}\" All {plural}"
+    "    a href=\"{at}\" All {plural}"
     "dl"
   ]
   lines = list/concat head each
   tail = [
     "p"
-    "  a href=\"/{plural}/\{row.id}/edit\" Edit"
-    "form method=\"post\" action=\"/{plural}/\{row.id}\""
+    "  a href=\"{at}/\{row.id}/edit\" Edit"
+    "form method=\"post\" action=\"{at}/\{row.id}\""
     "  input type=\"hidden\" name=\"_method\" value=\"DELETE\""
     "  button Delete"
   ]
@@ -434,18 +755,26 @@ pub fn shown_view singular fields
 
 pub fn form_view singular fields
   plural = models/plural singular
-  each = spread fields field_lines
+  each = spread (own fields) field_lines
   head = [
     "takes path method fields problems"
     "header"
     "  h1 {capitalized singular}"
     "  p.lede"
-    "    a href=\"/{plural}\" All {plural}"
+    (back_link plural (parent_of fields))
     "form method=\"post\" action=path"
     "  input type=\"hidden\" name=\"_method\" value=method"
   ]
   lines = list/concat (list/concat head each) ["  button Save"]
   "{text/join lines "\n"}\n"
+
+# A nested form's way back is the path it is sent to: the list it adds to,
+# or the row it changes.
+fn back_link plural none
+  "    a href=\"/{plural}\" All {plural}"
+
+fn back_link _ _
+  "    a href=path Back"
 
 fn field_lines f
   [

@@ -33,6 +33,7 @@ from senro's own directory, and take the app's path relative to it:
 ```
 kanso run generate -- new apps/notebook
 kanso run generate -- scaffold apps/notebook note title:text pages:int
+kanso run generate -- scaffold apps/notebook page body:text note:references
 ```
 
 `new` writes an entry, a home page, a layout and a migrations module with no
@@ -40,20 +41,29 @@ changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 `PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
 serves on port 3000.
 
-`scaffold` takes a singular name and its fields, each `name:text` or
-`name:int`, where a name is a lowercase letter and then letters, digits and
-underscores, at most 24 in all. It writes a module whose seven actions list,
-show, make, change and remove rows through the model, and the three views
+`scaffold` takes a singular name and its fields, each `name:text`,
+`name:int` or `name:references`. A field's name is a lowercase letter and
+then letters, digits and underscores, at most 24 in all; a resource's name
+is spelled the same way, at most 16. It writes a module whose seven actions
+list, show, make, change and remove rows through the model, and the three views
 they render. Each `int` field gets a rule that the value is a whole number,
 so a form that says otherwise is shown again with the problem rather than
 refused by Postgres. It adds the migration that makes the table to the end
 of `migrations/all`, and the module's import to the entry. The policies it
 writes let anyone write; narrow them before the app is public.
 
+A `references` field nests the resource under another, as Rails' generator
+reads it. `page body:text note:references` gives each page a `note_id`
+column and a foreign key to `notes` that removes a note's pages with it
+(`models/add_foreign_key`). Its actions take the note's id and answer under
+/notes/:note_id/pages, and a page is found only under its own note. The
+note's resource must be there already, a resource names one parent, and a
+reference's name is at most 12 characters.
+
 Each generator prints the files it writes and changes. A file that is there
-already stops it before it writes anything, and so does a field it cannot
-read. `examples/notebook` is the app the two commands above write when
-they are given that path. The specs write it again and compare the two.
+already stops it before it writes anything, and so does a name or field it
+cannot read. `examples/notebook` is the app the three commands above write
+when they are given that path. The specs write it again and compare the two.
 
 ## What is here
 
@@ -127,11 +137,15 @@ they are given that path. The specs write it again and compare the two.
   list safely the first time. Then `models/compared db schema` reads the live
   tables and answers the session when they agree with the schema, or an err
   naming every column whose name, type or nullness differs and every table that
-  is missing. Defaults and constraints are not compared. An app whose migrations
-  need SQL the fold cannot read, such as a trigger, checks in `pg_dump
-  --schema-only` output as `schema.sql` beside its entry, and the schema is read
-  from its `CREATE TABLE` blocks instead of the migrations. The dump is loaded
-  with psql, which reads the lines Postgres's protocol does not.
+  is missing. Defaults and constraints are not compared, so a key added with
+  `models/add_foreign_key table column parent` leaves the schema as it was; it
+  makes the column hold a row of `parent` and removes the row with its parent,
+  as Rails' `add_foreign_key` with `on_delete: :cascade` does. An app whose
+  migrations need SQL the fold cannot read, such as a trigger, checks in
+  `pg_dump --schema-only` output as `schema.sql` beside its entry, and the
+  schema is read from its `CREATE TABLE` blocks instead of the migrations.
+  The dump is loaded with psql, which reads the lines Postgres's protocol does
+  not.
   A model's module may also declare policies, `update?` and `destroy?`,
   each taking the viewer and the row. The derivation describes each model
   with an `id` as a value (`signature_model`), and `models/updated` and

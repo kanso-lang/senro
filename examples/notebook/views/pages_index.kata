@@ -1,0 +1,10 @@
+takes note_id rows
+header
+  h1 Pages
+  p.lede
+    a href="/notes/{note_id}/pages/new" New page
+    a href="/notes/{note_id}" Back to the note
+ul.pages
+  for r in rows
+    li
+      a href="/notes/{note_id}/pages/{r.id}" = r.body

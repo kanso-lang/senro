@@ -7,3 +7,14 @@ changing it: 303 to /notes/N
 the list then:  Notes Notes New note Renamed 
 removing it: 303 to /notes
 asked for again: 404
+its pages:  Pages Pages New page Back to the note 
+making a page: sent to /notes/N/pages/N
+the page:  Page Page N All pages body hello Edit Delete 
+under another note: 404 
+changed there: 404 
+removed there: 404 
+under no note: 404  404 
+changing it: 303 /notes/N/pages/N
+the pages then:  Pages Pages New page Back to the note changed 
+removing its note: 303 /notes
+the page then: 404 

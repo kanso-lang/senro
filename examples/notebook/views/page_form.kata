@@ -1,0 +1,13 @@
+takes path method fields problems
+header
+  h1 Page
+  p.lede
+    a href=path Back
+form method="post" action=path
+  input type="hidden" name="_method" value=method
+  label
+    | body
+    input name="body" value=fields["body"]
+  if problems["body"] != none
+    p.problem = problems["body"]
+  button Save

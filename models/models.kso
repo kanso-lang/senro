@@ -28,6 +28,11 @@ type dropped_column
   table
   name
 
+type foreign_key
+  table
+  column
+  parent
+
 type column_def
   name
   kind
@@ -62,6 +67,13 @@ pub fn rename_column table from to
 
 pub fn drop_column table name
   dropped_column table name
+
+# The column `name` of `table` holds the id of a row in `parent`, and
+# removing that row removes this one, as Rails' `add_foreign_key` with
+# `on_delete: :cascade` makes it. The schema an app is compiled against
+# has no constraints, so the fold leaves it as it was.
+pub fn add_foreign_key table name parent
+  foreign_key table name parent
 
 # A row's value for `name`, or "" when the row has no such column: what a
 # model's reader passes to its constructor for each field.
@@ -119,6 +131,9 @@ fn applied schema c:renamed_column
 fn applied schema c:dropped_column
   kept = list/select (held schema c.table) (col -> name_of col != c.name)
   put schema c.table (list/to_list kept)
+
+fn applied schema _:foreign_key
+  schema
 
 fn held schema table
   present schema[table]
@@ -204,13 +219,24 @@ fn written _ _ none
 
 fn written m r _
   t = r.name
-  cells = list/map r.fields (f -> "  {f} = {t}_cell row[\"{f}\"]")
-  built = "  {t} {text/join r.fields " "}"
+  cells = list/map r.fields (f -> wrapped "  {f} = {t}_cell" ["row[\"{f}\"]"])
+  built = wrapped "  {t}" r.fields
   lines = list/concat (list/to_list cells) [built]
   reads = "pub fn {t}_from row\n{text/join lines "\n"}\n"
   blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
   given = [(derive/define m.name reads) (derive/define m.name blank)]
   list/concat given (guarded m r)
+
+# A call as the formatter writes it: on one line when it fits in 80 columns,
+# and one argument to a line, two spaces in, when it does not. `head` holds
+# the line's own indent.
+fn wrapped head args
+  one = "{head} {text/join args " "}"
+  return one if length one <= 80
+  inset = length head - length (text/trim head)
+  lead = blank_if_none (text/slice head 1 inset)
+  each = list/to_list (list/map args (a -> "{lead}  {a}"))
+  "{head}\n{text/join each "\n"}"
 
 # Each model with an `id` gets a value describing it, `signature_model`: a
 # map of its table, its columns, its reader, and each policy its module
@@ -601,6 +627,16 @@ fn statement_of c:renamed_column
 
 fn statement_of c:dropped_column
   "alter table {c.table} drop column if exists {c.name}"
+
+# Postgres adds a constraint again when asked twice, so this asks first.
+fn statement_of c:foreign_key
+  named = "{c.table}_{c.column}_fkey"
+  here = "conrelid = '{c.table}'::regclass"
+  asked = "select from pg_constraint where {here} and conname = '{named}'"
+  cascades = "references {c.parent} (id) on delete cascade"
+  adding = "alter table {c.table} add constraint {named}"
+  keyed = "{adding} foreign key ({c.column}) {cascades}"
+  "do $$ begin if not exists ({asked}) then {keyed}; end if; end $$"
 
 # The comparison an app runs as it starts: the live database's tables against
 # the schema it was compiled with. Each table in `schema` is made again as a

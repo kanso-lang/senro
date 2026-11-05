@@ -33,12 +33,21 @@ type helped
   call
   helpers
 
-# An `if` expression a branch compiles to, the helpers its arms became, and
-# the row after the last of its branches.
+# An `if` expression a branch compiles to, the helpers its arms became, the
+# row after the last of its branches, and the test and the two arms apart,
+# for a branch too long to sit in its line.
 type forked
   test
   helpers
   next
+  asked
+  shown
+  other
+
+# The test and the first arm of a branch, carried into the `else if` after it.
+type arm
+  asked
+  shown
 
 type packing
   chunks
@@ -162,23 +171,56 @@ fn branched rows r i last stop scope o acc
   f = forked_at rows r i last stop scope o
   helpers = list/concat acc.helpers f.helpers
   hole = unit "\{{f.test}}" r.line true
-  stepped (woven (push acc.units hole) helpers) f.next
+  fits = length hole.text <= 74
+  return stepped (woven (push acc.units hole) helpers) f.next if fits
+  apart = branch_apart f scope o r.line
+  units = push acc.units (unit "\{{apart.call}}" r.line true)
+  stepped (woven units (push helpers apart.helpers)) f.next
+
+# A branch too long for the line its string gives it, as a function of the
+# names it reads: the test and each arm bound on a line of their own, so the
+# derived code keeps to 80 columns. `apart.call` calls it.
+fn branch_apart f scope o line
+  args = free_in [(unit "\{{f.test}}" line true)] scope
+  called = "{o.name}_{line}_if"
+  given = if (length args == 0) "none" (text/join args " ")
+  lines = [
+    "fn {called} {params_of args}"
+    "  kata_test = {f.asked}"
+    "  kata_yes = {f.shown}"
+    "  kata_no = {f.other}"
+    "  if kata_test kata_yes kata_no"
+  ]
+  helped "{called} {given}" (text/join lines "\n")
 
 fn forked_at rows r i last stop scope o
   from = if (text/starts_with? r.body "else if ") 8 3
   yes = helper rows (i + 1) last scope o r.line
-  head = "if {wrapped (after r.body from)} {wrapped yes.call}"
+  asked = after r.body from
+  head = "if {wrapped asked} {wrapped yes.call}"
   kind = follower rows last r
-  return forked "{head} \"\"" yes.helpers last if kind == ""
+  bare = "\"\""
+  yes_only = forked "{head} {bare}" yes.helpers last asked yes.call bare
+  return yes_only if kind == ""
   past = block_end rows (last + 1) stop r.depth
-  return chained rows last past stop scope o head yes if kind == "else if"
+  arms = arm asked yes.call
+  return chained rows last past stop scope o head yes arms if kind == "else if"
   no = helper rows (last + 1) past scope o (rows_line rows last)
-  forked "{head} {wrapped no.call}" (list/concat yes.helpers no.helpers) past
+  both = list/concat yes.helpers no.helpers
+  forked "{head} {wrapped no.call}" both past asked yes.call no.call
 
-fn chained rows j past stop scope o head yes
-  return forked "{head} \"\"" yes.helpers j if j < 1 or length rows < j
+fn chained rows j past stop scope o head yes a
+  bare = "\"\""
+  last_arm = forked "{head} {bare}" yes.helpers j a.asked a.shown bare
+  return last_arm if j < 1 or length rows < j
   sub = forked_at rows rows[j] j past stop scope o
-  forked "{head} ({sub.test})" (list/concat yes.helpers sub.helpers) sub.next
+  both = list/concat yes.helpers sub.helpers
+  short = forked "{head} ({sub.test})" both sub.next a.asked a.shown sub.test
+  return short if length sub.test <= 60
+  apart = branch_apart sub scope o (rows_line rows j)
+  called = "({apart.call})"
+  helpers = push both apart.helpers
+  forked "{head} {called}" helpers sub.next a.asked a.shown apart.call
 
 fn follower rows j r
   return "" if j < 1 or length rows < j

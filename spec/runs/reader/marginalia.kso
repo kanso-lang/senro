@@ -1,0 +1,16 @@
+import "std/list"
+
+# A model whose fields are long enough that the reader senro/models writes
+# for it would pass 80 columns on one line, so each call in it takes one
+# argument to a line.
+pub type marginal_entry
+  id
+  the_first_rather_long_column
+  the_second_rather_long_column
+
+pub fn shown rows
+  read = list/to_list (list/map rows marginal_entry_from)
+  list/to_list (list/map read said)
+
+fn said e
+  "{e.id}: {e.the_first_rather_long_column}/{e.the_second_rather_long_column}"
