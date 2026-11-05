@@ -9,7 +9,16 @@
   create spec/notebook/views/note_form.kata
   change spec/notebook/migrations.kso
   change spec/notebook/main.kso
+  create spec/notebook/pages.kso
+  create spec/notebook/views/pages_index.kata
+  create spec/notebook/views/page_shown.kata
+  create spec/notebook/views/page_form.kata
+  change spec/notebook/migrations.kso
+  change spec/notebook/main.kso
 generate: spec/notebook/notes.kso is there already
-generate: cannot read `title:words`: a field is name:text or name:int
+generate: cannot read `title:words`: a field is name:text, name:int or name:references
 generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _
 generate: cannot read `id:int`: `id` is a column every table has
+generate: cannot name a resource `Book`: a resource's name is spelled as a field's is
+generate: spec/notebook has no volumes to nest chapters under
+generate: cannot read `page:references`: a resource nests under one parent

@@ -79,7 +79,8 @@ fn editing _ _ none
   http/not_found
 
 fn editing req id row
-  form req "/notes/{id}" "PATCH" (filled (note_from row)) {} 200
+  kept = filled (note_from row)
+  form req "/notes/{id}" "PATCH" kept {} 200
 
 fn made req w:models/invalid
   form req "/notes" "POST" (filled w.record) w.problems 422

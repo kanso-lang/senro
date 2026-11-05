@@ -1,0 +1,50 @@
+import "../../../models"
+import "../../../pg"
+
+# A page belongs to a note: its `note_id` holds a note's id, and removing the
+# note removes its pages. A page naming a note that is not there is refused.
+# A second app in the same database that asks for the same key finds it
+# there and adds nothing.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+id = models/column "id" "serial primary key"
+
+title = models/column "title" "text"
+
+note_id = models/column "note_id" "integer not null"
+
+notes = models/create_table "notes" [id title]
+
+pages = models/create_table "pages" [id note_id title]
+
+pages_to_notes = models/add_foreign_key "pages" "note_id" "notes"
+
+all = [notes pages pages_to_notes]
+
+written = """
+  insert into notes (title) values ('first'), ('second');
+  insert into pages (note_id, title) values (1, 'a'), (1, 'b'), (2, 'c')
+"""
+
+constraints = """
+  select count(*)::text as keys from pg_constraint
+  where conrelid = 'pages'::regclass and contype = 'f'
+"""
+
+left = "select string_agg(title, ' ' order by id) as titles from pages"
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "notebook" all)
+  .> (db -> models/migrated db "copy" all)
+  .> (db -> pg/query db constraints [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> pg/run db written .> (_ -> db))
+  .> (db -> pg/run db "delete from notes where id = 1" .> (_ -> db))
+  .> (db -> pg/query db left [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> pg/run db "insert into pages (note_id, title) values (9, 'x')")
+  .> (_ -> print "a page with no note was kept")
+  .? (u -> print u.reason)

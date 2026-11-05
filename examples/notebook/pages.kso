@@ -1,0 +1,176 @@
+import "../../models"
+import "../../pg"
+import "../../web"
+import "./views"
+import "std/list"
+import "std/net/http"
+import "std/text"
+
+# A page as the `pages` table stores it. The models derivation checks each
+# field against the table's columns, and writes `page_from`, which builds
+# one from a row, and `page_model`, which the writes below go through.
+pub type page
+  id
+  body
+  note_id
+
+# Anyone may make, change and remove a page. The models module asks these
+# before it writes; narrow them to the visitors who should.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
+
+pub fn destroy? _ _
+  true
+
+model = page_model
+
+# A row of `pages` belongs to a note, so each action takes the note's id and
+# the routes nest under it: `index` answers GET /notes/:note_id/pages. A row
+# is found only under its own note, and a note that is not there has none to
+# list or make.
+pub fn index req db note_id:int
+  asked = pg/query db listed ["{note_id}"]
+  listing_of = (r -> effect (listing req note_id r.rows))
+  within db note_id (asked .> listing_of)
+
+column_names = ["id" "body" "note_id"]
+
+columns = text/join column_names ", "
+
+listed = """
+  select {columns} from pages
+  where note_id = $1::integer order by id
+"""
+
+found = """
+  select {columns} from pages
+  where id = $1::integer and note_id = $2::integer
+"""
+
+parent = "select id from notes where id = $1::integer"
+
+pub fn show req db note_id:int id:int
+  pg/query db found ["{id}" "{note_id}"]
+    .> (r -> effect (shown req (list/first r.rows)))
+
+pub fn new req db note_id:int
+  path = listed_path note_id
+  within db note_id (effect (form req path "POST" blank {} 200))
+
+pub fn create req db note_id:int
+  given = put (picked (web/form req.body)) "note_id" "{note_id}"
+  making = models/created "" db model given
+  made_of = (w -> effect (made req note_id w))
+  within db note_id (making .> made_of)
+
+pub fn edit req db note_id:int id:int
+  pg/query db found ["{id}" "{note_id}"]
+    .> (r -> effect (editing req note_id id (list/first r.rows)))
+
+pub fn update req db note_id:int id:int
+  given = picked (web/form req.body)
+  pg/query db found ["{id}" "{note_id}"]
+    .> (r -> updating db id given (list/first r.rows))
+    .> (w -> effect (changed req note_id id w))
+
+pub fn destroy _ db note_id:int id:int
+  pg/query db found ["{id}" "{note_id}"]
+    .> (r -> removing db id (list/first r.rows))
+    .> (w -> effect (gone note_id w))
+
+# `then` when the note is there, and a 404 when it is not.
+fn within db id then
+  pg/query db parent ["{id}"] .> (r -> held (list/first r.rows) then)
+
+fn held none _
+  effect http/not_found
+
+fn held _ then
+  then
+
+# A write to a row under another note finds nothing.
+fn updating _ _ _ none
+  effect web/absent
+
+fn updating db id given _
+  models/updated "" db model "{id}" given
+
+fn removing _ _ none
+  effect web/absent
+
+fn removing db id _
+  models/destroyed "" db model "{id}"
+
+fn listed_path note_id
+  "/notes/{note_id}/pages"
+
+fn shown_path note_id id
+  "{listed_path note_id}/{id}"
+
+fn listing req note_id rows
+  every = list/to_list (list/map rows page_from)
+  page = views/pages_index_view note_id every
+  views/answer_as req 200 (views/layout_view "Pages" page)
+
+fn shown _ none
+  http/not_found
+
+fn shown req row
+  page = views/page_shown_view (page_from row)
+  views/answer_as req 200 (views/layout_view "Page" page)
+
+fn editing _ _ _ none
+  http/not_found
+
+fn editing req note_id id row
+  kept = filled (page_from row)
+  form req (shown_path note_id id) "PATCH" kept {} 200
+
+fn made req note_id w:models/invalid
+  path = listed_path note_id
+  form req path "POST" (filled w.record) w.problems 422
+
+fn made _ _ w:web/denied
+  web/refusal w
+
+fn made _ note_id w
+  web/redirect (shown_path note_id w.id)
+
+fn changed req note_id id w:models/invalid
+  path = shown_path note_id id
+  form req path "PATCH" (filled w.record) w.problems 422
+
+fn changed _ _ _ w:web/denied
+  web/refusal w
+
+fn changed _ _ _ w:web/absent
+  web/refusal w
+
+fn changed _ note_id id _
+  web/redirect (shown_path note_id id)
+
+fn gone _ w:web/denied
+  web/refusal w
+
+fn gone _ w:web/absent
+  web/refusal w
+
+fn gone note_id _
+  web/redirect (listed_path note_id)
+
+# The form a page is made and changed with: its fields as typed, and the
+# problem with each, if any.
+fn form req path method fields problems code
+  page = views/page_form_view path method fields problems
+  views/answer_as req code (views/layout_view "Page" page)
+
+blank = { "body":"" }
+
+fn filled r
+  { "body":"{r.body}" }
+
+fn picked f
+  { "body":(web/value f "body") }

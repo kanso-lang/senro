@@ -27,6 +27,8 @@ fn chosen "scaffold" rest
   singular = said (list/first (list/drop rest 1))
   words = list/to_list (list/drop rest 2)
   return usage if app == "" or singular == "" or length words == 0
+  named = scaffold/resource_named singular
+  return refused "cannot name a resource `{singular}`: {named}" if named != ""
   given (scaffold/fields_of words) app singular
 
 fn chosen _ _
@@ -37,7 +39,7 @@ usage = refused (text/join usage_lines "\n")
 usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
-  "a kind is text or int"
+  "a kind is text, int or references"
 ]
 
 fn refused why
@@ -89,6 +91,24 @@ fn fresh true app singular _
   refused "{app}/{models/plural singular}.kso is there already"
 
 fn fresh false app singular fields
+  nested_in app singular fields (scaffold/parent_of fields)
+
+# A nested resource's parent is a resource of the same app already.
+fn nested_in app singular fields none
+  read_main app singular fields
+
+fn nested_in app singular fields parent
+  parents = models/plural (scaffold/parent_name parent)
+  module = "{app}/{parents}.kso"
+  os/exists module .> (there -> parent_there there app singular fields parents)
+
+fn parent_there false app singular _ parents
+  refused "{app} has no {parents} to nest {models/plural singular} under"
+
+fn parent_there true app singular fields _
+  read_main app singular fields
+
+fn read_main app singular fields
   os/read_file "{app}/main.kso" .> (main -> with_main app singular fields main)
 
 fn with_main app _ _ _:os/file_not_found
@@ -110,7 +130,7 @@ fn wrote app singular fields main old
   entry = app/entry_with main plural
   migrations = migrated old senro plural fields
   bare = "{app}/main.kso imports nothing of its own"
-  long = "{app}/migrations.kso has no one-line `all`"
+  long = "{app}/migrations.kso has no `all` this can read"
   return refused bare if entry == none
   return refused long if migrations == none
   module = scaffold/resource senro singular fields

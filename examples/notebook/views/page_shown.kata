@@ -1,0 +1,13 @@
+takes row
+header
+  h1 Page {row.id}
+  p.lede
+    a href="/notes/{row.note_id}/pages" All pages
+dl
+  dt body
+  dd = row.body
+p
+  a href="/notes/{row.note_id}/pages/{row.id}/edit" Edit
+form method="post" action="/notes/{row.note_id}/pages/{row.id}"
+  input type="hidden" name="_method" value="DELETE"
+  button Delete
