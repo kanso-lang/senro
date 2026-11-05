@@ -261,7 +261,7 @@ fn challenged c password first_bare ms
   refused = list/find ms (m -> m.kind == 69)
   return failure refused.body if refused != none
   challenge = list/find ms (m -> m.kind == 82)
-  server_first = text/utf8 (slice challenge.body 5 (length challenge.body - 4))
+  server_first = utf8_of (slice challenge.body 5 (length challenge.body - 4))
   attrs = attributes server_first
   first = exchange c password first_bare server_first
   asked first attrs attrs["r"]
@@ -327,7 +327,7 @@ fn concluded c server ms
   return failure refused.body if refused != none
   final = list/find ms (m -> m.kind == 82 and be32_at m.body 1 == 12)
   return err "the server never proved it knew the password" if final == none
-  verdict = text/utf8 (slice final.body 5 (length final.body - 4))
+  verdict = utf8_of (slice final.body 5 (length final.body - 4))
   return session c if verdict == "v={server}"
   err "the server's proof does not match; this is not the server you think"
 
@@ -381,7 +381,7 @@ fn cells columns body at acc
   size = be32_at body at
   rest = list/to_list (list/drop columns 1)
   return cells rest body (at + 4) (put acc k.name none) if size > 2147483647
-  raw = text/utf8 (slice body (at + 4) size)
+  raw = utf8_of (slice body (at + 4) size)
   cells rest body (at + 4 + size) (put acc k.name (typed k.oid raw))
 
 fn typed 16 raw
@@ -413,7 +413,8 @@ fn landed c done? buf ms more
   whole = list/to_list (list/concat buf more)
   g = split_off whole 1 ms done?
   return g.messages if g.finished
-  reading c done? (slice whole g.rest (length whole - g.rest + 1)) g.messages
+  reading c done? (bytes_of (slice whole g.rest (length whole - g.rest + 1)))
+    g.messages
 
 fn split_off buf at ms done?
   left = length buf - at + 1
@@ -446,7 +447,23 @@ fn cstring s
 
 fn cstring_at bs at
   end = zero_from bs at
-  taken (text/utf8 (slice bs at (end - at))) (end + 1)
+  taken (utf8_of (slice bs at (end - at))) (end + 1)
+
+# A slice past the end of a message answers none, which only a server that
+# sent fewer bytes than its own length field claims can cause. It reads as no
+# bytes, so the message that holds it fails on what it says rather than on
+# where it stopped.
+fn utf8_of none
+  ""
+
+fn utf8_of bs
+  text/utf8 bs
+
+fn bytes_of none
+  []
+
+fn bytes_of bs
+  bs
 
 fn zero_from bs at
   return at if bs[at] == 0

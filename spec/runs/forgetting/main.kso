@@ -1,0 +1,9 @@
+import "../../../web"
+import "./clients"
+
+# A server keeps a tally for each client a limited action has heard from, and
+# once it holds more than `web/sweep_past` it forgets every client whose calls
+# have all aged out. Two thousand clients call once each. A minute later sixty
+# new ones call, and the server holds only the sixty. A client that calls a
+# third time inside its window is still turned away.
+web/counting .> clients/told

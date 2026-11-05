@@ -1,0 +1,40 @@
+import "../../../web"
+import "std/net/http"
+
+limit = { "count":2 "key":"create" "within":60000 }
+
+began = 1700000000000
+
+later = began + 61000
+
+# Two thousand clients call at once; a minute later sixty new ones call; then
+# one client calls three times.
+pub fn told calls
+  first = called calls 1 2000 began
+  counting = first .> (_ -> held calls "two thousand clients")
+  counting .> (_ -> after calls)
+
+fn after calls
+  second = called calls 3001 3060 later
+  counting = second .> (_ -> held calls "a minute later, sixty new ones")
+  third = counting .> (_ -> thrice calls later)
+  third .> (fine -> print "a third call inside the window: {fine}")
+
+fn held calls what
+  web/remembered calls .> (n -> print "{what}: {n}")
+
+# A request from `from` the server stamped as arriving at `t`.
+fn asked from t
+  http/parsed "POST / HTTP/1.1\r\nsenro-at: {t}\r\nsenro-peer: {from}\r\n\r\n"
+
+# One call from each client numbered `from` through `upto`, all at `t`.
+fn called calls from upto t
+  return effect true if from > upto
+  asking = web/admits calls limit (asked "10.0.{from}" t)
+  asking .> (_ -> called calls (from + 1) upto t)
+
+# Three calls from one client at `t`, answering whether the third was let in.
+fn thrice calls t
+  once = web/admits calls limit (asked "192.0.2.1" t)
+  twice = once .> (_ -> web/admits calls limit (asked "192.0.2.1" t))
+  twice .> (_ -> web/admits calls limit (asked "192.0.2.1" t))
