@@ -2,9 +2,20 @@ import "../../models"
 import "../../passwords"
 import "../../pg"
 import "../../web"
+import "./account_mailer"
 import "./entries"
 import "./views"
+import "std/io"
+import "std/list"
 import "std/text"
+
+# What a sign-in checks of the account a name holds. A name with no account
+# holds the stand-in digest, which no password matches.
+type holder
+  id
+  digest
+  email
+  confirmed
 
 # One address may try to sign in ten times in three minutes, as Rails 8's
 # generated sessions controller allows. Past that, `over_limit` answers the
@@ -26,18 +37,24 @@ pub fn create req db
   name = text/trim (web/value f "name")
   password = web/value f "password"
   remember = web/value f "remember" == "yes"
-  pg/query db digest_of [name]
-    .> (r -> kept_digest r.rows)
-    .> (kept -> entered req name kept password remember)
+  pg/query db held_by [name]
+    .> (r -> held (list/first r.rows))
+    .> (a -> entered req name a password remember)
 
-digest_of = "select digest from accounts where name = $1"
+held_by = "select id, digest, email, confirmed from accounts where name = $1"
 
-fn kept_digest rows
-  return passwords/stand_in if length rows == 0
-  effect (models/cell rows[1] "digest")
+fn held none
+  passwords/stand_in .> (d -> effect (holder "" d "" ""))
 
-fn entered req name kept password remember
-  return refused req name if not passwords/matches? password kept
+fn held row
+  id = "{models/cell row "id"}"
+  kept = models/cell row "digest"
+  email = models/cell row "email"
+  effect (holder id kept email (models/cell row "confirmed"))
+
+fn entered req name a password remember
+  return refused req name if not passwords/matches? password a.digest
+  return unconfirmed req name a if a.confirmed == ""
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
   welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
@@ -52,6 +69,15 @@ fn kept_if r true
 
 fn kept_if r false
   r
+
+# The right password for an address not yet confirmed: the link is sent
+# again, and the visitor is told to follow it. Only the holder of the
+# password learns that the account exists.
+fn unconfirmed req name a
+  first = "Confirm your address first. We have sent the link again."
+  account_mailer/confirmation a.id a.email
+    .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
+    .> (_ -> effect (opened req name { "password":first } 403))
 
 fn refused req name
   wrong = { "password":"That name and password do not match." }

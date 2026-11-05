@@ -43,6 +43,7 @@ Follow this link:
 .
 https://guestbook.test/r/1
 filed as 1.eml, as sent
+http://127.0.0.1:3000/resets/a.b.c/edit
 a mail header cannot hold a line break
 mail needs a To address with an @
 C: EHLO guestbook.test

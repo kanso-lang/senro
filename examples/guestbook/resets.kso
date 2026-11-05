@@ -1,13 +1,12 @@
-import "../../mail"
 import "../../models"
 import "../../passwords"
 import "../../pg"
 import "../../web"
+import "./account_mailer"
 import "./entries"
 import "./views"
 import "std/io"
 import "std/list"
-import "std/os"
 import "std/text"
 import "std/time"
 
@@ -46,39 +45,7 @@ fn sent none _
 
 fn sent row email
   id = models/cell row "id"
-  kept = models/cell row "digest"
-  time/now
-    .> (t -> site .> (base -> effect (linked base id kept t)))
-    .> (link -> mail/delivered (letter email link))
-
-fn linked base id kept t
-  "{base}/resets/{passwords/reset_token entries/secret id kept t}/edit"
-
-# Where a link in a mail points. It is configured, never read from the
-# request's Host header: whoever sends a request chooses that header, and a
-# reset link built from it would carry the token to a site of their choosing.
-site = os/env "SENRO_URL" .> (u -> effect (base_of u))
-
-fn base_of none
-  "http://127.0.0.1:3000"
-
-fn base_of u
-  u
-
-sender = "Guestbook <noreply@guestbook.test>"
-
-fn letter email link
-  lines = [
-    "Someone asked to reset the password of your guestbook account."
-    ""
-    "Choose a new one here, within fifteen minutes:"
-    ""
-    link
-    ""
-    "If it was not you, there is nothing to do: your password is unchanged."
-  ]
-  body = text/join lines "\n"
-  mail/composed sender email "Reset your guestbook password" body
+  account_mailer/reset id email (models/cell row "digest")
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id
@@ -106,10 +73,16 @@ fn chose req db token password true
   return effect (chosen req token short 422) if length password < 8
   id = id_of (passwords/reset_id token)
   passwords/digested password
-    .> (d -> pg/query db reset [d id])
+    .> (d -> time/now .> (t -> pg/query db reset [d id "{t}"]))
     .> (_ -> effect (told req "/" changed))
 
-reset = "update accounts set digest = $1 where id = $2"
+# A reset link proves the address as well as a confirmation link does, so
+# setting a password through one confirms an address that was not yet.
+reset = """
+  update accounts set digest = $1,
+    confirmed = case when coalesce(confirmed, '') = '' then $3 else confirmed end
+  where id = $2
+"""
 
 changed = "Your password is changed. Sign in with it."
 

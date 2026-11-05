@@ -238,17 +238,21 @@ else
     for engine in native interp; do
       flag=""
       [ "$engine" = interp ] && flag=--interp
-      log=$(mktemp)
-      # The app's mail is written to files here, where the spec reads it.
-      outbox=$(mktemp -d)
-      (cd "examples/$name" && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
-      server=$!
-      tries=0
-      while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
-        sleep 0.1
-        tries=$((tries + 1))
-      done
+      # A server of its own for each browser: the sign-in limit is counted
+      # in the server's memory, per address, and every browser here comes
+      # from one. The database carries over, so a later run finds the
+      # accounts an earlier one made.
       for browser in ${SENRO_BROWSERS:-chromium}; do
+        log=$(mktemp)
+        # The app's mail is written to files here, where the spec reads it.
+        outbox=$(mktemp -d)
+        (cd "examples/$name" && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
+        server=$!
+        tries=0
+        while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+          sleep 0.1
+          tries=$((tries + 1))
+        done
         got=$(node "spec/browser/$name.mjs" "$port" "$browser" "$outbox" 2>&1)
         if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
           printf '%s\n' "$got" > "$want"
@@ -260,12 +264,12 @@ else
           printf '%s\n' "$got" | diff "$want" -
           cat "$log"
         fi
+        pkill -P "$server" 2>/dev/null
+        kill "$server" 2>/dev/null
+        wait "$server" 2>/dev/null
+        rm -f "$log"
+        rm -rf "$outbox"
       done
-      pkill -P "$server" 2>/dev/null
-      kill "$server" 2>/dev/null
-      wait "$server" 2>/dev/null
-      rm -f "$log"
-      rm -rf "$outbox"
     done
   done
 fi
