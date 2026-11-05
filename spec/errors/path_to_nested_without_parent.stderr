@@ -1,0 +1,4 @@
+error[derive]: `comments/show` takes its parent's id and its own: path_to "comments/show" post_id id
+  --> ./comments.kso:4:16
+   4 |   "{post_id}: {routes/path_to "comments/show" id}"
+                      ^

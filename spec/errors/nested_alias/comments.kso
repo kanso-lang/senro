@@ -1,0 +1,4 @@
+pub legacy_route_aliases = { "GET /talk":"comments/index" }
+
+pub fn index _ _ post_id:int
+  "the comments on post {post_id}"

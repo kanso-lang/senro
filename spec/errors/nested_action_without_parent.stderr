@@ -1,0 +1,4 @@
+error[derive]: `comments` nests under `posts`, so each of its actions takes `post_id` after the request and database
+  --> ./comments.kso:4:8
+   4 | pub fn show _ _ id:int
+              ^

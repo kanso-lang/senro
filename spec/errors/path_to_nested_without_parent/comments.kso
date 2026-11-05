@@ -1,0 +1,4 @@
+import "../../../routes"
+
+pub fn show _ _ post_id:int id:int
+  "{post_id}: {routes/path_to "comments/show" id}"

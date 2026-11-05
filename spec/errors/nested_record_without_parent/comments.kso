@@ -1,0 +1,6 @@
+pub type comment
+  id
+  body
+
+pub fn show _ _ post_id:int id:int
+  "comment {id} on post {post_id}"

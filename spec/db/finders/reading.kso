@@ -1,0 +1,29 @@
+import "../../../models"
+import "./comment"
+import "./post"
+import "std/list"
+
+pub fn post db id
+  models/found "" db post/post_model id .> (p -> said db (titled p))
+
+fn titled none
+  "no post"
+
+fn titled p
+  "post: {p.title}"
+
+pub fn comments viewer db id
+  models/where viewer db comment/comment_model "post_id" id
+    .> (cs -> said db "as [{viewer}]: {bodies cs}")
+
+fn bodies cs
+  list/to_list (list/map cs (c -> c.body))
+
+pub fn unread db
+  field = "author_id"
+  models/where "" db comment/comment_model field 1
+    .> (cs -> said db "read {length cs}")
+    .? (e -> said db "refused: {e.reason}")
+
+fn said db line
+  print line .> (_ -> effect db)

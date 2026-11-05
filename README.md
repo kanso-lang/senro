@@ -71,7 +71,15 @@ they are given that path. The specs write it again and compare the two.
   are called by actions in other modules, and none of them is a route. A
   module whose member actions (`show`, `edit`, `update`, `destroy`) take no
   `id` is a singular resource:
-  `profile/show` answers GET /profile, and the module has no `index`. An app
+  `profile/show` answers GET /profile, and the module has no `index`. A
+  module whose actions each take a parent's id first is nested under the
+  parent: `comments/index req db post_id` answers GET
+  /posts/:post_id/comments and `comments/show req db post_id id` GET
+  /posts/:post_id/comments/:id. Nesting goes one level deep, and an action
+  of a nested module that takes no `post_id`, or takes it after `id`, is
+  refused. `routes/path_to "comments/show" 3 4` names a nested route with
+  the parent's id first, and `path_to comment` reads it from the record's
+  own `post_id`. An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
   modules, mapping each old path to the action now answering it, as in
   `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308
@@ -129,8 +137,14 @@ they are given that path. The specs write it again and compare the two.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. A model with too many columns to
-  list on the value's line has them in a constant of their own,
+  such policy cannot be written this way. `models/found viewer db model id`
+  reads a record by its id, or answers none when there is no such row or
+  the viewer may not see it, and `models/where viewer db model field value`
+  answers the records whose field holds the value, oldest first, that the
+  viewer may see: a post's comments are `models/where viewer db
+  comment/comment_model "post_id" id`. A field written out is checked
+  against the model's columns while the app compiles. A model with too many
+  columns to list on the value's line has them in a constant of their own,
   `signature_columns`, one to a line. A model's module may declare
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row

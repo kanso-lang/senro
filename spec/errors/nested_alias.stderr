@@ -1,0 +1,4 @@
+error[derive]: `comments/index` is nested, and an alias reaches only a route that is not
+  --> ./comments.kso:1:5
+   1 | pub legacy_route_aliases = { "GET /talk":"comments/index" }
+           ^
