@@ -1,0 +1,47 @@
+import "../../../mail"
+import "./sink"
+import "std/text"
+
+# A message's text, dated and named so it reads the same on every run: its
+# headers, a subject and body that are not ASCII and so travel encoded, the
+# date on a leap day and on the last second of a February with none, a body
+# whose line fits SMTP's limit beside one a byte too long for it, the same
+# text written to standard error and to a file of its own, and the refusals
+# that come before anything is sent.
+#
+# Then the conversation with an SMTP server, played by a sink in this program
+# that answers each command and writes down what it heard. Over
+# `smtp+insecure://` the client signs in, names the sender and recipient,
+# sends the message with its dot-led line doubled, and quits. Over `smtp://`
+# the same sink offers no STARTTLS, so the client quits before naming
+# anyone, and the delivery fails saying why.
+at = 1793000000000
+
+sender = "noreply@guestbook.test"
+
+french = "Réinitialisez votre mot de passe, s'il vous plaît"
+
+wide = mail/composed sender "Bé <be@example.com>" french "Bonjour, Bé.\n"
+
+injected = mail/composed sender "ana@example.com" "hi\r\nBcc: e@x.test" "x"
+
+nameless = mail/composed sender "ana" "hi" "x"
+
+fits = mail/composed sender "ana@example.com" "hi" (text/pad_start "" 998 "x")
+
+long = mail/composed sender "ana@example.com" "hi" (text/pad_start "" 999 "x")
+
+insecure = "smtp+insecure://ana%40guestbook.test:s3cret@127.0.0.1"
+
+print (sink/shown (mail/text_at sink/plain at "spec"))
+  .> (_ -> print (sink/shown (mail/text_at wide at "spec")))
+  .> (_ -> print (sink/dated sink/plain 951782400000))
+  .> (_ -> print (sink/dated sink/plain 4107542399000))
+  .> (_ -> print (sink/encoding fits))
+  .> (_ -> print (sink/encoding long))
+  .> (_ -> mail/sent_through "" (mail/text_at sink/plain at "spec") sink/plain)
+  .> (_ -> sink/filed sink/plain)
+  .> (_ -> print (mail/refusal injected))
+  .> (_ -> print (mail/refusal nameless))
+  .> (_ -> sink/conversed insecure)
+  .> (_ -> sink/conversed "smtp://127.0.0.1")

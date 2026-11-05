@@ -804,8 +804,12 @@ fn given v
 
 # `+` is a space, and `%` and two hex digits are one byte.
 fn decoded s
-  bytes = list/to_list (text/bytes (text/join (text/split s "+") " "))
-  text/utf8 (unescaped bytes 1 [])
+  percent_decoded (text/join (text/split s "+") " ")
+
+# Text with each `%` and the two hex digits after it read as one byte, as a
+# URL writes a character it cannot hold. A `+` stays a `+`.
+pub fn percent_decoded s
+  text/utf8 (unescaped (list/to_list (text/bytes s)) 1 [])
 
 fn unescaped bs at acc
   return acc if at < 1 or at > length bs

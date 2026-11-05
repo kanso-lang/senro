@@ -1,0 +1,101 @@
+import "../../../mail"
+import "std/list"
+import "std/net"
+import "std/os"
+import "std/pool"
+import "std/text"
+
+# The mail spec's helpers: a message shown with its line ends marked, and an
+# SMTP sink that answers each command and writes down what it heard.
+at = 1793000000000
+
+from = "Guestbook <noreply@guestbook.test>"
+
+link = "Follow this link:\n.\nhttps://guestbook.test/r/1\n"
+
+pub plain = mail/composed from "ana@example.com" "Reset your password" link
+
+# The Date line `m` would carry if it were sent at `t`.
+pub fn dated m t
+  list/first (text/split (mail/text_at m t "spec") "\r\n")
+
+# How `m`'s body would travel.
+pub fn encoding m
+  lines = text/split (mail/text_at m 0 "spec") "\r\n"
+  list/first (list/to_list (list/drop lines 7))
+
+# `m` written under a directory of its own, read back, and the directory
+# removed, so a run leaves nothing behind.
+pub fn filed m
+  t = mail/text_at m at "spec"
+  dir = "outbox.spec"
+  mail/sent_through "dir:{dir}" t m
+    .> (_ -> os/list_dir dir)
+    .> (names -> read_back dir (list/first names) t)
+    .> (_ -> os/run "rm" ["-r" dir])
+
+fn read_back dir name t
+  os/read_file! "{dir}/{name}" .> (f -> print "filed as {name}, {same f t}")
+
+fn same f t
+  if (f == t) "as sent" "changed"
+
+# CRLF shown as a mark, so the golden says where each line ends.
+pub fn shown t
+  text/join (text/split t "\r\n") "<CRLF>\n"
+
+# A sink on a port of its own, a delivery to it, and what the sink heard.
+pub fn conversed way
+  net/listen 0 .> (l -> net/port l .> (p -> paired l "{way}:{p}"))
+
+fn paired l way
+  pool/make 1 .> (heard -> both l way heard)
+
+fn both l way heard
+  sunk l heard
+  delivered way heard
+
+fn delivered way heard
+  mail/sent_through way (mail/text_at plain at "spec") plain
+    .> (_ -> effect "sent")
+    .? (u -> effect "not sent: {u}")
+    .> (said -> pool/take heard .> (log -> print "{log}{said}"))
+
+fn sunk l heard
+  net/accept l
+    .> (c -> net/write c "220 sink.test\r\n" .> (_ -> listened c ""))
+    .> (log -> pool/give heard log)
+    .> (_ -> net/close_listener l)
+
+fn listened c log
+  net/read c .> (got -> answered c log got)
+
+fn answered _ log ""
+  effect log
+
+fn answered c log got
+  heard = "{log}C: {text/join (text/split got "\r\n") ""}\n"
+  return data c heard if got == "DATA\r\n"
+  return closed c heard if got == "QUIT\r\n"
+  net/write c (reply got) .> (_ -> listened c heard)
+
+fn reply got
+  return "250-sink.test\r\n250 AUTH PLAIN\r\n" if text/starts_with? got "EHLO"
+  return "235 signed in\r\n" if text/starts_with? got "AUTH"
+  "250 ok\r\n"
+
+fn closed c log
+  net/write c "221 bye\r\n" .> (_ -> net/close_conn c) .> (_ -> effect log)
+
+# The message, read until the line holding a dot alone.
+fn data c log
+  net/write c "354 go on\r\n" .> (_ -> more c log "")
+
+fn more c log had
+  net/read c .> (got -> gathered c log "{had}{got}")
+
+fn gathered c log had
+  return more c log had if not text/ends_with? had "\r\n.\r\n"
+  lines = text/split had "\r\n"
+  sent = text/join lines "\n D: "
+  net/write c "250 queued\r\n" .> (_ -> listened c "{log} D: {sent}\n")
