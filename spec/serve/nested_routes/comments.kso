@@ -1,0 +1,18 @@
+import "std/net/http"
+
+# Each action takes the post's id, so the routes nest under it:
+# `comments/index` answers GET /posts/:post_id/comments. Removing one needs a
+# sign-in, so the server sends that request to sign in first.
+pub without_sign_in = ["index" "create" "show"]
+
+pub fn index _ _ post_id:int
+  effect (http/text_page "the comments on post {post_id}")
+
+pub fn create _ _ post_id:int
+  effect (http/text_page "a comment made on post {post_id}")
+
+pub fn show _ _ post_id:int id:int
+  effect (http/text_page "comment {id} on post {post_id}")
+
+pub fn destroy _ _ post_id:int id:int
+  effect (http/text_page "comment {id} gone from post {post_id}")

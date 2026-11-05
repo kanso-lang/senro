@@ -1,0 +1,14 @@
+# A comment, which names the post it is under, so its path can.
+pub type comment
+  id
+  post_id
+  body
+
+# The first comment on post 3, for the spec to place.
+pub first = comment 4 3 "first"
+
+pub fn index _ _ post_id:int
+  "the comments on post {post_id}"
+
+pub fn show _ _ post_id:int id:int
+  "comment {id} on post {post_id}"

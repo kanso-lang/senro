@@ -1,0 +1,38 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+pub secret = "the spec's secret"
+
+pub without_sign_in = ["index"]
+
+# Asks the nested routes for what each answers: the list, a comment, one
+# made, one removed, and two paths that are not routes, a post id that is
+# no number and an action the module does not declare.
+pub fn index _ _
+  asks = [
+    "GET /posts/3/comments"
+    "GET /posts/3/comments/4"
+    "POST /posts/3/comments"
+    "DELETE /posts/3/comments/4"
+    "GET /posts/three/comments"
+    "GET /posts/3/comments/4/edit"
+  ]
+  list/fold asks (effect []) (acc a -> acc .> (got -> asked a got))
+    .> (answers -> effect (http/text_page (text/join answers "\n")))
+
+fn asked a got
+  net/dial "127.0.0.1" 54408 .> (c -> asking c a) .> (r -> effect (push got r))
+
+fn asking c a
+  head = "{a} HTTP/1.1\r\nhost: localhost\r\ncontent-length: 0\r\n\r\n"
+  net/write c head
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect "{a}: {heard raw}"))
+
+fn heard raw
+  status = (text/split raw "\r\n")[1]
+  parts = text/split raw "\r\n\r\n"
+  return status if length parts < 2
+  "{status} {text/trim parts[2]}"

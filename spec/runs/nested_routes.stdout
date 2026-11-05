@@ -1,0 +1,5 @@
+["GET /posts/:id" "GET /posts/:post_id/comments" "GET /posts/:post_id/comments/:id"]
+/posts/3/comments
+/posts/3/comments/4
+/posts/3/comments/4
+/posts/3

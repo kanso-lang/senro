@@ -1,0 +1,4 @@
+error[derive]: `comment` has no `post_id`, so `path_to` cannot place it under its parent
+  --> ./comments.kso:1:10
+   1 | pub type comment
+                ^

@@ -1,0 +1,5 @@
+pub fn index _ _ post_id:int
+  "the comments on post {post_id}"
+
+pub fn show _ _ id:int
+  "comment {id}"
