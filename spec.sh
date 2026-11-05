@@ -180,6 +180,13 @@ else
     name=$(basename "$d")
     want="spec/serve/$name.out"
     port=$(sed -n 's/^web\/serve \([0-9]*\) .*/\1/p' "$d/main.kso")
+    # Below 32768, where Linux starts handing out the local ports of
+    # outgoing connections. A port in that range can be held by one of this
+    # run's own connections to Postgres when the app comes to listen on it.
+    if [ "$port" -ge 32768 ]; then
+      bad "$name listens on $port, among the ports outgoing connections take"
+      continue
+    fi
     for engine in native interp; do
       flag=""
       [ "$engine" = interp ] && flag=--interp

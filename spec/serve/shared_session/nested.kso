@@ -12,7 +12,7 @@ pub fn index _ _
 fn compared first second
   effect (http/text_page "same session: {first == second}")
 
-pid = net/dial "127.0.0.1" 54403 .> asked
+pid = net/dial "127.0.0.1" 24403 .> asked
 
 fn asked c
   net/write c asking .> (_ -> net/read c) .> (raw -> told c raw)

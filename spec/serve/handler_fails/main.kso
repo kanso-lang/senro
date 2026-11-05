@@ -9,4 +9,4 @@ derive routes/rest
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
-web/serve 54402 routes connected
+web/serve 24402 routes connected

@@ -15,7 +15,7 @@ pub fn index _ _
   doors .> (ds -> gates .> (gs -> said (list/concat ds gs)))
 
 fn knocked path
-  net/dial "127.0.0.1" 54404 .> (c -> knocking c path)
+  net/dial "127.0.0.1" 24404 .> (c -> knocking c path)
 
 fn knocking c path
   head = "POST {path} HTTP/1.1\r\nhost: localhost\r\nsenro-peer: 10.0.0.9"
