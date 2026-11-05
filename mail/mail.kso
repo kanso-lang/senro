@@ -1,0 +1,360 @@
+import "../web"
+import "std/base64"
+import "std/io"
+import "std/list"
+import "std/net"
+import "std/os"
+import "std/text"
+import "std/time"
+
+# Mail an app sends: a password reset, a confirmation, a notice. A message is
+# plain text from one address to one address, which is what an app's own mail
+# needs; a newsletter belongs to a service built for it.
+pub type message
+  from
+  to
+  subject
+  body
+
+# Where an smtp URL points, and how to speak to it.
+type server
+  scheme
+  user
+  password
+  host
+  port
+
+# A message from `from` to `to`. Each address is bare, `ana@example.com`, or
+# follows a name, `Ana <ana@example.com>`.
+pub fn composed from to subject body
+  message from to subject body
+
+# A description that sends `m` the way `SENRO_MAIL` names, and answers the
+# text it sent:
+#
+#   unset or ""                    written to standard error, for development
+#   dir:<path>                     written to a file of its own under <path>
+#   smtp://user:pass@host:587      SMTP, through TLS that STARTTLS opens
+#   smtps://user:pass@host:465     SMTP inside TLS from the first byte
+#   smtp+insecure://host:1025      SMTP in the clear, for a catcher on the
+#                                  developer's own machine
+#
+# The name and password are optional and percent-encoded, as in any URL, so
+# an address used as a name is written `me%40example.com`. `smtp://` refuses
+# a server that does not offer STARTTLS rather than send in the clear,
+# because a reset link read off the wire is a sign-in.
+pub fn delivered m
+  os/env "SENRO_MAIL" .> (way -> drawn m .> (t -> sent_through way t m))
+
+fn drawn m
+  why = refusal m
+  return err why if why != ""
+  time/now .> (t -> os/random_bytes 12 .> (b -> stamped m t b))
+
+fn stamped m t b
+  effect (text_at m t (hexits (list/to_list b)))
+
+# The text of `m` as it goes on the wire, dated `t`, in milliseconds since
+# the epoch, with `id` before the `@` of its Message-ID. Lines end in CRLF.
+# A subject that is not ASCII travels as RFC 2047 encoded words, and a body
+# that is not ASCII, or holds a line too long for SMTP, travels as base64.
+pub fn text_at m t id
+  parts = [
+    "Date: {dated t}"
+    "From: {m.from}"
+    "To: {m.to}"
+    "Subject: {subject_of m.subject}"
+    "Message-ID: <{id}@{domain_of m.from}>"
+    "MIME-Version: 1.0"
+    "Content-Type: text/plain; charset=utf-8"
+    "Content-Transfer-Encoding: {body_of (crlf m.body)}"
+  ]
+  ended (text/join parts "\r\n")
+
+# Text that ends in CRLF, adding one only when it has none.
+fn ended t
+  if (text/ends_with? t "\r\n") t "{t}\r\n"
+
+# What is wrong with a message, or "" when nothing is. A header holding a line
+# break would let whoever wrote it add headers of their own, so it is refused
+# before anything is sent.
+pub fn refusal m
+  return "mail needs a From address with an @" if not addressed? m.from
+  return "mail needs a To address with an @" if not addressed? m.to
+  return "a mail header cannot hold a line break" if broken? m
+  ""
+
+fn addressed? a
+  has? (address_of a) "@"
+
+fn broken? m
+  list/any? [m.from m.to m.subject] (h -> breaks? h)
+
+fn breaks? h
+  has? h "\r" or has? h "\n"
+
+fn has? s part
+  length (text/split s part) > 1
+
+# The address alone: what sits between < and > when there is a name before
+# it, and the whole of it otherwise.
+pub fn address_of a
+  return text/trim a if not has? a "<"
+  closed = text/split (final (text/split a "<")) ">"
+  text/trim (list/first closed)
+
+fn domain_of a
+  final (text/split (address_of a) "@")
+
+fn final xs
+  list/last xs
+
+# RFC 5322's date, always in UTC: "Thu, 05 Nov 2026 04:27:02 +0000".
+fn dated t
+  s = t / 1000
+  days = s / 86400
+  left = s % 86400
+  clock = "{two (left / 3600)}:{two (left % 3600 / 60)}:{two (left % 60)}"
+  "{weekday days}, {civil days} {clock} +0000"
+
+fn two n
+  text/pad_start "{n}" 2 "0"
+
+weekdays = ["Thu" "Fri" "Sat" "Sun" "Mon" "Tue" "Wed"]
+
+fn weekday days
+  weekdays[days % 7 + 1]
+
+months = text/split "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec" " "
+
+# The day, month and year `days` after 1970-01-01, by Howard Hinnant's
+# civil_from_days, which counts in 400-year eras starting in March.
+fn civil days
+  z = days + 719468
+  era = z / 146097
+  doe = z - era * 146097
+  yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+  doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+  mp = (5 * doy + 2) / 153
+  day = doy - (153 * mp + 2) / 5 + 1
+  month = if (mp < 10) (mp + 3) (mp - 9)
+  year = yoe + era * 400 + if (month <= 2) 1 0
+  "{two day} {months[month]} {year}"
+
+fn subject_of s
+  return s if ascii? s
+  words = chunked (list/to_list (text/chars s)) 1 []
+  text/join words "\r\n "
+
+# Eleven characters to a word, which is at most 44 bytes, 60 characters of
+# base64 and 72 with the wrapping: RFC 2047 allows 75.
+fn chunked cs at acc
+  return acc if at > length cs
+  part = text/join (list/to_list (list/take (list/drop cs (at - 1)) 11)) ""
+  word = "=?utf-8?B?{base64/encode (text/bytes part)}?="
+  chunked cs (at + 11) (push acc word)
+
+fn ascii? s
+  list/all? (text/bytes s) (b -> b < 128)
+
+# A body with each line ended by CRLF, whatever ended it before.
+fn crlf body
+  lines = list/map (text/split body "\n") (l -> trimmed_cr l)
+  text/join (list/to_list lines) "\r\n"
+
+fn trimmed_cr l
+  return l if not text/ends_with? l "\r"
+  piece l 1 (length l - 1)
+
+# The encoding header's value, the blank line, and the body as it travels.
+fn body_of b
+  return "7bit\r\n\r\n{b}" if ascii? b and short_lines? b
+  lines = wrapped (base64/encode (text/bytes b)) 1 []
+  "base64\r\n\r\n{text/join lines "\r\n"}"
+
+fn short_lines? b
+  list/all? (text/split b "\r\n") (l -> length (text/bytes l) <= 998)
+
+fn wrapped s at acc
+  return acc if at > length s
+  wrapped s (at + 76) (push acc (piece s at (min (at + 75) (length s))))
+
+fn min a b
+  if (a < b) a b
+
+digits = "0123456789abcdef"
+
+fn hexits bs
+  text/join (list/to_list (list/map bs (b -> byte_hex b))) ""
+
+fn byte_hex b
+  "{hexit (b / 16)}{hexit (b % 16)}"
+
+fn hexit n
+  piece digits (n + 1) (n + 1)
+
+# `text`, which `text_at` wrote for `m`, sent the way `way` names. Exposed so
+# a spec, or an app that keeps its own setting, can name the way itself.
+pub fn sent_through none t m
+  sent_through "" t m
+
+pub fn sent_through "" t _
+  io/write_err (text/join (text/split t "\r\n") "\n") .> (_ -> effect t)
+
+pub fn sent_through way t m
+  return filed (after way 5) t if text/starts_with? way "dir:"
+  spoken_to (server_of way) t m
+
+# One file to a message, numbered after those already there, so a spec or a
+# developer reads them in the order they were sent.
+fn filed dir t
+  os/make_dir dir
+    .> (_ -> os/list_dir dir)
+    .> (names -> os/write_file "{dir}/{length names + 1}.eml" t)
+    .> (_ -> effect t)
+
+schemes = ["smtp" "smtps" "smtp+insecure"]
+
+fn server_of way
+  halves = text/split way "://"
+  return none if length halves != 2
+  scheme = list/first halves
+  return none if not list/any? schemes (s -> s == scheme)
+  at = text/split (final halves) "@"
+  who = text/join (list/to_list (list/take at (length at - 1))) "@"
+  located scheme who (text/split (final at) ":")
+
+fn located scheme who place
+  host = list/first place
+  given = text/join (list/to_list (list/drop place 1)) ":"
+  port = if (given == "") (default_port scheme) (text/to_int given)
+  named = text/split who ":"
+  user = web/percent_decoded (list/first named)
+  rest = text/join (list/to_list (list/drop named 1)) ":"
+  server scheme user (web/percent_decoded rest) host port
+
+fn default_port "smtps"
+  465
+
+fn default_port "smtp+insecure"
+  25
+
+fn default_port _
+  587
+
+fn spoken_to none _ _
+  err "SENRO_MAIL names no way to send mail; see mail/mail.kso"
+
+fn spoken_to (server _ _ _ _ none) _ _
+  err "SENRO_MAIL names a port that is not a number"
+
+fn spoken_to srv t m
+  dialed srv .> (c -> conversed c srv t m)
+
+fn dialed srv
+  return net/dial_tls srv.host srv.port if srv.scheme == "smtps"
+  net/dial srv.host srv.port
+
+fn conversed c srv t m
+  heard c 220 "the greeting"
+    .> (_ -> greeted c srv m)
+    .> (tls -> envelope tls srv t m)
+    .? (u -> net/close_conn c .> (_ -> effect u))
+
+# The EHLO names the sender's domain, as a host that sends for one app does.
+fn greeted c srv m
+  said c "EHLO {domain_of m.from}" 250 "EHLO" .> (r -> secured c srv m r)
+
+# Over `smtp://`, STARTTLS and a second EHLO before anything else is said.
+fn secured c srv m offers
+  return effect c if srv.scheme != "smtp"
+  return cleartext c srv if not offered? offers "STARTTLS"
+  said c "STARTTLS" 220 "STARTTLS"
+    .> (_ -> net/secured c srv.host)
+    .> (tls -> again tls m)
+
+fn again tls m
+  said tls "EHLO {domain_of m.from}" 250 "EHLO" .> (_ -> effect tls)
+
+fn cleartext c srv
+  plain = "smtp:// sends only through TLS"
+  why = "the mail server at {srv.host} offers no STARTTLS, and {plain}"
+  said c "QUIT" 221 "QUIT" .> (_ -> err why)
+
+fn offered? r word
+  lines = text/split r "\r\n"
+  list/any? lines (l -> text/starts_with? (text/uppercase (after l 5)) word)
+
+# `s` from its character `at` on, which is "" past its end.
+fn after s at
+  piece s at (length s)
+
+# The characters of `s` from `from` to `to`, or "" when it has none there.
+fn piece s from to
+  held (text/slice s from to)
+
+fn held none
+  ""
+
+fn held s
+  s
+
+fn envelope c srv t m
+  signed_on c srv
+    .> (_ -> said c "MAIL FROM:<{address_of m.from}>" 250 "the sender")
+    .> (_ -> said c "RCPT TO:<{address_of m.to}>" 250 "the recipient")
+    .> (_ -> said c "DATA" 354 "DATA")
+    .> (_ -> net/write c "{stuffed t}.\r\n")
+    .> (_ -> heard c 250 "the message")
+    .> (_ -> said c "QUIT" 221 "QUIT")
+    .> (_ -> net/close_conn c)
+    .> (_ -> effect t)
+
+fn signed_on c srv
+  return effect "" if srv.user == ""
+  nul = text/from_code 0
+  plain = text/bytes "{nul}{srv.user}{nul}{srv.password}"
+  said c "AUTH PLAIN {base64/encode plain}" 235 "the sign-in"
+
+# A line that starts with a dot gets a second one, so no line of the message
+# reads as the dot that ends it (RFC 5321, 4.5.2).
+fn stuffed t
+  lines = list/map (text/split t "\r\n") (l -> dotted l)
+  text/join (list/to_list lines) "\r\n"
+
+fn dotted l
+  if (text/starts_with? l ".") ".{l}" l
+
+fn said c line code step
+  net/write c "{line}\r\n" .> (_ -> heard c code step)
+
+# A reply, read whole: its lines run until one whose fourth character is a
+# space, since RFC 5321 marks every line but the last with a hyphen there.
+fn heard c code step
+  reply c "" .> (r -> answered r code step)
+
+fn reply c had
+  return effect had if whole? had
+  net/read c .> (more -> grown c had more)
+
+fn grown _ _ ""
+  err "the mail server closed the connection"
+
+fn grown c had more
+  reply c "{had}{more}"
+
+fn whole? r
+  return false if not text/ends_with? r "\r\n"
+  last = closing r
+  length last < 4 or piece last 4 4 == " "
+
+# The last line of a reply that ends in CRLF.
+fn closing r
+  lines = text/split r "\r\n"
+  final (list/to_list (list/take lines (length lines - 1)))
+
+fn answered r code step
+  last = closing r
+  got = text/to_int (piece last 1 3)
+  return effect r if got == code or (code == 250 and got == 251)
+  err "the mail server refused {step}: {last}"

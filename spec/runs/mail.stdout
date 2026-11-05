@@ -1,0 +1,71 @@
+Date: Mon, 26 Oct 2026 07:33:20 +0000<CRLF>
+From: Guestbook <noreply@guestbook.test><CRLF>
+To: ana@example.com<CRLF>
+Subject: Reset your password<CRLF>
+Message-ID: <spec@guestbook.test><CRLF>
+MIME-Version: 1.0<CRLF>
+Content-Type: text/plain; charset=utf-8<CRLF>
+Content-Transfer-Encoding: 7bit<CRLF>
+<CRLF>
+Follow this link:<CRLF>
+.<CRLF>
+https://guestbook.test/r/1<CRLF>
+
+Date: Mon, 26 Oct 2026 07:33:20 +0000<CRLF>
+From: noreply@guestbook.test<CRLF>
+To: Bé <be@example.com><CRLF>
+Subject: =?utf-8?B?UsOpaW5pdGlhbGlz?=<CRLF>
+ =?utf-8?B?ZXogdm90cmUgbW8=?=<CRLF>
+ =?utf-8?B?dCBkZSBwYXNzZSw=?=<CRLF>
+ =?utf-8?B?IHMnaWwgdm91cyA=?=<CRLF>
+ =?utf-8?B?cGxhw650?=<CRLF>
+Message-ID: <spec@guestbook.test><CRLF>
+MIME-Version: 1.0<CRLF>
+Content-Type: text/plain; charset=utf-8<CRLF>
+Content-Transfer-Encoding: base64<CRLF>
+<CRLF>
+Qm9uam91ciwgQsOpLg0K<CRLF>
+
+Date: Tue, 29 Feb 2000 00:00:00 +0000
+Date: Sun, 28 Feb 2100 23:59:59 +0000
+Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: base64
+Date: Mon, 26 Oct 2026 07:33:20 +0000
+From: Guestbook <noreply@guestbook.test>
+To: ana@example.com
+Subject: Reset your password
+Message-ID: <spec@guestbook.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Follow this link:
+.
+https://guestbook.test/r/1
+filed as 1.eml, as sent
+a mail header cannot hold a line break
+mail needs a To address with an @
+C: EHLO guestbook.test
+C: AUTH PLAIN AGFuYUBndWVzdGJvb2sudGVzdABzM2NyZXQ=
+C: MAIL FROM:<noreply@guestbook.test>
+C: RCPT TO:<ana@example.com>
+C: DATA
+ D: Date: Mon, 26 Oct 2026 07:33:20 +0000
+ D: From: Guestbook <noreply@guestbook.test>
+ D: To: ana@example.com
+ D: Subject: Reset your password
+ D: Message-ID: <spec@guestbook.test>
+ D: MIME-Version: 1.0
+ D: Content-Type: text/plain; charset=utf-8
+ D: Content-Transfer-Encoding: 7bit
+ D: 
+ D: Follow this link:
+ D: ..
+ D: https://guestbook.test/r/1
+ D: .
+ D: 
+C: QUIT
+sent
+C: EHLO guestbook.test
+C: QUIT
+not sent: err "the mail server at 127.0.0.1 offers no STARTTLS, and smtp:// sends only through TLS"

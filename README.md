@@ -135,6 +135,17 @@ adds, counts, renames and removes things on a shelf without a page reload.
   refusal's timing does not say whether the name exists. The rounds are
   `SENRO_PASSWORD_ROUNDS`, or 100,000 when it is unset; the comment above
   `default_rounds` says why that is below OWASP's figure. The specs set 30.
+- `mail`: mail an app sends, such as a password reset. `mail/composed from
+  to subject body` makes a plain-text message, and `mail/delivered m` sends
+  it the way `SENRO_MAIL` names: to standard error when it is unset, as
+  development wants; to a file of its own under a directory (`dir:<path>`);
+  or over SMTP (`smtp://user:pass@host:587`, `smtps://` for TLS from the
+  first byte). `smtp://` sends only after STARTTLS and refuses a server that
+  does not offer it; `smtp+insecure://` is for a mail catcher on the
+  developer's own machine. A header holding a line break, or an address
+  with no `@`, is refused before anything is sent. A subject that is not
+  ASCII travels as RFC 2047 encoded words, and a body that is not ASCII, or
+  holds a line longer than SMTP allows, as base64.
 - `browser`: what an app's components and pages need in the browser.
   `browser.kso` beside the app's entry names its browser components with
   `browser/answer`, or with `browser/answer_pages` when the module renders
