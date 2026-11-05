@@ -1,0 +1,9 @@
+takes path problems
+header
+  h1 Choose a new password
+form method="post" action=path
+  input type="hidden" name="_method" value="PATCH"
+  input type="password" name="password" placeholder="new password" required="required"
+  if problems["password"] != none
+    p.problem = problems["password"]
+  button Save it

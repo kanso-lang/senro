@@ -1,5 +1,6 @@
 import "../models"
 import "./app"
+import "./auth"
 import "./scaffold"
 import "std/io"
 import "std/list"
@@ -10,6 +11,7 @@ import "std/text"
 #
 #   kanso run generate -- new apps/notebook
 #   kanso run generate -- scaffold apps/notebook note title:text body:int
+#   kanso run generate -- authentication apps/notebook
 #
 # Each prints the files it writes, as Rails' generators do. Nothing is
 # written over: a file that is there already stops the generator before it
@@ -31,6 +33,11 @@ fn chosen "scaffold" rest
   return refused "cannot name a resource `{singular}`: {named}" if named != ""
   given (scaffold/fields_of words) app singular
 
+fn chosen "authentication" rest
+  app = said (list/first rest)
+  return usage if app == ""
+  os/exists "{app}/main.kso" .> (there -> authenticated there app)
+
 fn chosen _ _
   usage
 
@@ -39,6 +46,7 @@ usage = refused (text/join usage_lines "\n")
 usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
+  "       kanso run generate -- authentication <app>"
   "a kind is text, int or references"
 ]
 
@@ -167,3 +175,58 @@ fn said none
 
 fn said s
   s
+
+fn authenticated false app
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn authenticated true app
+  paths = list/to_list (list/map auth/copied (f -> "{app}/{f}"))
+  list/fold paths (effect "") (acc p -> acc .> (seen -> first_there seen p))
+    .> (there -> unwritten there app)
+
+fn first_there "" path
+  os/exists path .> (t -> effect (there_if t path))
+
+fn first_there seen _
+  effect seen
+
+fn there_if true path
+  path
+
+fn there_if false _
+  ""
+
+fn unwritten "" app
+  os/read_file "{app}/main.kso" .> (main -> with_migrations app main)
+
+fn with_migrations app main
+  os/read_file "{app}/migrations.kso" .> (m -> signing app main m)
+
+fn unwritten there _
+  refused "{there} is there already"
+
+fn signing app main m
+  senro = up_from app
+  entry = auth/entry_signed main senro
+  migrations = migrated (text_of m) senro "users" users
+  moved = "{app}/main.kso no longer serves as `new` wrote it"
+  return refused moved if entry == none
+  os/random_bytes 32
+    .> (b -> copied app senro (auth/secret_of b))
+    .> (_ -> changed "{app}/migrations.kso" (said migrations))
+    .> (_ -> changed "{app}/main.kso" (said entry))
+
+users = scaffold/fields_of auth/fields
+
+fn copied app senro secret
+  views = "{app}/views"
+  os/is_dir views
+    .> (there -> made_dir there views)
+    .> (_ -> list/fold auth/copied (effect "") (later app senro secret))
+
+fn later app senro secret
+  (acc f -> acc .> (_ -> copy app senro secret f))
+
+fn copy app senro secret f
+  os/read_file "{auth/source}/{f}"
+    .> (t -> written "{app}/{f}" (auth/localized t senro secret))

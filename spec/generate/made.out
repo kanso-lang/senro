@@ -15,6 +15,15 @@
   create spec/notebook/views/page_form.kata
   change spec/notebook/migrations.kso
   change spec/notebook/main.kso
+  create spec/notebook/password_mailer.kso
+  create spec/notebook/registration.kso
+  create spec/notebook/resets.kso
+  create spec/notebook/session.kso
+  create spec/notebook/views/door.kata
+  create spec/notebook/views/reset_asked.kata
+  create spec/notebook/views/reset_chosen.kata
+  change spec/notebook/migrations.kso
+  change spec/notebook/main.kso
 generate: spec/notebook/notes.kso is there already
 generate: cannot read `title:words`: a field is name:text, name:int or name:references
 generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _
@@ -22,3 +31,5 @@ generate: cannot read `id:int`: `id` is a column every table has
 generate: cannot name a resource `Book`: a resource's name is spelled as a field's is
 generate: spec/notebook has no volumes to nest chapters under
 generate: cannot read `page:references`: a resource nests under one parent
+generate: spec/notebook/password_mailer.kso is there already
+generate: spec/nowhere/main.kso is not there; make the app with `new` first

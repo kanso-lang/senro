@@ -211,20 +211,24 @@ else
 fi
 
 note "== the generator writes examples/notebook, which checks and serves"
-# `generate new` and `generate scaffold` write an app at spec/notebook, made
-# afresh each run, and refuse a resource that is there, a name or field they
-# cannot read, and a parent the app does not have. What they write must be examples/notebook byte for byte: the
-# two sit at the same depth, so their imports of senro read the same. The
-# app must check, and served natively and interpreted it must list, make,
-# show, change and remove a note, and a page under it
-# (spec/generate/drive.sh). Serving uses
-# Postgres, so SENRO_NO_DB=1 skips that part.
+# `generate new`, `generate scaffold` and `generate authentication` write an
+# app at spec/notebook, made afresh each run, and refuse a resource that is
+# there, a name or field they cannot read, a parent the app does not have,
+# and authentication twice or for no app. What they write must be
+# examples/notebook byte for byte, once the secret authentication made at
+# random is set aside: the two sit at the same depth, so their imports of
+# senro read the same. The app must check, and served natively and
+# interpreted it must make an account, list, make, show, change and remove
+# a note and a page under it, sign out, and reset a lost password through
+# the mail it sends (spec/generate/drive.sh). Serving uses Postgres, so
+# SENRO_NO_DB=1 skips that part.
 gen=spec/notebook
 rm -rf "$gen"
 made=$({
   "$KANSO" run generate -- new "$gen"
   "$KANSO" run generate -- scaffold "$gen" note title:text pages:int
   "$KANSO" run generate -- scaffold "$gen" page body:text note:references
+  "$KANSO" run generate -- authentication "$gen"
   "$KANSO" run generate -- scaffold "$gen" note title:text
   "$KANSO" run generate -- scaffold "$gen" book title:words
   "$KANSO" run generate -- scaffold "$gen" book Title:text
@@ -232,7 +236,20 @@ made=$({
   "$KANSO" run generate -- scaffold "$gen" Book title:text
   "$KANSO" run generate -- scaffold "$gen" chapter body:text volume:references
   "$KANSO" run generate -- scaffold "$gen" book note:references page:references
+  "$KANSO" run generate -- authentication "$gen"
+  "$KANSO" run generate -- authentication spec/nowhere
 } 2>&1)
+# The secret is 32 random bytes in hex, and the copy compared is given a
+# fixed one.
+if grep -qE '^pub secret = "[0-9a-f]{64}"$' "$gen/session.kso"; then
+  note "ok: generate authentication makes a secret at random"
+else
+  bad "generate authentication makes a secret at random"
+  grep -n "secret =" "$gen/session.kso"
+fi
+fixed='pub secret = "made at random by generate authentication"'
+kept=$(sed "s/^pub secret = \".*\"$/$fixed/" "$gen/session.kso")
+printf '%s\n' "$kept" > "$gen/session.kso"
 if [ "${SPEC_WRITE:-}" = 1 ]; then
   printf '%s\n' "$made" > spec/generate/made.out
   rm -rf examples/notebook
@@ -263,14 +280,16 @@ else
     flag=""
     [ "$engine" = interp ] && flag=--interp
     log=$(mktemp)
-    (cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    outbox=$(mktemp -d)
+    (cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 SENRO_MAIL="dir:$outbox" \
+      exec "$KANSO" run . $flag) > "$log" 2>&1 &
     server=$!
     tries=0
     while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
       sleep 0.1
       tries=$((tries + 1))
     done
-    got=$(sh spec/generate/drive.sh 3000 2>&1)
+    got=$(sh spec/generate/drive.sh 3000 "$outbox" 2>&1)
     pkill -P "$server" 2>/dev/null
     kill "$server" 2>/dev/null
     wait "$server" 2>/dev/null
@@ -285,6 +304,7 @@ else
       cat "$log"
     fi
     rm -f "$log"
+    rm -rf "$outbox"
   done
 fi
 # A resource with many fields, written into the same app, still checks:

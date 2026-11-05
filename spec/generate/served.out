@@ -1,3 +1,7 @@
+not signed in: 303 to /session/new
+a short password: 422
+making an account: 303 to /
+the same address again: That address has an account.
 the list:  Notes Notes New note 
 pages of twelve: 422 Give a whole number.
 making one: sent to /notes/N
@@ -18,3 +22,12 @@ changing it: 303 /notes/N/pages/N
 the pages then:  Pages Pages New page Back to the note changed 
 removing its note: 303 /notes
 the page then: 404 
+signing out: 303 to /session/new
+the notes then: 303 /session/new
+a wrong password: 422
+asking for a link: 303 to /session/new
+its form: 200 
+choosing a new one: 303 /session/new
+the link again: 303 /resets/new
+the old password: 422
+the new one: 303 to /notes
