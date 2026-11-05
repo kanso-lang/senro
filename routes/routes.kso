@@ -63,7 +63,7 @@ type limits
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
 pub fn rest p
-  apps = list/to_list (list/select p.modules (m -> not templated? m))
+  apps = list/to_list (list/select p.modules (m -> routed? m))
   conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
   start = aliases [] []
   aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
@@ -83,7 +83,12 @@ pub fn rest p
 
 # A module holding templates is the app's views or one of its components.
 # A component's pub functions are its actions, which its template binds, and
-# none of them is a route.
+# none of them is a route. A module whose name ends in `_mailer` makes the
+# app's mail, as a Rails mailer does, and its pub functions are called by
+# actions in other modules; none of them is a route either.
+fn routed? m
+  not templated? m and not text/ends_with? m.name "_mailer"
+
 fn templated? m
   list/any? (keys m.files) (f -> text/ends_with? f ".kata")
 

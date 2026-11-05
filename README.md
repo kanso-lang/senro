@@ -36,8 +36,11 @@ adds, counts, renames and removes things on a shelf without a page reload.
   derivation writes into the module that declares the record.
   `routes/path_to "posts/index"` and `routes/path_to "posts/show" 3` name the
   route by its action. A name that is no route, or an id where the route
-  takes none, is refused at the call. A module whose member actions (`show`,
-  `edit`, `update`, `destroy`) take no `id` is a singular resource:
+  takes none, is refused at the call. A module whose name ends in
+  `_mailer` makes the app's mail, as a Rails mailer does: its pub functions
+  are called by actions in other modules, and none of them is a route. A
+  module whose member actions (`show`, `edit`, `update`, `destroy`) take no
+  `id` is a singular resource:
   `profile/show` answers GET /profile, and the module has no `index`. An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
   modules, mapping each old path to the action now answering it, as in
@@ -97,35 +100,33 @@ adds, counts, renames and removes things on a shelf without a page reload.
   expects, and checks its certificate against the machine's trusted roots
   (`SSL_CERT_FILE` names others).
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. The server opens a pool of database sessions when
-  it starts (`sessions` in `web.kso`); each request borrows one and gives it
-  back when it has answered, and a request that finds them all lent waits. An
-  action that fails is answered with a 500, its reason goes to standard
-  error, and the server keeps serving. A failure the app expects should be a
-  value its action answers. It serves files under the app's `public/`,
-  answers `web/redirect`, and keeps a session in a signed cookie
-  (`web/session` and `web/kept`). The server stamps each request with the
-  time it arrived, and a sign-in (`web/signed_in`) lasts `web/session_days`,
-  fourteen, from the request that made it; after that the session reads
-  without its viewer. The cookie lasts until the browser closes, and
-  `web/lasting` keeps it for those fourteen days instead, as Devise's
-  "remember me" does; the guestbook's sign-in form offers it. It also serves senro's page script at
-  `/senro.js`. A layout that loads it gets pages that update in place: a
-  link followed or a form sent on the app's own origin is fetched, and the
-  page the server answers is morphed into the live one, so the browser never
-  reloads. Once the app's browser module has loaded, a page the app answers
-  with `views/answer` arrives as data and is rendered in the browser. The
-  script keeps the app's module and the runtime in the browser's Cache
-  Storage, each under its modification time, which the server writes into
-  `/senro.js`, so a returning visitor compiles them without asking for
-  them. Every answer to the script names that version, and a page opened
-  before a deploy that changed it loads itself again, once. A
-  field the visitor is typing in keeps what they typed, unless it was in
-  the form just sent. A form that POSTs a `_method` of `PATCH` or
-  `DELETE` is routed as that method, as in Rails. When a request that isn't
-  a GET finishes, the server notifies Postgres's `senro` channel, and every
-  page holding `/senro/live` open fetches itself again, so one visitor's
-  change shows on another's page.
+  decodes a posted form. The server opens a pool of database sessions when it
+  starts (`sessions` in `web.kso`); each request borrows one and gives it back
+  when it has answered, and a request that finds them all lent waits. An action
+  that fails is answered with a 500, its reason goes to standard error, and the
+  server keeps serving. A failure the app expects should be a value its action
+  answers. It serves files under the app's `public/`, answers `web/redirect`,
+  and keeps a session in a signed cookie (`web/session` and `web/kept`). The
+  server stamps each request with the time it arrived, and a sign-in
+  (`web/signed_in`) lasts `web/session_days`, fourteen, from the request that
+  made it; after that the session reads without its viewer. The cookie lasts
+  until the browser closes, and `web/lasting` keeps it for those fourteen days
+  instead, as Devise's "remember me" does; the guestbook's sign-in form offers
+  it. It also serves senro's page script at `/senro.js`. A layout that loads it
+  gets pages that update in place: a link followed or a form sent on the app's
+  own origin is fetched, and the page the server answers is morphed into the
+  live one, so the browser never reloads. Once the app's browser module has
+  loaded, a page the app answers with `views/answer` arrives as data and is
+  rendered in the browser. The script keeps the app's module and the runtime in
+  the browser's Cache Storage, each under its modification time, which the
+  server writes into `/senro.js`, so a returning visitor compiles them without
+  asking for them. Every answer to the script names that version, and a page
+  opened before a deploy that changed it loads itself again, once. A field the
+  visitor is typing in keeps what they typed, unless it was in the form just
+  sent. A form that POSTs a `_method` of `PATCH` or `DELETE` is routed as that
+  method, as in Rails. When a request that isn't a GET finishes, the server
+  notifies Postgres's `senro` channel, and every page holding `/senro/live` open
+  fetches itself again, so one visitor's change shows on another's page.
 - `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
   the operating system's secure source (`os/random_bytes`).
   `passwords/digested password` describes the stored text, which names its
@@ -154,8 +155,10 @@ adds, counts, renames and removes things on a shelf without a page reload.
   or over SMTP (`smtp://user:pass@host:587`, `smtps://` for TLS from the
   first byte). `smtp://` sends only after STARTTLS and refuses a server that
   does not offer it; `smtp+insecure://` is for a mail catcher on the
-  developer's own machine. A header holding a line break, or an address
-  with no `@`, is refused before anything is sent. A subject that is not
+  developer's own machine. `mail/url_for path` is the link a mail carries:
+  `SENRO_URL`, or `http://127.0.0.1:3000` when it is unset, then the path,
+  and never the request's Host header. A header holding a line break, or an
+  address with no `@`, is refused before anything is sent. A subject that is not
   ASCII travels as RFC 2047 encoded words, and a body that is not ASCII, or
   holds a line longer than SMTP allows, as base64.
 - `browser`: what an app's components and pages need in the browser.

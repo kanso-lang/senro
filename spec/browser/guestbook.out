@@ -2,6 +2,7 @@ a visitor sees: Sign in, Make an account; sign form: none
 Bob, a wrong password: That name and password do not match.
 a name with no account: That name and password do not match.
 taking Bob's name and address with a short password: That name is taken. That address has an account. Use eight characters or more.
+Di, not yet confirmed: Confirm your address first. We have sent the link again.; mail sent: 1
 a link for an address with no account: If that address has an account, a link is on its way to it.; mail sent: 0
 mail to cy@guestbook.test: Reset your guestbook password; mail sent: 1
 after choosing: Your password is changed. Sign in with it.
@@ -21,4 +22,4 @@ Ada asking to remove Bob's entry: 403
 after signing out: Signed out.
 modules fetched by a second load: 0
 after a deploy, fetched: /senro/app.wasm
-Ada's page fetched / as: data, data, data, data, data
+Ada's page fetched / as: data, data, data, data

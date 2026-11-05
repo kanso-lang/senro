@@ -60,11 +60,22 @@ place, rendered on the server.
   either way. The link is GET /resets/:id/edit, where the id is a token from
   `passwords/reset_token`, signed over the account and the digest it keeps;
   PATCH /resets/:id sets the new password. Setting it changes the digest, so
-  the link works once, and it stops working after fifteen minutes. The link
-  starts with `SENRO_URL` (`http://127.0.0.1:3000` when unset) and never with
-  the request's Host header, which the sender chooses. Mail goes where
-  `SENRO_MAIL` says (see senro's README); unset, it is printed to standard
-  error, which is where a developer finds the link.
+  the link works once, and it stops working after fifteen minutes. Setting a
+  password this way also confirms an address that was not yet, since the
+  link proves the visitor reads its mail.
+- A new account confirms its address before it can sign in, as Devise's
+  `confirmable` asks. Sign-up mails a link and does not sign the visitor in;
+  signing in with the right password before confirming is refused with a
+  403, and the link is sent again. The link is GET /confirmations/:id/edit,
+  which shows a button and changes nothing, so a mail scanner that fetches
+  every link confirms nobody; the button's PATCH /confirmations/:id stamps
+  the account's `confirmed` column. The token is bound to the address and
+  to that column being empty, so it works once, and it lasts a day.
+- `account_mailer.kso` holds both letters and the links they carry, which
+  start with `mail/url_for`. A module whose name ends in `_mailer` is no
+  resource, so `accounts`, `session`, `resets` and `confirmations` can all
+  call it. Mail goes where `SENRO_MAIL` says (see senro's README); unset, it
+  is printed to standard error, which is where a developer finds the link.
 - Signing in keeps the account's name in the session, a cookie signed with
   HMAC-SHA-256, as its viewer; a cookie whose signature does not match reads
   as an empty session. `entries/create` signs with the viewer's name, so

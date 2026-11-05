@@ -25,6 +25,9 @@ pub fn index req db
 # A development secret. A deployed guestbook signs its sessions with its own.
 pub secret = "the guestbook's development secret"
 
+# Who the guestbook's mail comes from.
+pub sender = "Guestbook <noreply@guestbook.test>"
+
 # A signature is made through its model, whose rules decide whether it is
 # fit to keep. It is signed with the name of the account signed in. The
 # fields go to Postgres as parameters, so what a visitor types is stored as
