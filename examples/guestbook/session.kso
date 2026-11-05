@@ -87,9 +87,23 @@ fn entered req db name a password remember t
   return shut req name right if locked? a t
   return missed req db name a t if not right
   return unconfirmed req name a if a.confirmed == ""
-  pg/query db cleared [a.id] .> (_ -> signed req name a remember)
+  arrived = [a.id "{t}" (web/peer req)]
+  pg/query db cleared arrived .> (_ -> signed req name a remember)
 
-cleared = "update accounts set failures = 0, locked = '' where id = $1"
+# The right password ends a run of wrong ones, and the sign-in is counted and
+# stamped, the one before it kept beside it, in the same statement. The time
+# is the app's clock, written as UTC to the minute.
+cleared = """
+  update accounts set failures = 0, locked = '',
+    sign_in_count = sign_in_count + 1,
+    last_sign_in_at = current_sign_in_at,
+    current_sign_in_at = to_char(
+      to_timestamp($2::bigint / 1000) at time zone 'UTC',
+      'YYYY-MM-DD HH24:MI "UTC"'),
+    last_sign_in_ip = current_sign_in_ip,
+    current_sign_in_ip = $3
+  where id = $1
+"""
 
 fn locked? a t
   return false if a.locked == ""
