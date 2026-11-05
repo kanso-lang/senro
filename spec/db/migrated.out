@@ -1,0 +1,6 @@
+[{ "names":"id heading body" }]
+[{ "ran":"notebook: 1 2 3" } { "ran":"shelf: 1" }]
+[{ "names":"kept" }]
+notebook's migration 2 has changed since it ran:
+  ran: alter table notes add column if not exists body text
+  now: alter table notes add column if not exists body varchar(80)

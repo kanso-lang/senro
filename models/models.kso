@@ -437,6 +437,77 @@ fn making table none
 fn making table columns
   "create table if not exists {table} ({text/join columns ", "})"
 
+# The migrations of the app named `app` that have not yet run against `db`,
+# run in order, as Rails runs the ones `schema_migrations` does not list.
+# Each is recorded in `senro_migrations` under the app's name and its place
+# in `all`, beside the SQL it ran, inside the transaction that ran it, so a
+# migration runs once, and two apps can share a database. One whose SQL has
+# changed since it ran is refused, and the app does not start: a change that
+# has run is history, and a new one goes at the end of `all`. The session
+# comes back when every migration has run, so `.>` carries it on.
+#
+# Each change does nothing when its work is already done, so a database made
+# before migrations were recorded takes the whole list safely the first time.
+pub fn migrated db app all
+  pg/run db ledger
+    .> (_ -> pg/query db history [app])
+    .> (r -> pending db app all (recorded r.rows))
+
+ledger = """
+  create table if not exists senro_migrations
+    (app text, version int, change text not null, primary key (app, version))
+"""
+
+history = "select version, change from senro_migrations where app = $1"
+
+fn recorded rows
+  each = (acc row -> put acc "{cell row "version"}" (cell row "change"))
+  list/fold rows {} each
+
+fn pending db app all before
+  each = (acc c -> acc .> (n -> ran db app before n c))
+  list/fold all (effect 1) each .> (_ -> effect db)
+
+fn ran db app before n c
+  version = "{n}"
+  sql = statement_of c
+  stepped db app version sql before[version] .> (_ -> effect (n + 1))
+
+fn stepped db app version sql none
+  pg/run db "begin; {sql}"
+    .> (_ -> pg/query db record [app version sql])
+    .> (_ -> pg/run db "commit")
+    .> (_ -> effect db)
+
+fn stepped db app version sql was
+  return effect db if was == sql
+  changed = "{app}'s migration {version} has changed since it ran"
+  err "{changed}:\n  ran: {was}\n  now: {sql}"
+
+record = """
+  insert into senro_migrations (app, version, change)
+  values ($1, $2, $3)
+"""
+
+fn statement_of c:new_table
+  columns = text/join (list/to_list (list/map c.columns spelled)) ", "
+  "create table if not exists {c.name} ({columns})"
+
+fn statement_of c:added_column
+  "alter table {c.table} add column if not exists {spelled c.column}"
+
+# Postgres renames no column that is missing, so the rename asks first.
+fn statement_of c:renamed_column
+  t = c.table
+  here = "table_schema = current_schema() and table_name = '{t}'"
+  found = "select from information_schema.columns where {here}"
+  named = "{found} and column_name = '{c.from}'"
+  renaming = "alter table {t} rename column {c.from} to {c.to}"
+  "do $$ begin if exists ({named}) then {renaming}; end if; end $$"
+
+fn statement_of c:dropped_column
+  "alter table {c.table} drop column if exists {c.name}"
+
 # The comparison an app runs as it starts: the live database's tables against
 # the schema it was compiled with. Each table in `schema` is made again as a
 # temporary shadow from the same column definitions, so Postgres reads `serial`

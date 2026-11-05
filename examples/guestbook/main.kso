@@ -20,8 +20,6 @@ derive kata/views
 derive models/tables
 derive routes/rest
 
-made = models/made schema
-
 # The components whose actions run on the server.
 served = { "removal":(web/component removal/act removal/view) }
 
@@ -34,6 +32,7 @@ served_routes = web/requiring_sign_in acting entries/secret bound_of
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
 connected
-  .> (db -> pg/run db made .> (_ -> models/compared db schema))
+  .> (db -> models/migrated db "guestbook" migrations/all)
+  .> (db -> models/compared db schema)
   .> (db -> pg/close db)
   .> (_ -> web/serve 3000 served_routes connected)

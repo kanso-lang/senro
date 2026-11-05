@@ -1,0 +1,58 @@
+import "../../../models"
+import "../../../pg"
+
+# A table made before migrations were recorded takes its migrations as the
+# app starts: the one that made it does nothing, and the rest run. A later
+# start with a migration added runs only that one, and a start with nothing
+# new runs none, so the row kept from the start survives every one. A start
+# whose list has changed a migration that ran is refused, naming it. A second
+# app in the same database keeps a count of its own.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec;
+  create table notes (id serial, title text);
+  insert into notes (title) values ('kept')
+"""
+
+id = models/column "id" "serial"
+
+title = models/column "title" "text"
+
+body = models/column "body" "text"
+
+notes = models/create_table "notes" [id title]
+
+bodied = models/add_column "notes" body
+
+renamed = models/rename_column "notes" "title" "heading"
+
+edited = models/add_column "notes" (models/column "body" "varchar(80)")
+
+shelved = models/create_table "shelf" [id title]
+
+columns = """
+  select string_agg(column_name, ' ' order by ordinal_position) as names
+  from information_schema.columns
+  where table_schema = 'senro_spec' and table_name = 'notes'
+"""
+
+versions = """
+  select app || ': ' || string_agg(version::text, ' ' order by version) as ran
+  from senro_migrations group by app order by app
+"""
+
+heading = "select string_agg(heading, ' ') as names from notes"
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "notebook" [notes bodied])
+  .> (db -> models/migrated db "notebook" [notes bodied renamed])
+  .> (db -> models/migrated db "shelf" [shelved])
+  .> (db -> models/migrated db "notebook" [notes bodied renamed])
+  .> (db -> pg/query db columns [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> pg/query db versions [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> pg/query db heading [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> models/migrated db "notebook" [notes edited renamed])
+  .> (_ -> print "a changed migration ran")
+  .? (u -> print u.reason)

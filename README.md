@@ -78,15 +78,22 @@ adds, counts, renames and removes things on a shelf without a page reload.
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a
   `signature` from a row a query answered, taking each field from the column
-  of the same name, or "" when the row has none. As the
-  app starts, `models/compared db schema` reads the live tables and answers
-  the session when they agree with the schema, or an err naming every column
-  whose name, type or nullness differs and every table that is missing.
-  Defaults and constraints are not compared. An app whose migrations need SQL
-  the fold cannot read, such as a trigger, checks in `pg_dump --schema-only`
-  output as `schema.sql` beside its entry, and the schema is read from its
-  `CREATE TABLE` blocks instead of the migrations. The dump is loaded with
-  psql, which reads the lines Postgres's protocol does not.
+  of the same name, or "" when the row has none. As the app starts,
+  `models/migrated db app migrations/all` runs the migrations the database has
+  not yet run, in order, and records each in `senro_migrations` under the app's
+  name and its place in the list, beside the SQL it ran, as Rails records them
+  in `schema_migrations`; two apps can share a database. A migration runs once;
+  one whose SQL has changed since it ran stops the app, naming it, so a new
+  change goes at the end of the list. Each change does nothing when its work is
+  already done, so a database made before migrations were recorded takes the
+  list safely the first time. Then `models/compared db schema` reads the live
+  tables and answers the session when they agree with the schema, or an err
+  naming every column whose name, type or nullness differs and every table that
+  is missing. Defaults and constraints are not compared. An app whose migrations
+  need SQL the fold cannot read, such as a trigger, checks in `pg_dump
+  --schema-only` output as `schema.sql` beside its entry, and the schema is read
+  from its `CREATE TABLE` blocks instead of the migrations. The dump is loaded
+  with psql, which reads the lines Postgres's protocol does not.
   A model's module may also declare policies, `update?` and `destroy?`,
   each taking the viewer and the row. The derivation describes each model
   with an `id` as a value (`signature_model`), and `models/updated` and
