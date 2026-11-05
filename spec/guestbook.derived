@@ -649,6 +649,12 @@ fn kata_answered _ code node
   ]
   http/respond code heard (json/encode node)
 schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # models/tables
+# in signatures, by models/tables
+pub type signature
+  id
+  name
+  message
+  photo
 # in account, by models/tables
 pub fn account_from row
   id = account_cell row["id"]

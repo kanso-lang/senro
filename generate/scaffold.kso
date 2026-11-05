@@ -264,7 +264,7 @@ pub fn resource senro singular fields
   plural = models/plural singular
   parts = [
     (imports senro)
-    (record singular plural fields)
+    (record singular plural)
     (policies singular fields)
     (actions_of plural fields (parent_of fields))
     (helpers_of singular plural fields (parent_of fields))
@@ -299,16 +299,16 @@ fn wrapped acc word
   return wrap (list/concat acc.lines [acc.line]) word if over
   wrap acc.lines "{acc.line} {word}"
 
-fn record singular plural fields
+# The record is the table's: the module is named for it, so the models
+# derivation declares it from the migrations, and the module says so.
+fn record singular plural
   about = [
-    "A {singular} as the `{plural}` table stores it. The models derivation"
-    "checks each field against the table's columns, and writes"
-    "`{singular}_from`, which builds one from a row, and `{singular}_model`,"
-    "which the writes below go through."
+    "A {singular} is a row of the `{plural}` table. This module is named for"
+    "the table, so the models derivation declares `{singular}` here with a"
+    "field for each column, and writes `{singular}_from`, which builds one"
+    "from a row, and `{singular}_model`, which the writes below go through."
   ]
-  head = [(comment (text/join about " ")) "pub type {singular}" "  id"]
-  each = list/to_list (list/map fields (f -> "  {f.name}"))
-  text/join (list/concat head (list/concat each [""])) "\n"
+  "{comment (text/join about " ")}\n#"
 
 fn policies singular fields
   about = [
