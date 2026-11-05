@@ -33,7 +33,12 @@ pub fn problems r
 model = note_model
 
 pub fn index req db
-  pg/query db listed [] .> (r -> effect (listing req r.rows))
+  number = models/page_number (web/value (web/query req) "page")
+  asked = models/paged db listed [] number per_page
+  asked .> (p -> effect (listing req p))
+
+# How many rows a page of the list shows.
+per_page = 25
 
 column_names = ["id" "title" "pages" "cover"]
 
@@ -64,9 +69,9 @@ pub fn update req db id:int
 pub fn destroy _ db id:int
   models/destroyed "" db model "{id}" .> (w -> effect (gone w))
 
-fn listing req rows
-  every = list/to_list (list/map rows note_from)
-  page = views/notes_index_view every
+fn listing req p
+  every = list/to_list (list/map p.rows note_from)
+  page = views/notes_index_view every p.number p.more
   views/answer_as req 200 (views/layout_view "Notes" page)
 
 fn shown _ none

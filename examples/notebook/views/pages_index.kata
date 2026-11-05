@@ -1,4 +1,4 @@
-takes note_id rows
+takes note_id rows number more
 header
   h1 Pages
   p.lede
@@ -8,3 +8,8 @@ ul.pages
   for r in rows
     li
       a href="/notes/{note_id}/pages/{r.id}" = r.body
+nav.pages
+  if number > 1
+    a href="/notes/{note_id}/pages?page={number - 1}" Previous page
+  if more
+    a href="/notes/{note_id}/pages?page={number + 1}" Next page
