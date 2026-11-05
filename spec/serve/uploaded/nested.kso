@@ -60,7 +60,7 @@ fn file_head name filename kind
 
 # One request, its head and its body written apart, and the whole answer.
 fn sent h b
-  net/dial "127.0.0.1" 54410 .> (c -> wrote c h b)
+  net/dial "127.0.0.1" 24410 .> (c -> wrote c h b)
 
 fn wrote c h b
   net/write c h
@@ -163,7 +163,7 @@ fn status raw
 
 # A client that asks to continue hears so before it sends its body, and then
 # the answer to the whole request.
-continued = net/dial "127.0.0.1" 54410 .> (c -> waited c)
+continued = net/dial "127.0.0.1" 24410 .> (c -> waited c)
 
 fn waited c
   net/write c (text/join asking_lines "\r\n")

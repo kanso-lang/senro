@@ -23,7 +23,7 @@ pub fn index _ _
     .> (answers -> effect (http/text_page (text/join answers "\n")))
 
 fn asked a got
-  net/dial "127.0.0.1" 54408 .> (c -> asking c a) .> (r -> effect (push got r))
+  net/dial "127.0.0.1" 24408 .> (c -> asking c a) .> (r -> effect (push got r))
 
 fn asking c a
   head = "{a} HTTP/1.1\r\nhost: localhost\r\ncontent-length: 0\r\n\r\n"

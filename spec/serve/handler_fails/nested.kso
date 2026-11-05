@@ -9,7 +9,7 @@ pub fn index _ _
   asked "/broken" .> (first -> asked "/plain" .> (then -> said first then))
 
 fn asked path
-  net/dial "127.0.0.1" 54402 .> (c -> sent c path)
+  net/dial "127.0.0.1" 24402 .> (c -> sent c path)
 
 fn sent c path
   net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n\r\n"

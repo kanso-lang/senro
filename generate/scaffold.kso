@@ -9,10 +9,11 @@ import "std/text"
 # without writing it.
 #
 # A field is written `name:kind` on the command line. A kind is `text` or
-# `int`, the two a form's fields read back as without a parser of their own,
-# or `references`: `note:references` is a column `note_id` holding a row of
+# `int`, the two a form's fields read back as without a parser of their own;
+# `references`: `note:references` is a column `note_id` holding a row of
 # `notes`, and the resource is nested under them, as Rails' generator reads
-# it.
+# it; or `attachment`: `cover:attachment` is a file chosen in the form, kept
+# by senro under a key, and the column holds the key.
 pub type field
   name
   kind
@@ -74,7 +75,7 @@ fn field_of word
   return unreadable word kinds if kind == ""
   referred word (checked_name word parts[1] kind)
 
-kinds = "a field is name:text, name:int or name:references"
+kinds = "a field is name:text, name:int, name:references or name:attachment"
 
 # A reference's field is the parent's id. Its name is kept short, since the
 # nested actions write the id's name twice on some lines.
@@ -130,6 +131,9 @@ fn column_kind "int"
 fn column_kind "references"
   "references"
 
+fn column_kind "attachment"
+  "attachment"
+
 fn column_kind _
   ""
 
@@ -152,6 +156,9 @@ fn column_line plural f
 
 fn column_type "references"
   "integer not null"
+
+fn column_type "attachment"
+  "text not null default ''"
 
 fn column_type kind
   kind
@@ -364,7 +371,12 @@ fn actions plural fields
   changed_then = ".> (w -> effect (changed req id w))"
   lines = [
     "pub fn index req db"
-    "  pg/query db listed [] .> (r -> effect (listing req r.rows))"
+    "  number = models/page_number (web/value (web/query req) \"page\")"
+    "  asked = models/paged db listed [] number per_page"
+    "  asked .> (p -> effect (listing req p))"
+    ""
+    (comment per_page_about)
+    "per_page = 25"
     ""
     (list_line "column_names =" "" quoted)
     ""
@@ -381,7 +393,7 @@ fn actions plural fields
     "  effect (form req \"/{plural}\" \"POST\" blank \{} 200)"
     ""
     "pub fn create req db"
-    "  given = picked (web/form req.body)"
+    "  given = {made_with fields} (web/form req.body)"
     "  models/created \"\" db model given .> (w -> effect (made req w))"
     ""
     "pub fn edit req db id:int"
@@ -403,9 +415,9 @@ fn helpers singular plural fields
   every_title = capitalized plural
   path = "\"/{plural}/\{id}\""
   lines = [
-    "fn listing req rows"
-    "  every = list/to_list (list/map rows {singular}_from)"
-    "  page = views/{plural}_index_view every"
+    "fn listing req p"
+    "  every = list/to_list (list/map p.rows {singular}_from)"
+    "  page = views/{plural}_index_view every p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
@@ -461,7 +473,7 @@ fn helpers singular plural fields
     ""
     (map_line "fn filled r" "  " fields (f -> "\"\{r.{f.name}}\""))
     ""
-    (map_line "fn picked f" "  " fields (f -> "(web/value f \"{f.name}\")"))
+    (picked_lines fields)
   ]
   text/join lines "\n"
 
@@ -484,9 +496,13 @@ fn nested_actions plural fields parent
   lines = [
     (comment (text/join about " "))
     "pub fn index req db {k}:int"
-    "  asked = pg/query db listed [\"\{{k}}\"]"
-    "  listing_of = (r -> effect (listing req {k} r.rows))"
+    "  number = models/page_number (web/value (web/query req) \"page\")"
+    "  asked = models/paged db listed [\"\{{k}}\"] number per_page"
+    "  listing_of = (p -> effect (listing req {k} p))"
     "  within db {k} (asked .> listing_of)"
+    ""
+    (comment per_page_about)
+    "per_page = 25"
     ""
     (list_line "column_names =" "" quoted)
     ""
@@ -513,7 +529,7 @@ fn nested_actions plural fields parent
     "  within db {k} (effect (form req path \"POST\" blank \{} 200))"
     ""
     "pub fn create req db {k}:int"
-    "  given = put (picked (web/form req.body)) \"{k}\" \"\{{k}}\""
+    "  given = put ({made_with fields} (web/form req.body)) \"{k}\" \"\{{k}}\""
     "  making = models/created \"\" db model given"
     "  made_of = (w -> effect (made req {k} w))"
     "  within db {k} (making .> made_of)"
@@ -571,9 +587,9 @@ fn nested_helpers singular plural fields parent
   every_title = capitalized plural
   mine = own fields
   lines = [
-    "fn listing req {k} rows"
-    "  every = list/to_list (list/map rows {singular}_from)"
-    "  page = views/{plural}_index_view {k} every"
+    "fn listing req {k} p"
+    "  every = list/to_list (list/map p.rows {singular}_from)"
+    "  page = views/{plural}_index_view {k} every p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
@@ -631,9 +647,37 @@ fn nested_helpers singular plural fields parent
     ""
     (map_line "fn filled r" "  " mine (f -> "\"\{r.{f.name}}\""))
     ""
-    (map_line "fn picked f" "  " mine (f -> "(web/value f \"{f.name}\")"))
+    (picked_lines mine)
   ]
   text/join lines "\n"
+
+# The fields a form sends, as the change they make. A file input left empty
+# sends "", and that keeps the file a row has, so its field is left out.
+fn picked_lines fields
+  value = (f -> "(web/value f \"{f.name}\")")
+  files = attachments fields
+  return map_line "fn picked f" "  " fields value if length files == 0
+  quoted = list/to_list (list/map files (f -> "\"{f.name}\""))
+  lines = [
+    "fn picked f"
+    (list_line "  without_empty_files (sent f)" "  " quoted)
+    ""
+    (map_line "fn sent f" "  " fields value)
+    ""
+    "fn without_empty_files given names"
+    "  list/fold names given (m n -> if (m[n] == \"\") (delete m n) m)"
+  ]
+  text/join lines "\n"
+
+# A new row takes every field as sent, an empty file field too, since it
+# has no file to keep.
+fn made_with fields
+  if (length (attachments fields) == 0) "picked" "sent"
+
+fn attachments fields
+  list/to_list (list/select fields (f -> f.kind == "attachment"))
+
+per_page_about = "How many rows a page of the list shows."
 
 fn form_about singular
   about = [
@@ -682,7 +726,7 @@ fn index_of singular fields none
   plural = models/plural singular
   first = (said_field (list/first fields)).name
   lines = [
-    "takes rows"
+    "takes rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
@@ -692,6 +736,7 @@ fn index_of singular fields none
     "    li"
     "      a href=\"/{plural}/\{r.id}\" = r.{first}"
   ]
+  lines = list/concat lines (page_links "/{plural}")
   "{text/join lines "\n"}\n"
 
 fn index_of singular fields parent
@@ -701,7 +746,7 @@ fn index_of singular fields parent
   at = "/{models/plural name}/\{{k}}"
   first = (said_field (list/first (own fields))).name
   lines = [
-    "takes {k} rows"
+    "takes {k} rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
@@ -712,6 +757,7 @@ fn index_of singular fields parent
     "    li"
     "      a href=\"{at}/{plural}/\{r.id}\" = r.{first}"
   ]
+  lines = list/concat lines (page_links "{at}/{plural}")
   "{text/join lines "\n"}\n"
 
 fn said_field none
@@ -734,7 +780,7 @@ fn listed_at plural parent
 
 fn shown_under singular fields at
   plural = models/plural singular
-  each = spread (own fields) (f -> ["  dt {f.name}" "  dd = row.{f.name}"])
+  each = spread (own fields) shown_lines
   head = [
     "takes row"
     "header"
@@ -753,6 +799,16 @@ fn shown_under singular fields at
   ]
   "{text/join (list/concat lines tail) "\n"}\n"
 
+# A field as the page shows it: its value, or a link to the file it keeps.
+fn shown_lines f
+  return ["  dt {f.name}" "  dd = row.{f.name}"] if f.kind != "attachment"
+  [
+    "  dt {f.name}"
+    "  dd"
+    "    if row.{f.name} != \"\""
+    "      a href=\"/senro/blobs/\{row.{f.name}}\" open"
+  ]
+
 pub fn form_view singular fields
   plural = models/plural singular
   each = spread (own fields) field_lines
@@ -762,7 +818,7 @@ pub fn form_view singular fields
     "  h1 {capitalized singular}"
     "  p.lede"
     (back_link plural (parent_of fields))
-    "form method=\"post\" action=path"
+    (form_line (attachments fields))
     "  input type=\"hidden\" name=\"_method\" value=method"
   ]
   lines = list/concat (list/concat head each) ["  button Save"]
@@ -776,11 +832,40 @@ fn back_link plural none
 fn back_link _ _
   "    a href=path Back"
 
+# A form with a file in it is sent as multipart/form-data, which carries
+# the file.
+fn form_line files
+  plain = "form method=\"post\" action=path"
+  return plain if length files == 0
+  "{plain} enctype=\"multipart/form-data\""
+
 fn field_lines f
+  return file_lines f if f.kind == "attachment"
   [
     "  label"
     "    | {f.name}"
     "    input name=\"{f.name}\" value=fields[\"{f.name}\"]"
     "  if problems[\"{f.name}\"] != none"
     "    p.problem = problems[\"{f.name}\"]"
+  ]
+
+# A file input shows no value, so the form says when the row keeps a file.
+fn file_lines f
+  [
+    "  label"
+    "    | {f.name}"
+    "    input type=\"file\" name=\"{f.name}\""
+    "  if fields[\"{f.name}\"] != \"\""
+    "    p.kept Leave it empty to keep the file it has."
+  ]
+
+# The links to the pages either side of the one shown, each only when that
+# page has rows.
+fn page_links path
+  [
+    "nav.pages"
+    "  if number > 1"
+    "    a href=\"{path}?page=\{number - 1}\" Previous page"
+    "  if more"
+    "    a href=\"{path}?page=\{number + 1}\" Next page"
   ]

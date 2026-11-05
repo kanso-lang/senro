@@ -9,13 +9,13 @@ import "std/text"
 # a GET from anywhere looks.
 knocks = [
   "POST /door|"
-  "POST /door|origin: http://localhost:54406"
+  "POST /door|origin: http://localhost:24406"
   "POST /door|origin: https://elsewhere.example"
   "POST /door|origin: null"
   "POST /door|sec-fetch-site: same-origin"
   "POST /door|sec-fetch-site: cross-site"
   "POST /door|sec-fetch-site: same-site"
-  "POST /door|sec-fetch-site: cross-site\r\norigin: http://localhost:54406"
+  "POST /door|sec-fetch-site: cross-site\r\norigin: http://localhost:24406"
   "GET /door|sec-fetch-site: cross-site"
 ]
 
@@ -27,14 +27,14 @@ fn more got k
   knocked k .> (raw -> effect (push got "{shown k}: {heard raw}"))
 
 fn knocked k
-  net/dial "127.0.0.1" 54406 .> (c -> knocking c k)
+  net/dial "127.0.0.1" 24406 .> (c -> knocking c k)
 
 fn knocking c k
   parts = text/split k "|"
   first = list/first parts
   extra = text/join (list/to_list (list/drop parts 1)) ""
   more_head = if (extra == "") "" "{extra}\r\n"
-  head = "{first} HTTP/1.1\r\nhost: localhost:54406\r\n{more_head}"
+  head = "{first} HTTP/1.1\r\nhost: localhost:24406\r\n{more_head}"
   net/write c "{head}content-length: 0\r\n\r\n"
     .> (_ -> net/read c)
     .> (raw -> net/close_conn c .> (_ -> effect raw))

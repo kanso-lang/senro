@@ -29,9 +29,14 @@ pub fn problems r
 model = note_model
 
 pub fn index req db
-  pg/query db listed [] .> (r -> effect (listing req r.rows))
+  number = models/page_number (web/value (web/query req) "page")
+  asked = models/paged db listed [] number per_page
+  asked .> (p -> effect (listing req p))
 
-column_names = ["id" "title" "pages"]
+# How many rows a page of the list shows.
+per_page = 25
+
+column_names = ["id" "title" "pages" "cover"]
 
 columns = text/join column_names ", "
 
@@ -46,7 +51,7 @@ pub fn new req _
   effect (form req "/notes" "POST" blank {} 200)
 
 pub fn create req db
-  given = picked (web/form req.body)
+  given = sent (web/form req.body)
   models/created "" db model given .> (w -> effect (made req w))
 
 pub fn edit req db id:int
@@ -60,9 +65,9 @@ pub fn update req db id:int
 pub fn destroy _ db id:int
   models/destroyed "" db model "{id}" .> (w -> effect (gone w))
 
-fn listing req rows
-  every = list/to_list (list/map rows note_from)
-  page = views/notes_index_view every
+fn listing req p
+  every = list/to_list (list/map p.rows note_from)
+  page = views/notes_index_view every p.number p.more
   views/answer_as req 200 (views/layout_view "Notes" page)
 
 fn shown _ none
@@ -115,10 +120,20 @@ fn form req path method fields problems code
   page = views/note_form_view path method fields problems
   views/answer_as req code (views/layout_view "Note" page)
 
-blank = { "pages":"" "title":"" }
+blank = { "cover":"" "pages":"" "title":"" }
 
 fn filled r
-  { "pages":"{r.pages}" "title":"{r.title}" }
+  { "cover":"{r.cover}" "pages":"{r.pages}" "title":"{r.title}" }
 
 fn picked f
-  { "pages":(web/value f "pages") "title":(web/value f "title") }
+  without_empty_files (sent f) ["cover"]
+
+fn sent f
+  {
+    "cover":(web/value f "cover")
+    "pages":(web/value f "pages")
+    "title":(web/value f "title")
+  }
+
+fn without_empty_files given names
+  list/fold names given (m n -> if (m[n] == "") (delete m n) m)

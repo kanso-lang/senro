@@ -47,7 +47,7 @@ usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
   "       kanso run generate -- authentication <app>"
-  "a kind is text, int or references"
+  "a kind is text, int, references or attachment"
 ]
 
 fn refused why

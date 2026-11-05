@@ -7,7 +7,7 @@ import "std/text"
 # answer says so, or a browser keeps the connection to send another request
 # down it. This asks for a page and shows the answer's `connection` header.
 pub fn index _ _
-  net/dial "127.0.0.1" 54412 .> (c -> asked c)
+  net/dial "127.0.0.1" 24412 .> (c -> asked c)
 
 fn asked c
   net/write c "GET /note HTTP/1.1\r\nhost: localhost\r\n\r\n"

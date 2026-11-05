@@ -17,7 +17,7 @@ fn signing a b
     .> (c -> asked "GET" "/notes/new" (cookie_of c) .> (d -> said [a b c d]))
 
 fn asked method path cookie
-  net/dial "127.0.0.1" 54405 .> (c -> sent c method path cookie)
+  net/dial "127.0.0.1" 24405 .> (c -> sent c method path cookie)
 
 fn sent c method path cookie
   head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"

@@ -1,8 +1,11 @@
 # Uses an app `generate` made, over HTTP, as a visitor would. A visitor who
 # has not signed in is sent to sign in; one makes an account, which signs
 # them in. Then the notes: lists them, gives a page count that is no number,
-# makes one, shows it, opens its form, changes it, removes it, and asks for
-# it again. Then the pages nested under a note: makes one, asks for it under
+# makes one, shows it, opens its form, changes it, asks for the list's second
+# page, which is empty and links back to the first, removes it, and asks for
+# it again. Then a note with a cover: the file is sent as a browser sends
+# it, comes back as it was sent, and stays when the note is changed without
+# choosing another. Then the pages nested under a note: makes one, asks for it under
 # another note and under one that is not there, changes it, and removes its
 # note, which removes it. Last, signing out, a wrong password, and a lost
 # one: a link is mailed to <outbox>, followed, and the new password signs
@@ -36,8 +39,29 @@ echo "it shows: $(page "$made")"
 echo "its form: $(c "$at$made/edit" | grep -o 'value="[^"]*"' | tr '\n' ' ')"
 echo "changing it: $(sent "$made" "_method=PATCH&title=Renamed&pages=13")"
 echo "the list then: $(page /notes)"
+echo "its second page: $(page "/notes?page=2")"
 echo "removing it: $(sent "$made" "_method=DELETE")"
 echo "asked for again: $(c -o /dev/null -w "%{http_code}" "$at$made")"
+
+# A note with a cover. The cover's key is random, so it is not printed.
+png=$(mktemp)
+got=$(mktemp)
+printf '\211PNG\r\n\032\n\000\377 a cover' > "$png"
+covered=$(c -o /dev/null -w "%{redirect_url}" -F title=Covered -F pages=3 \
+  -F "cover=@$png;type=image/png" "$at/notes" | sed "s|$at||")
+echo "a note with a cover: $(page "$covered")"
+cover=$(c "$at$covered" | grep -o '/senro/blobs/[0-9a-f]*')
+fetched=$(c -o "$got" -w "%{http_code} %{content_type}" "$at$cover")
+same=$(cmp -s "$png" "$got" && echo "as sent" || echo "changed")
+echo "its cover: $fetched, $same"
+echo "its form: $(c "$at$covered/edit" | grep -o 'Leave it empty[^<]*')"
+changed=$(c -o /dev/null -w "%{http_code}" -F _method=PATCH -F title=Recovered \
+  -F pages=4 -F cover= "$at$covered")
+echo "changed without a file: $changed"
+again=$(c "$at$covered" | grep -o '/senro/blobs/[0-9a-f]*')
+echo "its cover then: $([ "$again" = "$cover" ] && echo "the same" || echo "$again")"
+c -o /dev/null -d "_method=DELETE" "$at$covered"
+rm -f "$png" "$got"
 
 # A note with a page, and another note.
 asked() { c -o /dev/null -w "%{http_code} %{redirect_url}" "$@" | sed "s|$at||" | ids; echo; }

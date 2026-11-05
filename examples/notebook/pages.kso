@@ -29,9 +29,13 @@ model = page_model
 # is found only under its own note, and a note that is not there has none to
 # list or make.
 pub fn index req db note_id:int
-  asked = pg/query db listed ["{note_id}"]
-  listing_of = (r -> effect (listing req note_id r.rows))
+  number = models/page_number (web/value (web/query req) "page")
+  asked = models/paged db listed ["{note_id}"] number per_page
+  listing_of = (p -> effect (listing req note_id p))
   within db note_id (asked .> listing_of)
+
+# How many rows a page of the list shows.
+per_page = 25
 
 column_names = ["id" "body" "note_id"]
 
@@ -107,9 +111,9 @@ fn listed_path note_id
 fn shown_path note_id id
   "{listed_path note_id}/{id}"
 
-fn listing req note_id rows
-  every = list/to_list (list/map rows page_from)
-  page = views/pages_index_view note_id every
+fn listing req note_id p
+  every = list/to_list (list/map p.rows page_from)
+  page = views/pages_index_view note_id every p.number p.more
   views/answer_as req 200 (views/layout_view "Pages" page)
 
 fn shown _ none
