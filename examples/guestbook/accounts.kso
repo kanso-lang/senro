@@ -58,6 +58,6 @@ fn made _ _
 # if any. A password is never sent back.
 fn opened req name problems code
   heading = "Make an account"
-  page = views/door_view heading "/accounts" "Make it" name problems
+  page = views/door_view heading "/accounts" "Make it" name problems false
   framed = views/layout_view "Make an account · Guestbook" page
   views/answer_as req code framed

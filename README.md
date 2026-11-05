@@ -107,7 +107,9 @@ adds, counts, renames and removes things on a shelf without a page reload.
   (`web/session` and `web/kept`). The server stamps each request with the
   time it arrived, and a sign-in (`web/signed_in`) lasts `web/session_days`,
   fourteen, from the request that made it; after that the session reads
-  without its viewer. It also serves senro's page script at
+  without its viewer. The cookie lasts until the browser closes, and
+  `web/lasting` keeps it for those fourteen days instead, as Devise's
+  "remember me" does; the guestbook's sign-in form offers it. It also serves senro's page script at
   `/senro.js`. A layout that loads it gets pages that update in place: a
   link followed or a form sent on the app's own origin is fetched, and the
   page the server answers is morphed into the live one, so the browser never

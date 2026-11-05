@@ -245,12 +245,12 @@ fn marked n
   n
 
 fn swept seen t
-  list/fold (keys seen) seen (acc k -> forgotten acc k seen[k] t)
+  list/fold (keys seen) seen (acc k -> pruned acc k seen[k] t)
 
-fn forgotten acc _ none _
+fn pruned acc _ none _
   acc
 
-fn forgotten acc k (tally within times) t
+fn pruned acc k (tally within times) t
   return acc if list/any? times (when -> when > t - within)
   delete acc k
 
@@ -724,10 +724,26 @@ pub fn signed_in req r secret held id
   kept r secret (put (put held "viewer" id) "since" since)
 
 # The response, with `held` kept as the session the next request reads.
+#
+# The cookie lasts as long as the browser does, so closing it signs the
+# visitor out. `lasting` keeps it past that.
 pub fn kept r secret held
   sealed = sealed_of secret held
   line = "set-cookie: senro={sealed}; Path=/; HttpOnly; SameSite=Lax"
   http/respond r.status (push r.headers line) r.body
+
+# The response `r`, with the session cookie it sets kept by the browser for
+# `session_days` rather than until it closes, as Devise's "remember me" does.
+# A sign-in still ends `session_days` after it began, because the session
+# keeps the time it began; this only lets it outlive the browser. A response
+# that sets no session cookie is answered unchanged.
+pub fn lasting r
+  kept_on = list/to_list (list/map r.headers lasted)
+  http/respond r.status kept_on r.body
+
+fn lasted line
+  return line if not text/starts_with? line "set-cookie: senro="
+  "{line}; Max-Age={session_days * 24 * 60 * 60}"
 
 fn sealed_of secret held
   body = base64/encode (text/bytes (json/encode held))

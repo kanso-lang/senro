@@ -1,3 +1,4 @@
+import "std/list"
 import "std/net/http"
 import "std/text"
 
@@ -23,3 +24,13 @@ pub fn forged sealed
 pub fn asked_at v t
   raw = "GET / HTTP/1.1\r\ncookie: senro={v}\r\nsenro-at: {t}\r\n\r\n"
   http/parsed raw
+
+# What the senro cookie in a rendered response says after its value: its
+# path, flags and, when it outlives the browser, its age.
+pub fn attributes_of rendered
+  after = text/split rendered "senro="
+  return "" if length after < 2
+  lines = text/split after[2] "\r\n"
+  return "" if length lines < 1
+  parts = list/to_list (list/drop (text/split lines[1] "; ") 1)
+  text/join parts "; "

@@ -96,7 +96,12 @@ fn door_11 problems
   # door.kata:12
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-pub fn door heading path button name problems
+door_13 = joined [
+  "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
+  "value=\"yes\">Keep me signed in</label>"
+]
+
+pub fn door heading path button name problems remembers
   joined [
     # door.kata:3
     "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
@@ -110,9 +115,9 @@ pub fn door heading path button name problems
     "type=\"password\" name=\"password\" placeholder=\"password\" "
     "required=\"required\">"
     # door.kata:11
-    "{if (problems["password"] != none) (door_11 problems) ""}<button>"
-    # door.kata:13
-    "{escape button}</button></form>"
+    "{if (problems["password"] != none) (door_11 problems) ""}"
+    # door.kata:13, 17
+    "{if remembers door_13 ""}<button>{escape button}</button></form>"
   ]
 # in views, by kata/views
 pub fn layout title body
@@ -187,7 +192,12 @@ fn door_k_11 problems
   # door.kata:12
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-fn door_keyed heading path button name problems
+door_k_13 = joined [
+  "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
+  "value=\"yes\">Keep me signed in</label>"
+]
+
+fn door_keyed heading path button name problems remembers
   joined [
     # door.kata:3
     "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
@@ -201,9 +211,9 @@ fn door_keyed heading path button name problems
     "type=\"password\" name=\"password\" placeholder=\"password\" "
     "required=\"required\">"
     # door.kata:11
-    "{if (problems["password"] != none) (door_k_11 problems) ""}<button>"
-    # door.kata:13
-    "{escape button}</button></form>"
+    "{if (problems["password"] != none) (door_k_11 problems) ""}"
+    # door.kata:13, 17
+    "{if remembers door_k_13 ""}<button>{escape button}</button></form>"
   ]
 # in views, by kata/views
 fn layout_keyed title body
@@ -282,7 +292,8 @@ fn kata_shown "door" kata_l
   button = kata_at kata_l "button"
   name = kata_at kata_l "name"
   problems = kata_at kata_l "problems"
-  door_keyed heading path button name problems
+  remembers = kata_at kata_l "remembers"
+  door_keyed heading path button name problems remembers
 
 fn kata_shown "layout" kata_l
   title = kata_at kata_l "title"
@@ -300,13 +311,14 @@ fn kata_shown "signed" kata_l
 fn kata_shown _ _
   ""
 # in views, by kata/views
-pub fn door_view heading path button name problems
+pub fn door_view heading path button name problems remembers
   kata_locals = {
     "button":button
     "heading":heading
     "name":name
     "path":path
     "problems":problems
+    "remembers":remembers
   }
   { "locals":kata_locals "view":"door" }
 # in views, by kata/views

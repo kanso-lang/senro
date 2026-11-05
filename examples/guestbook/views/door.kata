@@ -1,4 +1,4 @@
-takes heading path button name problems
+takes heading path button name problems remembers
 header
   h1 = heading
   p.lede
@@ -10,4 +10,8 @@ form method="post" action=path
   input type="password" name="password" placeholder="password" required="required"
   if problems["password"] != none
     p.problem = problems["password"]
+  if remembers
+    label.remember
+      input type="checkbox" name="remember" value="yes"
+      | Keep me signed in
   button = button

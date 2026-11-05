@@ -10,6 +10,10 @@ import "std/net/http"
 # read a day later still names the viewer; read fifteen days later, or before
 # it began, it has forgotten them and kept its notice. A request the server
 # did not stamp has no age to measure.
+#
+# The cookie a sign-in sets lasts as long as the browser; `web/lasting` keeps
+# it for the fourteen days the sign-in itself lasts, and leaves a response
+# that sets no session cookie as it was.
 secret = "a spec's secret"
 
 answered = web/kept (http/text_page "ok") secret { "name":"ada" }
@@ -34,6 +38,10 @@ expired = cookies/asked_at kept_in (began + 15 * day)
 
 early = cookies/asked_at kept_in (began - 1)
 
+plain = http/text_page "ok"
+
+same = http/rendered (web/lasting plain) == http/rendered plain
+
 print "kept: {web/session (cookies/asked value) secret}"
 print "another secret: {web/session (cookies/asked value) "not the app's"}"
 print "map changed: {web/session (cookies/asked (cookies/forged value)) secret}"
@@ -42,3 +50,6 @@ print "a day later: {web/viewer later secret}"
 print "fifteen days later: {web/session expired secret}"
 print "before it began: {web/session early secret}"
 print "unstamped: {web/viewer (cookies/asked kept_in) secret}"
+print "until the browser closes: {cookies/attributes_of (http/rendered signed)}"
+print "kept: {cookies/attributes_of (http/rendered (web/lasting signed))}"
+print "no cookie, unchanged: {same}"
