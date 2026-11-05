@@ -1,3 +1,6 @@
 <!DOCTYPE html><html><head><title>Shelf</title></head><body><section id="shelf" class="books wide"><h1>Books, filtered by &lt;all&gt;</h1>Some books, and a brace: { kept.<ul><li data-title="Dune">Dune</li><li data-title="Emma">Emma<em>(out)</em></li></ul><img src="/shelf.png" alt="a shelf of 2"></section></body></html>
 <section id="shelf" class="books wide"><h1>Books, filtered by </h1><p class="empty">Nothing on the shelf.</p><ul></ul><img src="/shelf.png" alt="a shelf of 0"></section>
 <section id="shelf" class="books wide"><h1>Books, filtered by </h1><p>Every book.</p><ul><li data-title="Dune">Dune</li></ul><img src="/shelf.png" alt="a shelf of 1"></section>
+<p class="problem">Too short.</p>
+<p class="other">Wrong.</p>
+<p class="fine">Nothing to fix.</p>

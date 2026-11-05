@@ -1,7 +1,9 @@
 import "../../../models"
+import "./marginalia"
 import "./migrations"
 import "./notes"
 
 derive models/tables
 
 print (notes/titles [{ "id":1 "title":"hello" } { "id":2 }])
+print (marginalia/shown [{ "id":1 "the_first_rather_long_column":"a" }])

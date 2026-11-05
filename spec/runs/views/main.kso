@@ -6,3 +6,6 @@ derive kata/views
 print (views/page "Shelf" (views/shelf ["Dune" "Emma"] "<all>"))
 print (views/shelf [] "")
 print (views/shelf ["Dune"] "")
+print (views/a_long_named_form { "a_field_whose_name_runs_long":"Too short." })
+print (views/a_long_named_form { "another_field_with_a_long_name":"Wrong." })
+print (views/a_long_named_form {})
