@@ -1,7 +1,8 @@
 # Uses an app `generate` made, over HTTP, as a visitor would. A visitor who
 # has not signed in is sent to sign in; one makes an account, which signs
 # them in. Then the notes: lists them, gives a page count that is no number,
-# makes one, shows it, opens its form, changes it, removes it, and asks for
+# makes one, shows it, opens its form, changes it, asks for the list's second
+# page, which is empty and links back to the first, removes it, and asks for
 # it again. Then a note with a cover: the file is sent as a browser sends
 # it, comes back as it was sent, and stays when the note is changed without
 # choosing another. Then the pages nested under a note: makes one, asks for it under
@@ -38,6 +39,7 @@ echo "it shows: $(page "$made")"
 echo "its form: $(c "$at$made/edit" | grep -o 'value="[^"]*"' | tr '\n' ' ')"
 echo "changing it: $(sent "$made" "_method=PATCH&title=Renamed&pages=13")"
 echo "the list then: $(page /notes)"
+echo "its second page: $(page "/notes?page=2")"
 echo "removing it: $(sent "$made" "_method=DELETE")"
 echo "asked for again: $(c -o /dev/null -w "%{http_code}" "$at$made")"
 

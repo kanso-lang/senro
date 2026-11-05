@@ -371,7 +371,12 @@ fn actions plural fields
   changed_then = ".> (w -> effect (changed req id w))"
   lines = [
     "pub fn index req db"
-    "  pg/query db listed [] .> (r -> effect (listing req r.rows))"
+    "  number = models/page_number (web/value (web/query req) \"page\")"
+    "  asked = models/paged db listed [] number per_page"
+    "  asked .> (p -> effect (listing req p))"
+    ""
+    (comment per_page_about)
+    "per_page = 25"
     ""
     (list_line "column_names =" "" quoted)
     ""
@@ -410,9 +415,9 @@ fn helpers singular plural fields
   every_title = capitalized plural
   path = "\"/{plural}/\{id}\""
   lines = [
-    "fn listing req rows"
-    "  every = list/to_list (list/map rows {singular}_from)"
-    "  page = views/{plural}_index_view every"
+    "fn listing req p"
+    "  every = list/to_list (list/map p.rows {singular}_from)"
+    "  page = views/{plural}_index_view every p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
@@ -491,9 +496,13 @@ fn nested_actions plural fields parent
   lines = [
     (comment (text/join about " "))
     "pub fn index req db {k}:int"
-    "  asked = pg/query db listed [\"\{{k}}\"]"
-    "  listing_of = (r -> effect (listing req {k} r.rows))"
+    "  number = models/page_number (web/value (web/query req) \"page\")"
+    "  asked = models/paged db listed [\"\{{k}}\"] number per_page"
+    "  listing_of = (p -> effect (listing req {k} p))"
     "  within db {k} (asked .> listing_of)"
+    ""
+    (comment per_page_about)
+    "per_page = 25"
     ""
     (list_line "column_names =" "" quoted)
     ""
@@ -578,9 +587,9 @@ fn nested_helpers singular plural fields parent
   every_title = capitalized plural
   mine = own fields
   lines = [
-    "fn listing req {k} rows"
-    "  every = list/to_list (list/map rows {singular}_from)"
-    "  page = views/{plural}_index_view {k} every"
+    "fn listing req {k} p"
+    "  every = list/to_list (list/map p.rows {singular}_from)"
+    "  page = views/{plural}_index_view {k} every p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
@@ -668,6 +677,8 @@ fn made_with fields
 fn attachments fields
   list/to_list (list/select fields (f -> f.kind == "attachment"))
 
+per_page_about = "How many rows a page of the list shows."
+
 fn form_about singular
   about = [
     "The form a {singular} is made and changed with: its fields as typed,"
@@ -715,7 +726,7 @@ fn index_of singular fields none
   plural = models/plural singular
   first = (said_field (list/first fields)).name
   lines = [
-    "takes rows"
+    "takes rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
@@ -725,6 +736,7 @@ fn index_of singular fields none
     "    li"
     "      a href=\"/{plural}/\{r.id}\" = r.{first}"
   ]
+  lines = list/concat lines (page_links "/{plural}")
   "{text/join lines "\n"}\n"
 
 fn index_of singular fields parent
@@ -734,7 +746,7 @@ fn index_of singular fields parent
   at = "/{models/plural name}/\{{k}}"
   first = (said_field (list/first (own fields))).name
   lines = [
-    "takes {k} rows"
+    "takes {k} rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
@@ -745,6 +757,7 @@ fn index_of singular fields parent
     "    li"
     "      a href=\"{at}/{plural}/\{r.id}\" = r.{first}"
   ]
+  lines = list/concat lines (page_links "{at}/{plural}")
   "{text/join lines "\n"}\n"
 
 fn said_field none
@@ -844,4 +857,15 @@ fn file_lines f
     "    input type=\"file\" name=\"{f.name}\""
     "  if fields[\"{f.name}\"] != \"\""
     "    p.kept Leave it empty to keep the file it has."
+  ]
+
+# The links to the pages either side of the one shown, each only when that
+# page has rows.
+fn page_links path
+  [
+    "nav.pages"
+    "  if number > 1"
+    "    a href=\"{path}?page=\{number - 1}\" Previous page"
+    "  if more"
+    "    a href=\"{path}?page=\{number + 1}\" Next page"
   ]

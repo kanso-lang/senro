@@ -1,4 +1,4 @@
-takes rows
+takes rows number more
 header
   h1 Notes
   p.lede
@@ -7,3 +7,8 @@ ul.notes
   for r in rows
     li
       a href="/notes/{r.id}" = r.title
+nav.pages
+  if number > 1
+    a href="/notes?page={number - 1}" Previous page
+  if more
+    a href="/notes?page={number + 1}" Next page

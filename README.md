@@ -47,7 +47,9 @@ serves on port 3000.
 then letters, digits and underscores, at most 24 in all; a resource's name
 is spelled the same way, at most 16. It writes a module whose seven actions
 list, show, make, change and remove rows through the model, and the three views
-they render. Each `int` field gets a rule that the value is a whole number,
+they render. The list shows 25 rows a page (`per_page` in the module), read
+with `models/paged`, and links the pages before and after it as
+`?page=2`. Each `int` field gets a rule that the value is a whole number,
 so a form that says otherwise is shown again with the problem rather than
 refused by Postgres. It adds the migration that makes the table to the end
 of `migrations/all`, and the module's import to the entry. The policies it
