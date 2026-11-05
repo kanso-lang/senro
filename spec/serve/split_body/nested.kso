@@ -5,23 +5,34 @@ import "std/time"
 
 # A browser often sends a request's head in one packet and its body in the
 # next. This asks the server the same way: the head, a pause long enough for
-# the server to read what has come, and then the body.
+# the server to read what has come, and then the body. The second body holds
+# a blank line, which is where a request's head ends, so the server must
+# count the body's bytes rather than stop at it.
 pub fn index _ _
-  net/dial "127.0.0.1" 54409 .> asked
+  asked "title=split"
+    .> (one -> asked "a=1\r\n\r\nb=2" .> (two -> effect (both one two)))
 
-fn asked c
-  net/write c head
+fn both one two
+  http/text_page "nested saw {one}\nnested saw {two}"
+
+fn asked body
+  net/dial "127.0.0.1" 54409 .> (c -> sent c body)
+
+fn sent c body
+  net/write c (head_for body)
     .> (_ -> time/sleep 300)
-    .> (_ -> net/write c "title=split")
+    .> (_ -> net/write c body)
     .> (_ -> net/read c)
     .> (raw -> told c raw)
 
-head = "POST /note HTTP/1.1\r\nhost: localhost\r\ncontent-length: 11\r\n\r\n"
+fn head_for body
+  size = length (text/bytes body)
+  "POST /note HTTP/1.1\r\nhost: localhost\r\ncontent-length: {size}\r\n\r\n"
 
 fn told c raw
-  net/close_conn c .> (_ -> effect (http/text_page "nested saw {body raw}"))
+  net/close_conn c .> (_ -> effect (answer_of raw))
 
-fn body raw
+fn answer_of raw
   parts = text/split raw "\r\n\r\n"
   return "" if length parts < 2
   parts[2]

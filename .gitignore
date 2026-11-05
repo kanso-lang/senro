@@ -6,3 +6,4 @@ browser.wasm
 
 # What `generate` writes for spec.sh, made afresh each run.
 spec/notebook/
+storage/
