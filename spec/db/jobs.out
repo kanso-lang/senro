@@ -1,0 +1,17 @@
+hello, Ada
+at 0: ran greet
+at 0: failed broken on attempt 1: it broke
+at 0: failed missing on attempt 1: no performer is named missing
+at 0: nothing due
+at 3000: failed broken on attempt 2: it broke
+at 60000: failed missing on attempt 2: no performer is named missing
+at 60000: failed broken on attempt 3: it broke
+hello, Bo
+at 60000: ran greet
+at 1000000: failed missing on attempt 3: no performer is named missing
+at 1000000: failed broken on attempt 4: it broke
+at 10000000: failed missing on attempt 4: no performer is named missing
+at 10000000: failed broken on attempt 5: it broke
+at 100000000: failed missing on attempt 5: no performer is named missing
+at 100000000: nothing due
+[{ "attempts":"5" "failure":"it broke" "name":"broken" "queue":"default" } { "attempts":"5" "failure":"no performer is named missing" "name":"missing" "queue":"default" } { "attempts":"0" "failure":"" "name":"greet" "queue":"mail" }]

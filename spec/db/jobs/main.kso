@@ -1,0 +1,31 @@
+import "../../../jobs"
+import "../../../pg"
+import "./work"
+
+# Four jobs on the default queue and one on another, worked at times the
+# spec chooses. The first runs, the one that breaks is tried again after
+# attempts^4 + 2 seconds, the one with no performer fails the same way, the
+# one queued for later waits for its time, and the other queue's is never
+# taken. The two that keep failing are tried until their attempts run out.
+# What is left in the table is printed at the end.
+fresh = """
+  drop schema if exists senro_jobs_spec cascade;
+  create schema senro_jobs_spec;
+  set search_path to senro_jobs_spec
+"""
+
+left = """
+  select queue, name, attempts::text as attempts, failure
+  from senro_jobs order by id
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> jobs/prepared db)
+  .> (db -> jobs/later db "default" "greet" { "name":"Ada" } work/t)
+  .> (db -> jobs/later db "default" "broken" {} work/t)
+  .> (db -> jobs/later db "default" "missing" {} work/t)
+  .> (db -> jobs/later db "default" "greet" { "name":"Bo" } (work/t + 60000))
+  .> (db -> jobs/later db "mail" "greet" { "name":"Cy" } work/t)
+  .> (db -> work/stepped db work/times)
+  .> (db -> pg/query db left [] .> (r -> print r.rows))

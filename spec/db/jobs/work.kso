@@ -1,0 +1,40 @@
+import "../../../jobs"
+import "std/list"
+
+# The moment the spec starts from, and the moments it works the queue at:
+# four at once, then three and sixty seconds on, then pairs far enough apart
+# that every job still failing gets an attempt in each, until none has any
+# left.
+pub t = 1000000
+
+soon = [t t t t (t + 3000) (t + 60000) (t + 60000) (t + 60000)]
+
+apart = [1000000 1000000 10000000 10000000 100000000 100000000]
+
+pub times = list/concat soon (list/to_list (list/map apart (d -> t + d)))
+
+# What each job named on the default queue does: `greet` prints, and
+# `broken` fails every time.
+pub performers = { "broken":broken "greet":greeted }
+
+fn greeted _ args
+  print "hello, {args["name"]}"
+
+fn broken _ _
+  err "it broke"
+
+# Works the default queue once at each time in `times`, printing what each
+# step did.
+pub fn stepped db moments
+  list/fold moments (effect db) (acc at -> acc .> (_ -> step db at))
+
+fn step db at
+  jobs/worked db "default" performers at
+    .> (said -> print "at {at - t}: {told said}")
+    .> (_ -> db)
+
+fn told none
+  "nothing due"
+
+fn told said
+  said

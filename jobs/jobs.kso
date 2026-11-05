@@ -1,0 +1,151 @@
+import "../pg"
+import "std/io"
+import "std/json"
+import "std/list"
+import "std/text"
+import "std/time"
+
+# A job as its row holds it.
+type queued_job
+  id
+  name
+  args
+  attempts
+
+# Work an app does after the request that asked for it, as Rails' Active Job
+# runs it on Solid Queue: each job is a row of `senro_jobs`, so it outlives
+# the process that queued it, and any number of workers can share a queue.
+# A job has a queue, the name of the performer that does it, its arguments
+# as a map of strings, and the moment from which it may run.
+#
+# A worker claims one due job at a time with `for update skip locked`, so two
+# workers never take the same row, and leases it for five minutes: a worker
+# that dies mid-job leaves the row to be claimed again once the lease runs
+# out. A job that succeeds is deleted. One whose performer fails is tried
+# again later, attempts^4 + 2 seconds after the failure, as Rails'
+# `polynomially_longer` waits, and after five attempts it stays in the table
+# with the reason, for someone to read.
+#
+# `prepared` makes the table jobs live in when it is missing.
+pub fn prepared db
+  pg/run db ledger .> (_ -> effect db)
+
+ledger = """
+  create table if not exists senro_jobs (
+    id bigserial primary key,
+    queue text not null,
+    name text not null,
+    args text not null,
+    run_at bigint not null,
+    attempts int not null default 0,
+    failure text not null default ''
+  )
+"""
+
+# Queues the job `name` with `args` on `queue`, to run at `t` (milliseconds
+# since the epoch) or after.
+pub fn later db queue name args t
+  given = [queue name (json/encode args) "{t}"]
+  pg/query db queued given .> (_ -> effect db)
+
+queued = """
+  insert into senro_jobs (queue, name, args, run_at)
+  values ($1, $2, $3, $4::bigint)
+"""
+
+# The attempts a job gets, and how long a claim holds it.
+pub attempts_allowed = 5
+
+lease_ms = 5 * 60 * 1000
+
+# Claims one job on `queue` that is due at `t`, and runs it. `performers` maps
+# a job's name to a function of the session and the job's arguments that
+# answers an effect. The answer says what happened: `none` when no job was
+# due, or a line naming the job and how it went.
+pub fn worked db queue performers t
+  given = [queue "{t}" "{t + lease_ms}" "{attempts_allowed}"]
+  pg/query db claimed given .> (r -> ran db performers t (list/first r.rows))
+
+claimed = """
+  update senro_jobs set run_at = $3::bigint, attempts = attempts + 1
+  where id = (
+    select id from senro_jobs
+    where queue = $1 and run_at <= $2::bigint and attempts < $4::int
+    order by run_at, id
+    for update skip locked
+    limit 1
+  )
+  returning id, name, args, attempts
+"""
+
+fn ran _ _ _ none
+  effect none
+
+# A performer's failure was born in the app, so the worker may rescue it.
+# A job whose name has no performer is the worker's own finding, and is
+# recorded the same way without being raised.
+fn ran db performers t row
+  j = job_of row
+  run_by db performers[j.name] j t
+
+fn run_by db none j t
+  failed db j t "no performer is named {j.name}"
+
+fn run_by db perform j t
+  perform db j.args
+    .> (_ -> pg/query db finished [j.id])
+    .> (_ -> effect "ran {j.name}")
+    .? (u -> failed db j t u.reason)
+
+finished = "delete from senro_jobs where id = $1::bigint"
+
+fn job_of row
+  args = json/decode (cell row "args")
+  tries = text_int (cell row "attempts")
+  queued_job (cell row "id") (cell row "name") args tries
+
+# A failed attempt is kept with its reason, and the job waits attempts^4 + 2
+# seconds before it may run again.
+fn failed db j t reason
+  n = j.attempts
+  wait = (n * n * n * n + 2) * 1000
+  given = [j.id reason "{t + wait}"]
+  said = "failed {j.name} on attempt {n}: {reason}"
+  pg/query db kept given .> (_ -> effect said)
+
+kept = """
+  update senro_jobs set failure = $2, run_at = $3::bigint
+  where id = $1::bigint
+"""
+
+# Works `queue` for as long as the process runs: a job when one is due, and
+# a second's sleep when none is. Each job's outcome goes to standard error.
+pub fn worker db queue performers
+  time/now
+    .> (t -> worked db queue performers t)
+    .> (said -> told said)
+    .> (_ -> worker db queue performers)
+
+fn told none
+  time/sleep 1000
+
+fn told said
+  io/write_err "senro jobs: {said}\n"
+
+fn cell row name
+  text_of row[name]
+
+fn text_of none
+  ""
+
+fn text_of v
+  v
+
+fn text_int s
+  count_of (text/to_int s)
+
+fn count_of none
+  0
+
+fn count_of n
+  n

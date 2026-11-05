@@ -254,6 +254,19 @@ when they are given that path. The specs write it again and compare the two.
   address with no `@`, is refused before anything is sent. A subject that is not
   ASCII travels as RFC 2047 encoded words, and a body that is not ASCII, or
   holds a line longer than SMTP allows, as base64.
+- `jobs`: work an app does after the request that asked for it, as Active
+  Job does it on Solid Queue. Each job is a row of `senro_jobs`, which
+  `jobs/prepared db` makes when it is missing, so a job outlives the process
+  that queued it. `jobs/later db queue name args t` queues the job `name`
+  with a map of strings, to run at `t` or after. `jobs/worker db queue
+  performers` works a queue until the process ends: `performers` maps each
+  name to a function of the session and the arguments. A worker claims a job
+  with `for update skip locked`, so two workers never take the same one, and
+  holds it for five minutes, after which a worker that died leaves it to
+  another. A job that succeeds is deleted. One that fails waits attempts^4 +
+  2 seconds and runs again, and after five attempts it stays in the table
+  with the reason. `jobs/worked` takes one step of that loop at a moment the
+  caller names, which is how `spec/db/jobs` runs it.
 - `browser`: what an app's components and pages need in the browser.
   `browser.kso` beside the app's entry names its browser components with
   `browser/answer`, or with `browser/answer_pages` when the module renders
