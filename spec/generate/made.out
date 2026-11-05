@@ -25,7 +25,7 @@
   change spec/notebook/migrations.kso
   change spec/notebook/main.kso
 generate: spec/notebook/notes.kso is there already
-generate: cannot read `title:words`: a field is name:text, name:int or name:references
+generate: cannot read `title:words`: a field is name:text, name:int, name:references or name:attachment
 generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _
 generate: cannot read `id:int`: `id` is a column every table has
 generate: cannot name a resource `Book`: a resource's name is spelled as a field's is
