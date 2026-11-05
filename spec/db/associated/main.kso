@@ -1,0 +1,31 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+import "./notes"
+import "./pages"
+import "./reading"
+
+derive models/tables
+
+# A page belongs to a note. The derivation reads the foreign key the
+# migrations add and writes a reader each way: `pages/of_note` lists a
+# note's pages, and `notes/of_page` finds the note a page belongs to.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+seeded = """
+  insert into notes (title) values ('first'), ('second');
+  insert into pages (note_id, body) values (1, 'a'), (2, 'c'), (1, 'b')
+"""
+
+made = models/made schema
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> pg/run db seeded .> (_ -> db))
+  .> (db -> reading/pages_of db 1)
+  .> (db -> reading/pages_of db 2)
+  .> (db -> reading/note_of db 2)

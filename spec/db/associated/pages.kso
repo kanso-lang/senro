@@ -1,0 +1,4 @@
+# The `pages` table's model. The derivation declares `page` here, and
+# `of_note`, which lists the pages a note holds.
+pub fn bodied p
+  p.body

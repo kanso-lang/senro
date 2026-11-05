@@ -1,0 +1,4 @@
+# The `notes` table's model. The derivation declares `note` here, and
+# `of_page`, which finds the note a page belongs to.
+pub fn titled n
+  "note: {n.title}"
