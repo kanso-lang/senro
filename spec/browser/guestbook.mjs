@@ -274,5 +274,27 @@ await page.waitForFunction(() => window.senroMark === undefined);
 await page.waitForSelector("html.senro-ready", { state: "attached" });
 console.log(`after a deploy, fetched: ${modules.join(", ")}`);
 console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
+
+// Bob's password is set again through a reset link, to the same password.
+// The digest changes all the same, since every digest has a salt of its
+// own, and Bob's older session, still open in his browser, is signed out
+// at the next thing it does that needs a sign-in.
+const helper = await (await browser.newContext()).newPage();
+await helper.goto(at("/resets/new"));
+await helper.fill("input[name=email]", "bob@guestbook.test");
+await helper.click("form button");
+await helper.waitForFunction(() => document.querySelector("p.flash"));
+await helper.goto(linkIn(mailTo("bob@guestbook.test")));
+await helper.fill("input[name=password]", "bobs password");
+await helper.click("form button");
+await helper.waitForFunction(() => document.querySelector("p.flash"));
+await bob.goto(at("/"));
+await bob.fill("textarea[name=message]", "after the reset");
+await bob.click("form.sign button");
+await bob.waitForSelector("input[type=password]");
+console.log(`Bob's older session, signing after the reset: sent to ${new URL(bob.url()).pathname}`);
+await bob.goto(at("/"));
+const bobNow = await bob.evaluate(() => document.querySelector("nav.door") ? "signed out" : "still signed in");
+console.log(`and the book then sees him as: ${bobNow}`);
 for (const line of said) console.log(line);
 await browser.close();
