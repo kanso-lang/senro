@@ -1,0 +1,3 @@
+refused: mail needs a To address with an @
+queued: 1
+on mail as deliver, the letter given: true

@@ -86,7 +86,7 @@ fn entered req db name a password remember t
   right = passwords/matches? password a.digest
   return shut req name right if locked? a t
   return missed req db name a t if not right
-  return unconfirmed req name a if a.confirmed == ""
+  return unconfirmed req db name a if a.confirmed == ""
   arrived = [a.id "{t}" (web/peer req)]
   pg/query db cleared arrived .> (_ -> signed req name a remember)
 
@@ -128,7 +128,7 @@ fn shut req name false
 fn missed req db name a t
   return refused req name if a.id == ""
   pg/query db counted [a.id "{locks_after}" "{t}"]
-    .> (r -> locking req name a (list/first r.rows))
+    .> (r -> locking req db name a (list/first r.rows))
 
 counted = """
   update accounts set
@@ -140,13 +140,13 @@ counted = """
   returning locked
 """
 
-fn locking req name _ none
+fn locking req _ name _ none
   refused req name
 
-fn locking req name a row
+fn locking req db name a row
   stamp = models/cell row "locked"
   return refused req name if stamp == ""
-  account_mailer/unlock a.id a.email stamp
+  account_mailer/unlock db a.id a.email stamp
     .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
     .> (_ -> refused req name)
 
@@ -169,9 +169,9 @@ fn kept_if s false
 # The right password for an address not yet confirmed: the link is sent
 # again, and the visitor is told to follow it. Only the holder of the
 # password learns that the account exists.
-fn unconfirmed req name a
+fn unconfirmed req db name a
   first = "Confirm your address first. We have sent the link again."
-  account_mailer/confirmation a.id a.email
+  account_mailer/confirmation db a.id a.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect (opened req name { "password":first } 403))
 

@@ -22,7 +22,8 @@ place, rendered on the server.
   missing, compares the database's tables with the schema it was compiled
   with, and serves the route table that `derive routes/rest` declares. A
   table that differs, say one an older build made with another column, stops
-  the app before it serves anything, with each difference named.
+  the app before it serves anything, with each difference named. Beside the
+  server, `jobs/beside` runs a worker that sends the mail the app queues.
 - `migrations.kso` keeps the schema as the changes that built it, as a pub
   constant. `derive models/tables` folds them into `schema` while the app
   compiles, and refuses a record type whose table is missing or whose field
@@ -92,9 +93,11 @@ place, rendered on the server.
 - `account_mailer.kso` holds the letters and the links they carry, which
   start with `mail/url_for`. A module whose name ends in `_mailer` is no
   resource, so `account`, `session`, `resets`, `confirmations` and
-  `unlocks` can all call it. Mail goes where `SENRO_MAIL` says (see senro's
-  README); unset, it is printed to standard error, which is where a
-  developer finds the link.
+  `unlocks` can all call it. Each letter is queued with
+  `mail/delivered_later`, so a request does not wait on the mail server, and
+  the worker sends it within a second or so. Mail goes where `SENRO_MAIL`
+  says (see senro's README); unset, it is printed to standard error, which
+  is where a developer finds the link.
 - Signing in keeps the account's name in the session, a cookie signed with
   HMAC-SHA-256, as its viewer; a cookie whose signature does not match reads
   as an empty session. `entries/create` signs with the viewer's name, so

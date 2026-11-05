@@ -35,10 +35,11 @@ async function joined(p, name, password, remember = false) {
   await p.fill("input[name=name]", name);
   await p.fill("input[name=email]", email);
   await p.fill("input[name=password]", password);
+  const since = mails().length;
   await p.click("form button");
   await p.waitForSelector("p.flash, p.problem");
   if (await p.$("p.flash")) {
-    await p.goto(linkIn(mailTo(email)));
+    await p.goto(linkIn(await mailTo(email, since)));
     await p.click("form button");
     await p.waitForFunction(() =>
       document.querySelector("p.flash")?.textContent.startsWith("Your address"));
@@ -66,11 +67,16 @@ async function cookieLife(p) {
   return `${Math.round((c.expires - Date.now() / 1000) / 86400)} days`;
 }
 
-// The newest mail the guestbook wrote to `to`, and the link in it.
-function mailTo(to) {
-  for (const f of mails().reverse()) {
-    const m = readFileSync(`${outbox}/${f}`, "utf8");
-    if (m.includes(`\r\nTo: ${to}\r\n`)) return m;
+// The newest mail to `to` among those written after the first `since`. The
+// guestbook queues its mail and a worker sends it a moment later, so this
+// waits for one to arrive.
+async function mailTo(to, since) {
+  for (let tries = 0; tries < 300; tries++) {
+    for (const f of mails().slice(since).reverse()) {
+      const m = readFileSync(`${outbox}/${f}`, "utf8");
+      if (m.includes(`\r\nTo: ${to}\r\n`)) return m;
+    }
+    await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`no mail to ${to}`);
 }
@@ -128,8 +134,10 @@ await di.goto(at("/account/new"));
 await di.fill("input[name=name]", "Di");
 await di.fill("input[name=email]", "di@guestbook.test");
 await di.fill("input[name=password]", "dis password");
+const beforeDi = mails().length;
 await di.click("form button");
 await di.waitForSelector("p.flash, p.problem");
+if (await di.$("p.flash")) await mailTo("di@guestbook.test", beforeDi);
 const sentToDi = mails().length;
 await di.goto(at("/session/new"));
 await di.fill("input[name=name]", "Di");
@@ -137,6 +145,7 @@ await di.fill("input[name=password]", "dis password");
 await di.click("form button");
 await di.waitForSelector("p.problem");
 const unconfirmed = await di.evaluate(() => document.querySelector("p.problem").textContent);
+await mailTo("di@guestbook.test", sentToDi);
 console.log(`Di, not yet confirmed: ${unconfirmed}; mail sent: ${mails().length - sentToDi}`);
 
 // Cy has lost her password. She asks for a link from the sign-in page, and
@@ -149,8 +158,10 @@ await cy.goto(at("/account/new"));
 await cy.fill("input[name=name]", "Cy");
 await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.fill("input[name=password]", "cys first password");
+const beforeCy = mails().length;
 await cy.click("form button");
 await cy.waitForSelector("p.flash, p.problem");
+if (await cy.$("p.flash")) await mailTo("cy@guestbook.test", beforeCy);
 await cy.goto(at("/session/new"));
 await cy.click("a[href='/resets/new']");
 const sentBefore = mails().length;
@@ -158,12 +169,14 @@ await cy.fill("input[name=email]", "nobody@guestbook.test");
 await cy.click("form button");
 await cy.waitForFunction(() => document.querySelector("p.flash"));
 const nobody = await cy.evaluate(() => document.querySelector("p.flash").textContent);
-console.log(`a link for an address with no account: ${nobody}; mail sent: ${mails().length - sentBefore}`);
+console.log(`a link for an address with no account: ${nobody}`);
 await cy.goto(at("/resets/new"));
 await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.click("form button");
 await cy.waitForFunction(() => document.querySelector("p.flash"));
-const mail = readFileSync(`${outbox}/${mails().at(-1)}`, "utf8");
+// The worker sends mail in the order it was queued, so once Cy's has come,
+// any for the address with no account would have come before it.
+const mail = await mailTo("cy@guestbook.test", sentBefore);
 const header = (name) => mail.match(new RegExp(`^${name}: (.*)\r$`, "m"))[1];
 console.log(`mail to ${header("To")}: ${header("Subject")}; mail sent: ${mails().length - sentBefore}`);
 const link = mail.match(/^(http:\/\/\S+\/edit)\r$/m)[1];
@@ -221,10 +234,11 @@ await fay.goto(at("/account/new"));
 await fay.fill("input[name=name]", "Fay");
 await fay.fill("input[name=email]", "fay@guestbook.test");
 await fay.fill("input[name=password]", "fays password");
+const beforeJoining = mails().length;
 await fay.click("form button");
 await fay.waitForSelector("p.flash, p.problem");
 if (await fay.$("p.flash")) {
-  await fay.goto(linkIn(mailTo("fay@guestbook.test")));
+  await fay.goto(linkIn(await mailTo("fay@guestbook.test", beforeJoining)));
   await fay.click("form button");
   await fay.waitForSelector("p.flash");
 }
@@ -239,9 +253,9 @@ async function tried(password) {
 const beforeFay = mails().length;
 const wrongs = [];
 for (const guess of ["fay1", "fay2", "fay3"]) wrongs.push(await tried(guess));
+const unlocking = await mailTo("fay@guestbook.test", beforeFay);
 console.log(`Fay, three wrong passwords: ${[...new Set(wrongs)].join(" ")}; mail sent: ${mails().length - beforeFay}`);
 console.log(`and then her own: ${await tried("fays password")}`);
-const unlocking = mailTo("fay@guestbook.test");
 console.log(`mail to Fay: ${unlocking.match(/^Subject: (.*)\r$/m)[1]}`);
 await fay.goto(linkIn(unlocking));
 await fay.click("form button");
@@ -378,9 +392,10 @@ console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
 const helper = await (await browser.newContext()).newPage();
 await helper.goto(at("/resets/new"));
 await helper.fill("input[name=email]", "bob@guestbook.test");
+const beforeHelp = mails().length;
 await helper.click("form button");
 await helper.waitForFunction(() => document.querySelector("p.flash"));
-await helper.goto(linkIn(mailTo("bob@guestbook.test")));
+await helper.goto(linkIn(await mailTo("bob@guestbook.test", beforeHelp)));
 await helper.fill("input[name=password]", "bobs password");
 await helper.click("form button");
 await helper.waitForFunction(() => document.querySelector("p.flash"));

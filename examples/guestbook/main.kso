@@ -1,4 +1,6 @@
+import "../../jobs"
 import "../../kata"
+import "../../mail"
 import "../../models"
 import "../../pg"
 import "../../routes"
@@ -31,8 +33,11 @@ served_routes = web/requiring_sign_in acting entries/secret bound_of
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
+# The server, with a worker beside it that sends the mail the app queues.
+serving = web/serve 3000 served_routes connected
+
 connected
   .> (db -> models/migrated db "guestbook" migrations/all)
   .> (db -> models/compared db schema)
   .> (db -> pg/close db)
-  .> (_ -> web/serve 3000 served_routes connected)
+  .> (_ -> jobs/beside connected "mail" mail/performers serving)

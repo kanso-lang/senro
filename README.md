@@ -240,6 +240,10 @@ they are given that path. The specs write it again and compare the two.
   address with no `@`, is refused before anything is sent. A subject that is not
   ASCII travels as RFC 2047 encoded words, and a body that is not ASCII, or
   holds a line longer than SMTP allows, as base64.
+  `mail/delivered_later db m` queues the message as a job on the `mail`
+  queue instead, as Action Mailer's `deliver_later` does, and a worker
+  running `mail/performers` sends it. A message `delivered` would refuse is
+  refused before it is queued.
 - `jobs`: work an app does after the request that asked for it, as Active
   Job does it on Solid Queue. Each job is a row of `senro_jobs`, which
   `jobs/prepared db` makes when it is missing, so a job outlives the process
@@ -252,7 +256,9 @@ they are given that path. The specs write it again and compare the two.
   another. A job that succeeds is deleted. One that fails waits attempts^4 +
   2 seconds and runs again, and after five attempts it stays in the table
   with the reason. `jobs/worked` takes one step of that loop at a moment the
-  caller names, which is how `spec/db/jobs` runs it.
+  caller names, which is how `spec/db/jobs` runs it. `jobs/beside connect
+  queue performers served` runs a worker in a fiber beside `served`, such as
+  `web/serve`, which is how the guestbook sends its mail.
 - `browser`: what an app's components and pages need in the browser.
   `browser.kso` beside the app's entry names its browser components with
   `browser/answer`, or with `browser/answer_pages` when the module renders
