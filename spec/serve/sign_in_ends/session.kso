@@ -1,0 +1,15 @@
+import "../../../web"
+import "std/net/http"
+
+pub without_sign_in = ["create" "new"]
+
+pub secret = "the spec's secret"
+
+pub fn new _ _
+  effect (http/text_page "sign in here")
+
+# Anyone who asks is signed in as ada, resting on what the form names.
+pub fn create req _
+  bound = web/value (web/form req.body) "bound"
+  s = web/session req secret
+  effect (web/signed_in req (web/redirect "/notes") secret s "ada" bound)

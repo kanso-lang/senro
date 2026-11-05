@@ -65,10 +65,15 @@ adds, counts, renames and removes things on a shelf without a page reload.
   secret fallback` answers it once the visitor has signed in. A sign-in
   rests on something the account holds, which `web/signed_in` is given and
   keeps an HMAC of in the session; the guestbook's is the password's
-  digest. `bound_of db id` reads it at each gated action, and a session
-  whose sign-in rested on something else is signed out there, so a new
-  password ends every older sign-in, as Devise's does. An app whose
-  sign-ins rest on nothing passes `web/unbound` and "".
+  digest. `bound_of db id` reads it at every action, open or not, and a
+  sign-in that rested on something else is over, so a new password ends
+  every older sign-in, as Devise's does. An action that asks for a sign-in
+  sends that visitor to sign in again; an open one runs as if nobody had
+  signed in, and its answer tells the browser to forget the sign-in.
+  Components' actions are open, since their models' policies decide, so
+  the table goes through `web/components` first and then through
+  `web/requiring_sign_in`. An app whose sign-ins rest on nothing passes
+  `web/unbound` and "".
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a
@@ -125,22 +130,22 @@ adds, counts, renames and removes things on a shelf without a page reload.
   its viewer. The cookie lasts until the browser closes, and a session made
   `web/lasting` keeps it for those fourteen days instead, through every later
   write, as Devise's "remember me" does; the guestbook's sign-in form offers
-  it. `web/signed_out` forgets the sign-in and keeps the rest. It also serves senro's page script at
-  `/senro.js`. A layout that loads it gets pages that update in place: a link
-  followed or a form sent on the app's own origin is fetched, and the page the
-  server answers is morphed into the live one, so the browser never reloads.
-  Once the app's browser module has loaded, a page the app answers with
-  `views/answer` arrives as data and is rendered in the browser. The script
-  keeps the app's module and the runtime in the browser's Cache Storage, each
-  under its modification time, which the server writes into `/senro.js`, so a
-  returning visitor compiles them without asking for them. Every answer to the
-  script names that version, and a page opened before a deploy that changed it
-  loads itself again, once. A field the visitor is typing in keeps what they
-  typed, unless it was in the form just sent. A form that POSTs a `_method` of
-  `PATCH` or `DELETE` is routed as that method, as in Rails. When a request that
-  isn't a GET finishes, the server notifies Postgres's `senro` channel, and
-  every page holding `/senro/live` open fetches itself again, so one visitor's
-  change shows on another's page.
+  it. `web/signed_out` forgets the sign-in and keeps the rest. It also serves
+  senro's page script at `/senro.js`. A layout that loads it gets pages that
+  update in place: a link followed or a form sent on the app's own origin is
+  fetched, and the page the server answers is morphed into the live one, so the
+  browser never reloads. Once the app's browser module has loaded, a page the
+  app answers with `views/answer` arrives as data and is rendered in the
+  browser. The script keeps the app's module and the runtime in the browser's
+  Cache Storage, each under its modification time, which the server writes into
+  `/senro.js`, so a returning visitor compiles them without asking for them.
+  Every answer to the script names that version, and a page opened before a
+  deploy that changed it loads itself again, once. A field the visitor is typing
+  in keeps what they typed, unless it was in the form just sent. A form that
+  POSTs a `_method` of `PATCH` or `DELETE` is routed as that method, as in
+  Rails. When a request that isn't a GET finishes, the server notifies
+  Postgres's `senro` channel, and every page holding `/senro/live` open fetches
+  itself again, so one visitor's change shows on another's page.
 - `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
   the operating system's secure source (`os/random_bytes`).
   `passwords/digested password` describes the stored text, which names its

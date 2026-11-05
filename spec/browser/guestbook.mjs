@@ -51,6 +51,14 @@ async function joined(p, name, password, remember = false) {
   await p.waitForSelector("form.out");
 }
 
+// Who the session cookie of the context `p` is in names as its viewer. The
+// cookie is the session as base64 JSON, a dot, and its signature.
+async function viewerIn(p) {
+  const [c] = await p.context().cookies(at("/"));
+  const held = JSON.parse(Buffer.from(c.value.split(".")[0], "base64").toString());
+  return held.viewer ?? "nobody";
+}
+
 // How long the browser keeps the session cookie of the context `p` is in.
 async function cookieLife(p) {
   const [c] = await p.context().cookies(at("/"));
@@ -314,8 +322,10 @@ console.log(`Ada's page fetched / as: ${fetched.join(", ")}`);
 
 // Bob's password is set again through a reset link, to the same password.
 // The digest changes all the same, since every digest has a salt of its
-// own, and Bob's older session, still open in his browser, is signed out
-// at the next thing it does that needs a sign-in.
+// own, and Bob's older session, still open in his browser, is signed out:
+// the remove button on his own entry, a server action, finds nobody signed
+// in and is refused, and the book, which asks for no sign-in, shows him the
+// door.
 const helper = await (await browser.newContext()).newPage();
 await helper.goto(at("/resets/new"));
 await helper.fill("input[name=email]", "bob@guestbook.test");
@@ -325,11 +335,14 @@ await helper.goto(linkIn(mailTo("bob@guestbook.test")));
 await helper.fill("input[name=password]", "bobs password");
 await helper.click("form button");
 await helper.waitForFunction(() => document.querySelector("p.flash"));
-await bob.goto(at("/"));
-await bob.fill("textarea[name=message]", "after the reset");
-await bob.click("form.sign button");
-await bob.waitForSelector("input[type=password]");
-console.log(`Bob's older session, signing after the reset: sent to ${new URL(bob.url()).pathname}`);
+const stale = await bob.evaluate(async (state) => {
+  const r = await fetch("/senro/act/removal", {
+    method: "POST", headers: { "senro-page": "spec" }, body: `removed\n${state}`,
+  });
+  return r.status;
+}, his);
+console.log(`Bob's older session, removing his own entry after the reset: ${stale}`);
+console.log(`and his cookie then names: ${await viewerIn(bob)}`);
 await bob.goto(at("/"));
 const bobNow = await bob.evaluate(() => document.querySelector("nav.door") ? "signed out" : "still signed in");
 console.log(`and the book then sees him as: ${bobNow}`);
