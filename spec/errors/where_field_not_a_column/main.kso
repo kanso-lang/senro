@@ -1,0 +1,11 @@
+import "../../../models"
+import "../../../pg"
+import "./comment"
+import "./migrations"
+
+derive models/tables
+
+# A field written out that the comments table does not have.
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> models/where "" db comment/comment_model "author_id" 1)
+  .> (cs -> print cs)

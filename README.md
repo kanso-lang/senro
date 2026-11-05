@@ -129,8 +129,14 @@ they are given that path. The specs write it again and compare the two.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. A model with too many columns to
-  list on the value's line has them in a constant of their own,
+  such policy cannot be written this way. `models/found viewer db model id`
+  reads a record by its id, or answers none when there is no such row or
+  the viewer may not see it, and `models/where viewer db model field value`
+  answers the records whose field holds the value, oldest first, that the
+  viewer may see: a post's comments are `models/where viewer db
+  comment/comment_model "post_id" id`. A field written out is checked
+  against the model's columns while the app compiles. A model with too many
+  columns to list on the value's line has them in a constant of their own,
   `signature_columns`, one to a line. A model's module may declare
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row

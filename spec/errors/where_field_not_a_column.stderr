@@ -1,0 +1,4 @@
+error[derive]: `author_id` is not a column of `comments`: it has id, post_id, body, author
+  --> ./main.kso:10:13
+  10 |   .> (db -> models/where "" db comment/comment_model "author_id" 1)
+                   ^

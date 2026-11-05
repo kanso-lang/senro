@@ -1,0 +1,36 @@
+import "../../../models"
+import "../../../pg"
+import "./comment"
+import "./migrations"
+import "./post"
+import "./reading"
+
+derive models/tables
+
+# Two posts and their comments, read through the models: a post by its id,
+# one no row has, a post's comments as nobody and as the one viewer the
+# model shows all of them to, and a field held in a variable that is no
+# column, which the derivation cannot see and the call refuses.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+seeded = """
+  insert into posts (title) values ('first'), ('second');
+  insert into comments (post_id, body, author) values
+    (1, 'hello', 'ada'), (2, 'elsewhere', 'ada'), (1, 'hush', 'eve'),
+    (1, 'again', 'bob')
+"""
+
+made = models/made schema
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> pg/run db seeded .> (_ -> db))
+  .> (db -> reading/post db 1)
+  .> (db -> reading/post db 9)
+  .> (db -> reading/comments "" db 1)
+  .> (db -> reading/comments "eve" db 1)
+  .> (db -> reading/unread db)
