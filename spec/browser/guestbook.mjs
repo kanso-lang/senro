@@ -202,6 +202,46 @@ await cy.goto(at("/account/edit"));
 console.log(`and then her account page: ${new URL(cy.url()).pathname}`);
 console.log(`the old one again: ${await changed("cys second password", "cys fourth password")}`);
 
+// Fay's account locks after three wrong passwords in a row. Each is answered
+// as any wrong password is, and the third mails her a link to unlock it.
+// Her right password is then told the account is locked, and the link
+// unlocks it. Signing in is limited to ten tries in three minutes from one
+// address, and these four bring this run's to ten.
+const fay = await (await browser.newContext()).newPage();
+await fay.goto(at("/account/new"));
+await fay.fill("input[name=name]", "Fay");
+await fay.fill("input[name=email]", "fay@guestbook.test");
+await fay.fill("input[name=password]", "fays password");
+await fay.click("form button");
+await fay.waitForSelector("p.flash, p.problem");
+if (await fay.$("p.flash")) {
+  await fay.goto(linkIn(mailTo("fay@guestbook.test")));
+  await fay.click("form button");
+  await fay.waitForSelector("p.flash");
+}
+async function tried(password) {
+  await fay.goto(at("/session/new"));
+  await fay.fill("input[name=name]", "Fay");
+  await fay.fill("input[name=password]", password);
+  await fay.click("form button");
+  await fay.waitForSelector("p.problem");
+  return fay.evaluate(() => document.querySelector("p.problem").textContent);
+}
+const beforeFay = mails().length;
+const wrongs = [];
+for (const guess of ["fay1", "fay2", "fay3"]) wrongs.push(await tried(guess));
+console.log(`Fay, three wrong passwords: ${[...new Set(wrongs)].join(" ")}; mail sent: ${mails().length - beforeFay}`);
+console.log(`and then her own: ${await tried("fays password")}`);
+const unlocking = mailTo("fay@guestbook.test");
+console.log(`mail to Fay: ${unlocking.match(/^Subject: (.*)\r$/m)[1]}`);
+await fay.goto(linkIn(unlocking));
+await fay.click("form button");
+await fay.waitForSelector("p.flash");
+console.log(`following its link: ${await fay.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await fay.goto(linkIn(unlocking));
+await fay.waitForSelector("p.flash");
+console.log(`the link again: ${await fay.evaluate(() => document.querySelector("p.flash").textContent)}`);
+
 // The mail the app has written so far, oldest first.
 function mails() {
   return readdirSync(outbox).sort((a, b) => parseInt(a) - parseInt(b));

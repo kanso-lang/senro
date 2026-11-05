@@ -77,10 +77,12 @@ fn chose req db token password true
     .> (_ -> effect (told req "/" changed))
 
 # A reset link proves the address as well as a confirmation link does, so
-# setting a password through one confirms an address that was not yet.
+# setting a password through one confirms an address that was not yet, and
+# it unlocks an account that wrong passwords locked, as Devise's does.
 reset = """
   update accounts set digest = $1,
-    confirmed = case when coalesce(confirmed, '') = '' then $3 else confirmed end
+    confirmed = case when coalesce(confirmed, '') = '' then $3 else confirmed end,
+    failures = 0, locked = ''
   where id = $2
 """
 

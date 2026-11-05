@@ -8,6 +8,7 @@ import "./views"
 import "std/io"
 import "std/list"
 import "std/text"
+import "std/time"
 
 # What a sign-in checks of the account a name holds. A name with no account
 # holds the stand-in digest, which no password matches.
@@ -16,6 +17,7 @@ type holder
   digest
   email
   confirmed
+  locked
 
 # One address may try to sign in ten times in three minutes, as Rails 8's
 # generated sessions controller allows. Past that, `over_limit` answers the
@@ -23,6 +25,13 @@ type holder
 pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub without_sign_in = ["create" "new"]
+
+# Three wrong passwords in a row lock an account, as Devise's `lockable`
+# does, for an hour or until the link mailed to its address unlocks it. A
+# right password ends the run of wrong ones.
+pub locks_after = 3
+
+pub locked_minutes = 60
 
 # What a sign-in rests on: the digest the account keeps now. A new password
 # changes it, so a password reset signs out every session made before it.
@@ -54,22 +63,80 @@ pub fn create req db
   remember = web/value f "remember" == "yes"
   pg/query db held_by [name]
     .> (r -> held (list/first r.rows))
-    .> (a -> entered req name a password remember)
+    .> (a -> time/now .> (t -> entered req db name a password remember t))
 
-held_by = "select id, digest, email, confirmed from accounts where name = $1"
+held_by = """
+  select id, digest, email, confirmed, locked
+  from accounts where name = $1
+"""
 
 fn held none
-  passwords/stand_in .> (d -> effect (holder "" d "" ""))
+  passwords/stand_in .> (d -> effect (holder "" d "" "" ""))
 
 fn held row
   id = "{models/cell row "id"}"
   kept = models/cell row "digest"
   email = models/cell row "email"
-  effect (holder id kept email (models/cell row "confirmed"))
+  locked = models/cell row "locked"
+  effect (holder id kept email (models/cell row "confirmed") locked)
 
-fn entered req name a password remember
-  return refused req name if not passwords/matches? password a.digest
+# A locked account answers a wrong password as any other wrong password is
+# answered, and tells only the holder of the right one that it is locked.
+fn entered req db name a password remember t
+  right = passwords/matches? password a.digest
+  return shut req name right if locked? a t
+  return missed req db name a t if not right
   return unconfirmed req name a if a.confirmed == ""
+  pg/query db cleared [a.id] .> (_ -> signed req name a remember)
+
+cleared = "update accounts set failures = 0, locked = '' where id = $1"
+
+fn locked? a t
+  return false if a.locked == ""
+  t < stamp_of (text/to_int a.locked) + locked_minutes * 60 * 1000
+
+fn stamp_of none
+  0
+
+fn stamp_of n
+  n
+
+fn shut req name true
+  told = "This account is locked. Follow the link we mailed to unlock it."
+  effect (opened req name { "password":told } 403)
+
+fn shut req name false
+  refused req name
+
+# A wrong password for an account counts against it, and the one that makes
+# the run long enough locks it and mails the link that unlocks it. A lock
+# that has run out counts as none, so the count starts again.
+fn missed req db name a t
+  return refused req name if a.id == ""
+  pg/query db counted [a.id "{locks_after}" "{t}"]
+    .> (r -> locking req name a (list/first r.rows))
+
+counted = """
+  update accounts set
+    failures = case when locked = '' then failures + 1 else 1 end,
+    locked = case
+      when (case when locked = '' then failures + 1 else 1 end) >= $2::int
+      then $3 else '' end
+  where id = $1
+  returning locked
+"""
+
+fn locking req name _ none
+  refused req name
+
+fn locking req name a row
+  stamp = models/cell row "locked"
+  return refused req name if stamp == ""
+  account_mailer/unlock a.id a.email stamp
+    .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
+    .> (_ -> refused req name)
+
+fn signed req name a remember
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
   welcomed = put (delete s "return_to") "flash" "Signed in as {name}."

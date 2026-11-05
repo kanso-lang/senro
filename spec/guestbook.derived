@@ -278,6 +278,14 @@ pub fn signed signatures form flash removals viewer
     "{each signatures (e -> signed_24 removals e)}</ol>"
   ]
 # in views, by kata/views
+pub fn unlock_offered path
+  joined [
+    "<header><h1>Unlock your account</h1></header><form method=\"post\" "
+    # unlock_offered.kata:4
+    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
+    "value=\"PATCH\"><button>Unlock it</button></form>"
+  ]
+# in views, by kata/views
 fn account_k_9 problems
   # account.kata:10
   "<p class=\"problem\">{escape problems["current"]}</p>"
@@ -471,6 +479,14 @@ fn signed_keyed signatures form flash removals viewer
     "{each (kata_items signatures) (e -> signed_k_24 removals e)}</ol>"
   ]
 # in views, by kata/views
+fn unlock_offered_keyed path
+  joined [
+    "<header><h1>Unlock your account</h1></header><form method=\"post\" "
+    # unlock_offered.kata:4
+    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
+    "value=\"PATCH\"><button>Unlock it</button></form>"
+  ]
+# in views, by kata/views
 pub fn rendered node
   kata_shown (kata_at node "view") (kata_at node "locals")
 
@@ -517,6 +533,10 @@ fn kata_shown "signed" kata_l
   removals = kata_at kata_l "removals"
   viewer = kata_at kata_l "viewer"
   signed_keyed signatures form flash removals viewer
+
+fn kata_shown "unlock_offered" kata_l
+  path = kata_at kata_l "path"
+  unlock_offered_keyed path
 
 fn kata_shown _ _
   ""
@@ -573,6 +593,10 @@ pub fn signed_view signatures form flash removals viewer
   }
   { "locals":kata_locals "view":"signed" }
 # in views, by kata/views
+pub fn unlock_offered_view path
+  kata_locals = { "path":path }
+  { "locals":kata_locals "view":"unlock_offered" }
+# in views, by kata/views
 pub fn answer req node
   answer_as req 200 node
 
@@ -590,7 +614,7 @@ fn kata_answered _ code node
     "senro-view: 1"
   ]
   http/respond code heard (json/encode node)
-schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text"] "signatures":["id serial" "name text" "message text"] }    # models/tables
+schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''"] "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in account, by models/tables
 pub fn account_from row
   id = account_cell row["id"]
@@ -633,4 +657,4 @@ pub signature_model = {
   "read":signature_from
   "table":"signatures"
 }
-routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /account/edit":{ "action":account/edit "id":"" } "GET /account/new":{ "action":account/new "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "PATCH /account":{ "action":account/update "id":"" "limit":{ "count":10 "key":"account/update" "over":account/over_limit "within":180000 } } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "POST /account":{ "action":account/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /account/edit":{ "action":account/edit "id":"" } "GET /account/new":{ "action":account/new "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /account":{ "action":account/update "id":"" "limit":{ "count":10 "key":"account/update" "over":account/over_limit "within":180000 } } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /account":{ "action":account/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest
