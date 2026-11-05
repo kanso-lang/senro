@@ -126,6 +126,13 @@ pub fn worker db queue performers
     .> (said -> told said)
     .> (_ -> worker db queue performers)
 
+# Runs `served`, such as `web/serve`, with a worker on `queue` beside it in a
+# fiber of its own, on a session `connect` opens. The worker makes the jobs
+# table when it is missing before it starts.
+pub fn beside connect queue performers served
+  connect .> (db -> prepared db) .> (db -> worker db queue performers)
+  served
+
 fn told none
   time/sleep 1000
 

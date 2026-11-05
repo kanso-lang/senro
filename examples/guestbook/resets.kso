@@ -26,13 +26,14 @@ pub fn new req _
   effect (asked req s 200)
 
 # The answer is the same whether or not the address has an account, and
-# whether or not the mail could be sent, so the form says nothing about
-# which addresses are registered. A failure to send goes to standard error.
+# whether or not the mail could be queued, so the form says nothing about
+# which addresses are registered. A failure to queue goes to standard error,
+# and the worker logs a failure to send.
 pub fn create req db
   f = web/form req.body
   email = text/lowercase (text/trim (web/value f "email"))
   pg/query db holder [email]
-    .> (r -> sent (list/first r.rows) email)
+    .> (r -> sent db (list/first r.rows) email)
     .? (u -> io/write_err "guestbook: no reset mail: {u.reason}\n")
     .> (_ -> effect (told req "/" on_its_way))
 
@@ -40,12 +41,12 @@ holder = "select id, digest from accounts where email = $1"
 
 on_its_way = "If that address has an account, a link is on its way to it."
 
-fn sent none _
+fn sent _ none _
   effect ""
 
-fn sent row email
+fn sent db row email
   id = models/cell row "id"
-  account_mailer/reset id email (models/cell row "digest")
+  account_mailer/reset db id email (models/cell row "digest")
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id

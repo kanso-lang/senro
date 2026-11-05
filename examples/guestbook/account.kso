@@ -71,24 +71,24 @@ fn joined req db asked by_name by_email
   fields = { "email":email "name":name }
   passwords/digested password
     .> (d -> models/created "" db account_model (put fields "digest" d))
-    .> (w -> made req w)
+    .> (w -> made req db w)
 
 fn addressed? email
   length (text/split email "@") == 2
 
 # A new account is not signed in: its holder confirms the address first,
 # through the link the mail carries, as Devise's `confirmable` asks. A mail
-# that cannot be sent is logged, and the account can ask again by signing
-# in.
-fn made req kept:account
+# that cannot be queued is logged, as the worker logs one it cannot send,
+# and the account can ask again by signing in.
+fn made req db kept:account
   s = web/session req entries/secret
   told = "Welcome, {kept.name}. Confirm your address with the link we sent."
   welcomed = put s "flash" told
-  account_mailer/confirmation kept.id kept.email
+  account_mailer/confirmation db kept.id kept.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect (web/kept (web/redirect "/") entries/secret welcomed))
 
-fn made _ _
+fn made _ _ _
   effect web/denied
 
 # The account of whoever is signed in, as Devise's registrations edit it:

@@ -1,0 +1,19 @@
+import "../../../jobs"
+import "../../../mail"
+import "../../../pg"
+import "./letters"
+
+# A letter queued with `mail/delivered_later` is a job on the `mail` queue
+# whose arguments hold the letter, so the worker sends what the app wrote. A
+# letter `mail/delivered` would refuse is refused before it is queued.
+fresh = """
+  drop schema if exists senro_mail_spec cascade;
+  create schema senro_mail_spec;
+  set search_path to senro_mail_spec
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> jobs/prepared db))
+  .> (db -> mail/delivered_later db letters/letter .> (_ -> db))
+  .> (db -> letters/refused db)
+  .> (r -> letters/told r.rows)

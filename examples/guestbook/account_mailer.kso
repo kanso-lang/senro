@@ -6,13 +6,14 @@ import "std/text"
 import "std/time"
 
 # The guestbook's mail, as a Rails mailer holds it: what each letter says,
-# and the signed link it carries, which starts with `mail/url_for`. First, a
+# and the signed link it carries, which starts with `mail/url_for`. Each
+# letter is queued on `db` and sent by the worker beside the server. First, a
 # link to choose a new password, bound to the digest the account keeps, so
 # it works once.
-pub fn reset id email kept
+pub fn reset db id email kept
   time/now
     .> (t -> mail/url_for "/resets/{reset_token id kept t}/edit")
-    .> (link -> mail/delivered (reset_letter email link))
+    .> (link -> mail/delivered_later db (reset_letter email link))
 
 fn reset_token id kept t
   passwords/reset_token entries/secret id kept t
@@ -34,10 +35,10 @@ fn reset_letter email link
 # address and to the account's `confirmed` column, which is empty until the
 # link is followed, so it works once, and not at all once the address
 # changes. It lasts a day.
-pub fn confirmation id email
+pub fn confirmation db id email
   time/now
     .> (t -> mail/url_for "/confirmations/{confirm_token id email t}/edit")
-    .> (link -> mail/delivered (confirm_letter email link))
+    .> (link -> mail/delivered_later db (confirm_letter email link))
 
 fn confirm_token id email t
   tokens/made "confirm" entries/secret id (bound email "") t 1440
@@ -66,10 +67,10 @@ fn confirm_letter email link
 # A link to unlock an account that too many wrong passwords locked. It is
 # bound to the moment of the lock, so it works once, and not at all once the
 # lock has ended.
-pub fn unlock id email stamp
+pub fn unlock db id email stamp
   time/now
     .> (t -> mail/url_for "/unlocks/{unlock_token id stamp t}/edit")
-    .> (link -> mail/delivered (unlock_letter email link))
+    .> (link -> mail/delivered_later db (unlock_letter email link))
 
 fn unlock_token id stamp t
   tokens/made "unlock" entries/secret id stamp t 1440

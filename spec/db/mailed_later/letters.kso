@@ -1,0 +1,41 @@
+import "../../../mail"
+import "../../../pg"
+import "std/json"
+import "std/list"
+
+body = "Choose a new one here:\n\nhttp://127.0.0.1:3000/resets/x/edit"
+
+# A letter mail/delivered would send, and one it refuses: its address has
+# no `@`.
+pub letter = mail/composed from "ana@guestbook.test" "Your password" body
+
+from = "Guestbook <book@guestbook.test>"
+
+pub broken = mail/composed "book@guestbook.test" "ana" "Your password" body
+
+# Queues `broken`, printing why it is refused, and answers what was queued.
+pub fn refused db
+  mail/delivered_later db broken
+    .? (u -> print "refused: {u.reason}")
+    .> (_ -> pg/query db queued [])
+
+queued = "select queue, name, args from senro_jobs order by id"
+
+# Prints how many jobs were queued, and whether the first holds `letter`.
+pub fn told rows
+  row = list/first rows
+  args = json/decode (text_of row["args"])
+  again = mail/composed
+    (text_of args["from"])
+    (text_of args["to"])
+    (text_of args["subject"])
+    (text_of args["body"])
+  same = mail/text_at again 0 "x" == mail/text_at letter 0 "x"
+  held = "on {row["queue"]} as {row["name"]}, the letter given: {same}"
+  print "queued: {length rows}" .> (_ -> print held)
+
+fn text_of none
+  ""
+
+fn text_of v
+  v
