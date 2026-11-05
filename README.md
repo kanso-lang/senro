@@ -49,7 +49,9 @@ adds, counts, renames and removes things on a shelf without a page reload.
   as in `{ "create":"10 per 3 minutes" }`. The server counts each client's
   calls by its address, in memory, and answers a call past the limit with
   429 Too Many Requests before it reaches the action, or with what the
-  module's `over_limit req` answers when it writes one. A limit on no action
+  module's `over_limit req` answers when it writes one. Once it holds more
+  than `web/sweep_past` clients it forgets those whose calls have all aged
+  out, and `web/remembered` says how many it holds. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
   An app that wraps its table in `web/requiring_sign_in routes secret` asks

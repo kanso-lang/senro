@@ -17,6 +17,18 @@ type hit
   id
   limit
 
+# One client's calls to one limited action, beside the window they are
+# counted in, so that a sweep can tell when every one of them has aged out.
+type tally
+  within
+  times
+
+# What the server keeps of its clients' calls: a tally for each client and
+# action, and how many it may hold before it next looks for ones to forget.
+type book
+  seen
+  next
+
 type moved
   path
 
@@ -59,7 +71,9 @@ type site
 # in the window are kept in this server's memory, in a pool holding one map,
 # so two requests never count at once; they start over when the server does,
 # and two servers count apart. A call past the limit is answered 429 Too Many
-# Requests without reaching the action.
+# Requests without reaching the action. A client whose calls have all aged out
+# of their window is forgotten once the map has grown past `sweep_past`
+# clients (`remembered` says how many it holds).
 pub fn serve at routes connect
   pool/make sessions
     .> (dbs -> filled dbs connect sessions)
@@ -68,7 +82,11 @@ pub fn serve at routes connect
 fn opening at routes dbs connect calls
   listened at (site routes dbs connect calls)
 
-counting = pool/make 1 .> (p -> pool/give p {} .> (_ -> effect p))
+# The pool of one book a server counts its clients' calls in.
+pub counting = pool/make 1 .> first_book
+
+fn first_book p
+  pool/give p (book {} sweep_past) .> (_ -> effect p)
 
 sessions = 4
 
@@ -165,20 +183,29 @@ fn allowed _ (hit _ _ _ none) _
 
 fn allowed calls (hit _ _ _ l) req
   at = "{l["key"]} {peer req}"
-  checked calls at l["count"] l
+  checked calls at l["count"] l req
 
-fn checked _ _ none _
+fn checked _ _ none _ _
   effect true
 
-fn checked calls at count l
-  windowed calls at count l["within"]
+fn checked calls at count l req
+  windowed calls at count l["within"] req
 
-fn windowed _ _ _ none
+fn windowed _ _ _ none _
   effect true
 
-fn windowed calls at count within
+fn windowed calls at count within req
   taken = pool/take calls
-  time/now .> (t -> taken .> (seen -> counted calls seen at count within t))
+  heard_at = text/to_int (said req.headers["senro-at"])
+  arrival heard_at .> (t -> taken .> (b -> counted calls b at count within t))
+
+# When a request arrived: the time the server stamped on it, or now for one
+# built by hand.
+fn arrival none
+  time/now
+
+fn arrival t
+  effect t
 
 fn allowed _ _ _
   effect true
@@ -186,18 +213,55 @@ fn allowed _ _ _
 # The calls one client made to one action, in the window that ends now. A call
 # the limit allows is counted, and one it does not is not, so a client that
 # keeps calling is let in again once its earlier calls have aged out.
-fn counted calls seen at count within t
+fn counted calls (book seen next) at count within t
   since = t - within
   recent = list/to_list (list/select (made seen[at]) (when -> when > since))
   fine = length recent < count
-  counts = put seen at (tallied recent fine t)
-  pool/give calls counts .> (_ -> effect fine)
+  noted = put seen at (tally within (tallied recent fine t))
+  pool/give calls (booked noted next t) .> (_ -> effect fine)
 
 fn made none
   []
 
-fn made times
+fn made (tally _ times)
   times
+
+# Whether a client is let in decides nothing about one that has stopped
+# calling, so a server that hears from many addresses would hold a tally for
+# each of them for as long as it runs. Past `sweep_past` clients, and then
+# past twice as many as the last sweep left, the book forgets every client
+# whose calls have all aged out. Doubling the mark keeps the sweeps rare when
+# most clients are still calling: each one is paid for by as many new
+# clients as it kept.
+pub sweep_past = 1024
+
+fn booked seen next t
+  return book seen next if length seen <= next
+  left = swept seen t
+  book left (marked (2 * length left))
+
+fn marked n
+  return sweep_past if n < sweep_past
+  n
+
+fn swept seen t
+  list/fold (keys seen) seen (acc k -> forgotten acc k seen[k] t)
+
+fn forgotten acc _ none _
+  acc
+
+fn forgotten acc k (tally within times) t
+  return acc if list/any? times (when -> when > t - within)
+  delete acc k
+
+# How many clients a server's counting pool holds a tally for.
+pub fn remembered calls
+  pool/take calls .> (b -> pool/give calls b .> (_ -> effect (length b.seen)))
+
+# Whether `calls` lets in a request under `limit`, a map holding the `key`,
+# `count` and `within` an action's limit is read into, and counts it if so.
+pub fn admits calls limit req
+  allowed calls (hit none none none limit) req
 
 fn tallied recent true t
   push recent t
