@@ -422,18 +422,25 @@ fn failed u
   io/write_err "senro: a request failed: {u.reason}\n"
     .> (_ -> effect (http/respond 500 [] "Internal Server Error\n"))
 
+# Every answer says the connection closes after it, since the server closes
+# each connection once it has answered one request. A browser told otherwise
+# keeps the connection to reuse, and a request it sends down one the server
+# has closed is lost.
 fn sent c r
   wrote c r r.body
 
-fn wrote c r _:string
-  net/write c (http/rendered r)
+fn wrote c r body:string
+  head_of c r (length (text/bytes body)) .> (_ -> net/write c body)
 
 # A bytes body, such as a wasm module, goes after its head on its own, since
 # a string holding the head cannot hold the bytes.
 fn wrote c r body
-  sized = push r.headers "content-length: {length body}"
-  head = "HTTP/1.1 {r.status} {r.reason}\r\n{text/join sized "\r\n"}\r\n\r\n"
-  net/write c head .> (_ -> net/write c body)
+  head_of c r (length body) .> (_ -> net/write c body)
+
+fn head_of c r size
+  lines = list/concat r.headers ["content-length: {size}" "connection: close"]
+  status = "HTTP/1.1 {r.status} {r.reason}"
+  net/write c "{status}\r\n{text/join lines "\r\n"}\r\n\r\n"
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
