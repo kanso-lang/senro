@@ -125,22 +125,22 @@ adds, counts, renames and removes things on a shelf without a page reload.
   its viewer. The cookie lasts until the browser closes, and a session made
   `web/lasting` keeps it for those fourteen days instead, through every later
   write, as Devise's "remember me" does; the guestbook's sign-in form offers
-  it. `web/signed_out` forgets the sign-in and keeps the rest. It also serves senro's page script at
-  `/senro.js`. A layout that loads it gets pages that update in place: a link
-  followed or a form sent on the app's own origin is fetched, and the page the
-  server answers is morphed into the live one, so the browser never reloads.
-  Once the app's browser module has loaded, a page the app answers with
-  `views/answer` arrives as data and is rendered in the browser. The script
-  keeps the app's module and the runtime in the browser's Cache Storage, each
-  under its modification time, which the server writes into `/senro.js`, so a
-  returning visitor compiles them without asking for them. Every answer to the
-  script names that version, and a page opened before a deploy that changed it
-  loads itself again, once. A field the visitor is typing in keeps what they
-  typed, unless it was in the form just sent. A form that POSTs a `_method` of
-  `PATCH` or `DELETE` is routed as that method, as in Rails. When a request that
-  isn't a GET finishes, the server notifies Postgres's `senro` channel, and
-  every page holding `/senro/live` open fetches itself again, so one visitor's
-  change shows on another's page.
+  it. `web/signed_out` forgets the sign-in and keeps the rest. It also serves
+  senro's page script at `/senro.js`. A layout that loads it gets pages that
+  update in place: a link followed or a form sent on the app's own origin is
+  fetched, and the page the server answers is morphed into the live one, so the
+  browser never reloads. Once the app's browser module has loaded, a page the
+  app answers with `views/answer` arrives as data and is rendered in the
+  browser. The script keeps the app's module and the runtime in the browser's
+  Cache Storage, each under its modification time, which the server writes into
+  `/senro.js`, so a returning visitor compiles them without asking for them.
+  Every answer to the script names that version, and a page opened before a
+  deploy that changed it loads itself again, once. A field the visitor is typing
+  in keeps what they typed, unless it was in the form just sent. A form that
+  POSTs a `_method` of `PATCH` or `DELETE` is routed as that method, as in
+  Rails. When a request that isn't a GET finishes, the server notifies
+  Postgres's `senro` channel, and every page holding `/senro/live` open fetches
+  itself again, so one visitor's change shows on another's page.
 - `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
   the operating system's secure source (`os/random_bytes`).
   `passwords/digested password` describes the stored text, which names its
