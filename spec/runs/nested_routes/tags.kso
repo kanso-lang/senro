@@ -1,0 +1,8 @@
+import "std/net/http"
+
+# A nested module may declare any name, `within` among them: the `path_to`
+# arms derived for it name the parent's id as its actions do.
+within = "the tags on post"
+
+pub fn index _ _ post_id:int
+  effect (http/text_page "{within} {post_id}")
