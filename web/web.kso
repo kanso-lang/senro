@@ -608,7 +608,8 @@ fn routed_to routes n secret c
   put routes "POST /senro/act/{n}" (act_row c secret)
 
 fn act_row c secret
-  { "action":(req db -> acted c req db (viewer req secret)) "id":"" }
+  acting = (req db -> acted c req db (viewer req secret))
+  { "action":acting "id":"" "open":true }
 
 # The body is the action's name and the state as JSON, on two lines. A
 # request without the page's senro-page header did not come from senro's
@@ -655,16 +656,21 @@ pub fn redirect path
 # authentication requires one unless an action allows otherwise. A visitor
 # who has not signed in is sent to `/session/new`, and the path a GET asked
 # for is kept in the session, where `return_to` finds it once they have.
-# An alias's redirect and a component's action are left as they are: the
-# first answers no content, and the second asks its model's policy.
+# An alias's redirect is left as it is, since it answers no content. A
+# component's action, like an action its module lists in `without_sign_in`,
+# is open to anyone, and asks its model's policy who may do what; so the
+# table a component joins (`components`) goes through here too.
 #
 # A sign-in rests on something the account holds, its password's digest in
 # the guestbook, and `signed_in` keeps a fingerprint of it in the session.
-# `bound_of db id` reads it now. When the two differ, as they do once the
-# password has changed, the session is signed out at its next gated action
-# and sent to sign in again, so a new password ends every older sign-in, as
-# Devise's does. An app whose sign-ins rest on nothing passes `unbound` here
-# and "" to `signed_in`.
+# `bound_of db id` reads it now, at every action, open or not. When the two
+# differ, as they do once the password has changed, the sign-in is over, as
+# a new password ends every older sign-in in Devise. An action that asks for
+# a sign-in sends the visitor to sign in again. An open one runs for a
+# visitor who is not signed in, reading the session as `signed_out` leaves
+# it, and its answer tells the browser to forget the sign-in too. An app
+# whose sign-ins rest on nothing passes `unbound` here and "" to
+# `signed_in`.
 pub fn requiring_sign_in routes secret bound_of
   each = (acc e -> put acc e.key (guarded e.value secret bound_of))
   list/fold (entries routes) {} each
@@ -673,9 +679,10 @@ pub fn requiring_sign_in routes secret bound_of
 pub unbound = (_ _ -> effect "")
 
 fn guarded row secret bound_of
-  return row if row["open"] != none or row["to"] != none
+  return row if row["to"] != none
   kind = id_kind row["id"]
-  put row "action" (gated row["action"] kind secret bound_of)
+  open = row["open"] != none
+  put row "action" (gated row["action"] kind open secret bound_of)
 
 fn id_kind none
   ""
@@ -683,27 +690,55 @@ fn id_kind none
 fn id_kind kind
   kind
 
-fn gated none _ _ _
+fn gated none _ _ _ _
   none
 
-fn gated action kind secret bound_of
-  gated_by kind action secret bound_of
+fn gated action kind open secret bound_of
+  gated_by kind action open secret bound_of
 
-fn gated_by "" action secret bound_of
-  (req db -> admitted req db secret bound_of (_ -> action req db))
+fn gated_by "" action open secret bound_of
+  (req db -> admitted req db open secret bound_of (r -> action r db))
 
-fn gated_by _ action secret bound_of
-  (req db id -> admitted req db secret bound_of (_ -> action req db id))
+fn gated_by _ action open secret bound_of
+  (req db id -> admitted req db open secret bound_of (r -> action r db id))
 
-fn admitted req db secret bound_of go
+fn admitted req db open secret bound_of go
   who = viewer req secret
   s = session req secret
+  return go req if who == "" and open
   return turned_back req secret s if who == ""
-  bound_of db who .> (b -> current req secret s b go)
+  bound_of db who .> (b -> current req open secret s b go)
 
-fn current req secret s bound go
-  return go 0 if said s["bound"] == fingerprint secret bound
-  turned_back req secret (forgotten s)
+fn current req open secret s bound go
+  return go req if said s["bound"] == fingerprint secret bound
+  return turned_back req secret (forgotten s) if not open
+  ended = forgotten s
+  go (reheard req secret ended) .> (r -> effect (forgetting r secret ended))
+
+# `req` as its action reads it once its sign-in is over: its cookie names
+# the session `held` first, which is the one `session` reads.
+fn reheard req secret held
+  ours = "senro={sealed_of secret held}"
+  cookies = with_cookie ours req.headers["cookie"]
+  named = entries (put req.headers "cookie" cookies)
+  lines = list/map named (e -> "{e.key}: {e.value}")
+  head = text/join (list/to_list lines) "\r\n"
+  http/parsed "{req.method} {req.path} HTTP/1.1\r\n{head}\r\n\r\n{req.body}"
+
+fn with_cookie ours none
+  ours
+
+fn with_cookie ours others
+  "{ours}; {others}"
+
+# The answer `r`, telling the browser to keep `held` rather than the sign-in
+# it sent, unless the action already set a session of its own.
+fn forgetting r secret held
+  return r if list/any? r.headers sets_session?
+  kept r secret held
+
+fn sets_session? h
+  text/starts_with? h "set-cookie: senro="
 
 fn turned_back req secret s
   return effect (kept (redirect "/session/new") secret s) if req.method != "GET"

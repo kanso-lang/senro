@@ -29,5 +29,6 @@ and her cookie: until the browser closes
 modules fetched by a second load: 0
 after a deploy, fetched: /senro/app.wasm
 Ada's page fetched / as: data, data, data, data
-Bob's older session, signing after the reset: sent to /session/new
+Bob's older session, removing his own entry after the reset: 403
+and his cookie then names: nobody
 and the book then sees him as: signed out

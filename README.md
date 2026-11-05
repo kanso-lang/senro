@@ -65,10 +65,15 @@ adds, counts, renames and removes things on a shelf without a page reload.
   secret fallback` answers it once the visitor has signed in. A sign-in
   rests on something the account holds, which `web/signed_in` is given and
   keeps an HMAC of in the session; the guestbook's is the password's
-  digest. `bound_of db id` reads it at each gated action, and a session
-  whose sign-in rested on something else is signed out there, so a new
-  password ends every older sign-in, as Devise's does. An app whose
-  sign-ins rest on nothing passes `web/unbound` and "".
+  digest. `bound_of db id` reads it at every action, open or not, and a
+  sign-in that rested on something else is over, so a new password ends
+  every older sign-in, as Devise's does. An action that asks for a sign-in
+  sends that visitor to sign in again; an open one runs as if nobody had
+  signed in, and its answer tells the browser to forget the sign-in.
+  Components' actions are open, since their models' policies decide, so
+  the table goes through `web/components` first and then through
+  `web/requiring_sign_in`. An app whose sign-ins rest on nothing passes
+  `web/unbound` and "".
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a

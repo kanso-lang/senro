@@ -1,0 +1,15 @@
+import "../../../pg"
+import "../../../routes"
+import "../../../web"
+import "./nested"
+import "./notes"
+import "./session"
+
+derive routes/rest
+
+connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+
+# Every account holds "now", so a sign-in that rests on anything else is over.
+guarded = web/requiring_sign_in routes session/secret (_ _ -> effect "now")
+
+web/serve 54407 guarded connected

@@ -1,0 +1,20 @@
+import "../../../web"
+import "./session"
+import "std/net/http"
+
+pub without_sign_in = ["index"]
+
+# An open page, which says who it reads as signed in.
+pub fn index req _
+  who = web/viewer req session/secret
+  effect (http/text_page "every note, read by {named who}")
+
+fn named ""
+  "nobody"
+
+fn named who
+  who
+
+# Writing a note needs a visitor who has signed in.
+pub fn new _ _
+  effect (http/text_page "a blank note")

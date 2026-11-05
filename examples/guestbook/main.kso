@@ -24,9 +24,11 @@ made = models/made schema
 # The components whose actions run on the server.
 served = { "removal":(web/component removal/act removal/view) }
 
-signed = web/requiring_sign_in routes entries/secret session/signed_against
+acting = web/components routes entries/secret served
 
-served_routes = web/components signed entries/secret served
+bound_of = session/signed_against
+
+served_routes = web/requiring_sign_in acting entries/secret bound_of
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
