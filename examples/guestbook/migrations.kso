@@ -14,6 +14,7 @@ pub all = [
   arrived_before
   arrived_from
   arrived_from_before
+  pictured
 ]
 
 signed = models/create_table "signatures" [id name message]
@@ -46,6 +47,9 @@ arrived_from = models/add_column "accounts" current_sign_in_ip
 
 arrived_from_before = models/add_column "accounts" last_sign_in_ip
 
+# The key of the photo a signer chose, or empty for an entry without one.
+pictured = models/add_column "signatures" photo
+
 name = models/column "name" "text"
 
 message = models/column "message" "text"
@@ -69,5 +73,7 @@ last_sign_in_at = models/column "last_sign_in_at" blank_text
 current_sign_in_ip = models/column "current_sign_in_ip" blank_text
 
 last_sign_in_ip = models/column "last_sign_in_ip" blank_text
+
+photo = models/column "photo" blank_text
 
 blank_text = "text not null default ''"

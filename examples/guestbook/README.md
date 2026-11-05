@@ -107,7 +107,10 @@ place, rendered on the server.
   a one-time notice across it in the session.
 - `signatures.kso` declares the `signature` model, its policies and its
   rules: a name and a message, and a message under 280 characters. Only
-  the account that signed an entry may remove it.
+  the account that signed an entry may remove it. A signer may add a photo:
+  the form is multipart, senro stores the file and hands the action its key,
+  and the `photo` column keeps the key, which the page shows through
+  `/senro/blobs/<key>`.
   `entries.kso` makes a signature through the model (`models/created`),
   which stores it with a parameterized insert, so what a visitor types is
   stored as text and never read as SQL. A signature that breaks a rule is

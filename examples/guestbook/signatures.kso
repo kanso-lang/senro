@@ -8,6 +8,7 @@ pub type signature
   id
   name
   message
+  photo
 
 # Only the person who signed an entry may remove it. The models derivation
 # reads this policy and writes `signature_destroyed`, which asks it before it

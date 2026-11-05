@@ -191,12 +191,17 @@ script = """
       const url = new URL(form.action);
       if (e.defaultPrevented || !ours(url)) return;
       e.preventDefault();
-      const data = new URLSearchParams(new FormData(form, e.submitter));
+      const fields = new FormData(form, e.submitter);
+      const data = new URLSearchParams(fields);
       if (form.method === "get") \{
         url.search = data;
         visit(url.href, \{}, true, form);
       } else \{
-        visit(url.href, \{ method: "POST", body: data }, true, form);
+        // A form that holds a file posts as multipart/form-data, as the
+        // browser would post it; any other posts as a urlencoded form.
+        const multipart = form.enctype === "multipart/form-data";
+        const body = multipart ? fields : data;
+        visit(url.href, \{ method: "POST", body }, true, form);
       }
     });
 

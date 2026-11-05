@@ -51,7 +51,7 @@ fn signed req _ _
   thanked = put (web/session req secret) "flash" "Thank you for signing."
   effect (web/kept (web/redirect "/") secret thanked)
 
-newest = "select id, name, message from signatures order by id desc"
+newest = "select id, name, message, photo from signatures order by id desc"
 
 # The page goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the

@@ -338,6 +338,31 @@ const newest = await page.evaluate(() => {
 });
 console.log(`newest entry after Ada removes hers: ${newest}`);
 
+// Ada signs again with a photo. The form is multipart, and the page script
+// posts it as it is, file and all, without a reload. The entry shows the
+// photo, which the server keeps under a key and serves back byte for byte.
+// Then she removes the entry.
+const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+await page.fill("textarea[name=message]", "with a photo");
+await page.setInputFiles("input[name=photo]",
+  { name: "ada.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+await page.click("form.sign button");
+await page.waitForFunction(() =>
+  document.querySelector("ol.entries li p.message")?.textContent === "with a photo");
+const photo = await page.evaluate(async (sent) => {
+  const img = document.querySelector("ol.entries li img.photo");
+  if (!img) return "no photo";
+  const r = await fetch(img.src);
+  const got = new Uint8Array(await r.arrayBuffer());
+  const same = btoa(String.fromCharCode(...got)) === sent;
+  return `${r.status} ${r.headers.get("content-type")}, ${same ? "as sent" : "changed"}`;
+}, png);
+console.log(`signed with a photo: ${photo}; window mark: ${await page.evaluate(() => window.senroMark || "lost")}`);
+const pictured = await page.evaluate(() => document.querySelectorAll("ol.entries li").length);
+await page.locator("ol.entries li").first().locator("button.remove").click();
+await page.waitForFunction(
+  (n) => document.querySelectorAll("ol.entries li").length === n - 1, pictured);
+
 // Bob's own page shows his remove button, and with it his entry's id. Ada
 // asks the server to remove that entry; her session says she is Ada, and the
 // policy refuses.
