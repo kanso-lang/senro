@@ -71,7 +71,15 @@ they are given that path. The specs write it again and compare the two.
   are called by actions in other modules, and none of them is a route. A
   module whose member actions (`show`, `edit`, `update`, `destroy`) take no
   `id` is a singular resource:
-  `profile/show` answers GET /profile, and the module has no `index`. An app
+  `profile/show` answers GET /profile, and the module has no `index`. A
+  module whose actions each take a parent's id first is nested under the
+  parent: `comments/index req db post_id` answers GET
+  /posts/:post_id/comments and `comments/show req db post_id id` GET
+  /posts/:post_id/comments/:id. Nesting goes one level deep, and an action
+  of a nested module that takes no `post_id`, or takes it after `id`, is
+  refused. `routes/path_to "comments/show" 3 4` names a nested route with
+  the parent's id first, and `path_to comment` reads it from the record's
+  own `post_id`. An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
   modules, mapping each old path to the action now answering it, as in
   `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308

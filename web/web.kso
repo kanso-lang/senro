@@ -424,7 +424,9 @@ fn wrote c r body
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
-# GET /entries/:id and GET /entries/:id/edit.
+# GET /entries/:id and GET /entries/:id/edit. A path longer than either is
+# looked for among the nested routes, whose parent's id is the third segment
+# and whose own `:id`, when they take one, the fifth.
 pub fn matched routes method path
   whole = routes["{method} {path}"]
   return found whole "" if whole != none
@@ -433,7 +435,71 @@ pub fn matched routes method path
   head = list/to_list (list/take parts 2)
   tail = list/to_list (list/drop parts 3)
   pattern = text/join (list/concat (push head ":id") tail) "/"
-  found routes["{method} {pattern}"] parts[3]
+  flat = routes["{method} {pattern}"]
+  return found flat parts[3] if flat != none
+  nested_in routes method parts
+
+fn nested_in routes method parts
+  return none if length parts < 4
+  fits = list/select (entries routes) (e -> shaped? e.key method parts)
+  nested_found (list/first (list/to_list fits)) parts
+
+# Whether a route's key reads as this request: the same method, as many
+# segments, and each segment the same word or a parameter.
+fn shaped? key method parts
+  words = text/split key " "
+  return false if length words != 2 or words[1] != method
+  segments = text/split (blank_if_none words[2]) "/"
+  return false if length segments != length parts
+  alike? segments parts 1
+
+fn alike? segments parts i
+  return true if i > length segments
+  s = segments[i]
+  same = s == parts[i] or text/starts_with? s ":"
+  same and alike? segments parts (i + 1)
+
+# The parent's id reaches the action first, as its kind reads, and a segment
+# that is not a number is not an int's route. The action is handed on with
+# the parent's id in place, so it takes what an action that is not nested
+# would.
+fn nested_found none _
+  none
+
+fn nested_found e parts
+  row = e.value
+  parent = parent_id row["within"] (blank_if_none parts[3])
+  return none if parent == none
+  kind = id_kind row["id"]
+  curried = beneath row["action"] kind parent
+  found (put row "action" curried) (own_id kind parts)
+
+fn parent_id "int" segment
+  text/to_int segment
+
+fn parent_id none _
+  none
+
+fn parent_id _ segment
+  segment
+
+fn own_id "" _
+  ""
+
+fn own_id _ parts
+  parts[5]
+
+fn beneath none "" _
+  none
+
+fn beneath none _ _
+  none
+
+fn beneath action "" parent
+  (req db -> action req db parent)
+
+fn beneath action _ parent
+  (req db id -> action req db parent id)
 
 fn found none _
   none
@@ -690,7 +756,8 @@ fn guarded row secret bound_of
   return row if row["to"] != none
   kind = id_kind row["id"]
   open = row["open"] != none
-  put row "action" (gated row["action"] kind open secret bound_of)
+  gate = (req db go -> admitted req db open secret bound_of go)
+  put row "action" (gated row["action"] kind (row["within"] != none) gate)
 
 fn id_kind none
   ""
@@ -698,17 +765,24 @@ fn id_kind none
 fn id_kind kind
   kind
 
-fn gated none _ _ _ _
+fn gated none _ _ _
   none
 
-fn gated action kind open secret bound_of
-  gated_by kind action open secret bound_of
+fn gated action kind nested gate
+  gated_by kind nested action gate
 
-fn gated_by "" action open secret bound_of
-  (req db -> admitted req db open secret bound_of (r -> action r db))
+# A nested action takes its parent's id before its own.
+fn gated_by "" false action gate
+  (req db -> gate req db (r -> action r db))
 
-fn gated_by _ action open secret bound_of
-  (req db id -> admitted req db open secret bound_of (r -> action r db id))
+fn gated_by "" true action gate
+  (req db p -> gate req db (r -> action r db p))
+
+fn gated_by _ false action gate
+  (req db id -> gate req db (r -> action r db id))
+
+fn gated_by _ true action gate
+  (req db p id -> gate req db (r -> action r db p id))
 
 fn admitted req db open secret bound_of go
   who = viewer req secret

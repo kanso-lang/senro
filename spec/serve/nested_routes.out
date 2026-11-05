@@ -1,0 +1,6 @@
+GET /posts/3/comments: HTTP/1.1 200 OK the comments on post 3
+GET /posts/3/comments/4: HTTP/1.1 200 OK comment 4 on post 3
+POST /posts/3/comments: HTTP/1.1 200 OK a comment made on post 3
+DELETE /posts/3/comments/4: HTTP/1.1 303 See Other 
+GET /posts/three/comments: HTTP/1.1 404 Not Found not found
+GET /posts/3/comments/4/edit: HTTP/1.1 404 Not Found not found

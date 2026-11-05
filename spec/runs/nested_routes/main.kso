@@ -1,0 +1,12 @@
+import "../../../routes"
+import "./comments"
+import "./posts"
+import "std/list"
+
+derive routes/rest
+
+print (list/sort (keys routes))
+  .> (_ -> print (routes/path_to "comments/index" 3))
+  .> (_ -> print (routes/path_to "comments/show" 3 4))
+  .> (_ -> print (routes/path_to comments/first))
+  .> (_ -> print (routes/path_to "posts/show" 3))
