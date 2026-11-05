@@ -1,0 +1,18 @@
+takes path method fields problems
+header
+  h1 Note
+  p.lede
+    a href="/notes" All notes
+form method="post" action=path
+  input type="hidden" name="_method" value=method
+  label
+    | title
+    input name="title" value=fields["title"]
+  if problems["title"] != none
+    p.problem = problems["title"]
+  label
+    | pages
+    input name="pages" value=fields["pages"]
+  if problems["pages"] != none
+    p.problem = problems["pages"]
+  button Save

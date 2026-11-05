@@ -1,0 +1,12 @@
+import "../../models"
+
+# The app's schema, as the changes that built it, oldest first.
+pub all = [notes_made]
+
+notes_made = models/create_table "notes" [notes_id notes_title notes_pages]
+
+notes_id = models/column "id" "serial"
+
+notes_title = models/column "title" "text"
+
+notes_pages = models/column "pages" "integer"

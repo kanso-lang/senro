@@ -10,8 +10,10 @@
 # browser module as the server rendered it; each app under spec/db, run
 # against a live Postgres, prints its golden on both engines; each app under
 # spec/serve, served and asked over HTTP, answers its golden; the guestbook
-# and the pantry, used in a browser, update in place without a reload; and
-# each app under spec/errors is refused with the message its golden holds.
+# and the pantry, used in a browser, update in place without a reload; the
+# generators write examples/notebook, which checks and serves its resource;
+# and each app under spec/errors is refused with the message its golden
+# holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -26,7 +28,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata mail passwords tokens examples/guestbook examples/pantry examples/pg; do
+for d in routes models web pg kata mail passwords tokens generate examples/guestbook examples/notebook examples/pantry examples/pg; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -207,6 +209,78 @@ else
     done
   done
 fi
+
+note "== the generator writes examples/notebook, which checks and serves"
+# `generate new` and `generate scaffold` write an app at spec/notebook, made
+# afresh each run, and refuse a resource that is there and a field they
+# cannot read. What they write must be examples/notebook byte for byte: the
+# two sit at the same depth, so their imports of senro read the same. The
+# app must check, and served natively and interpreted it must list, make,
+# show, change and remove a note (spec/generate/drive.sh). Serving uses
+# Postgres, so SENRO_NO_DB=1 skips that part.
+gen=spec/notebook
+rm -rf "$gen"
+made=$({
+  "$KANSO" run generate -- new "$gen"
+  "$KANSO" run generate -- scaffold "$gen" note title:text pages:int
+  "$KANSO" run generate -- scaffold "$gen" note title:text
+  "$KANSO" run generate -- scaffold "$gen" book title:words
+} 2>&1)
+if [ "${SPEC_WRITE:-}" = 1 ]; then
+  printf '%s\n' "$made" > spec/generate/made.out
+  rm -rf examples/notebook
+  cp -R "$gen" examples/notebook
+fi
+if printf '%s\n' "$made" | diff spec/generate/made.out - >/dev/null; then
+  note "ok: generate writes and refuses"
+else
+  bad "generate writes and refuses"
+  printf '%s\n' "$made" | diff spec/generate/made.out -
+fi
+if diff -r examples/notebook "$gen" >/dev/null; then
+  note "ok: what generate writes is examples/notebook"
+else
+  bad "what generate writes is examples/notebook"
+  diff -r examples/notebook "$gen"
+fi
+if out=$("$KANSO" check "$gen" 2>&1); then
+  note "ok: the generated app checks"
+else
+  bad "the generated app checks"
+  echo "$out"
+fi
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: serving the generated app (SENRO_NO_DB=1)"
+else
+  for engine in native interp; do
+    flag=""
+    [ "$engine" = interp ] && flag=--interp
+    log=$(mktemp)
+    (cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    server=$!
+    tries=0
+    while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+      sleep 0.1
+      tries=$((tries + 1))
+    done
+    got=$(sh spec/generate/drive.sh 3000 2>&1)
+    pkill -P "$server" 2>/dev/null
+    kill "$server" 2>/dev/null
+    wait "$server" 2>/dev/null
+    if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+      printf '%s\n' "$got" > spec/generate/served.out
+    fi
+    if printf '%s\n' "$got" | diff spec/generate/served.out - >/dev/null; then
+      note "ok: the generated app serves ($engine)"
+    else
+      bad "the generated app serves ($engine)"
+      printf '%s\n' "$got" | diff spec/generate/served.out -
+      cat "$log"
+    fi
+    rm -f "$log"
+  done
+fi
+rm -rf "$gen"
 
 note "== the guestbook and the pantry, used in a browser, update in place"
 # Each app is served and driven in each browser SENRO_BROWSERS names

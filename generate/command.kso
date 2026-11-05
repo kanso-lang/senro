@@ -1,0 +1,149 @@
+import "../models"
+import "./app"
+import "./scaffold"
+import "std/io"
+import "std/list"
+import "std/os"
+import "std/text"
+
+# senro's generators, run from senro's own directory:
+#
+#   kanso run generate -- new apps/notebook
+#   kanso run generate -- scaffold apps/notebook note title:text body:int
+#
+# Each prints the files it writes, as Rails' generators do. Nothing is
+# written over: a file that is there already stops the generator before it
+# writes anything. The app's imports of senro climb from the app's
+# directory to this one, so the app's path is taken relative to it.
+pub fn run args
+  rest = list/to_list (list/drop args 1)
+  chosen (said (list/first args)) rest
+
+fn chosen "new" rest
+  made_new (said (list/first rest))
+
+fn chosen "scaffold" rest
+  app = said (list/first rest)
+  singular = said (list/first (list/drop rest 1))
+  words = list/to_list (list/drop rest 2)
+  return usage if app == "" or singular == "" or length words == 0
+  given (scaffold/fields_of words) app singular
+
+fn chosen _ _
+  usage
+
+usage = refused (text/join usage_lines "\n")
+
+usage_lines = [
+  "usage: kanso run generate -- new <app>"
+  "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
+  "a kind is text or int"
+]
+
+fn refused why
+  io/write_err "generate: {why}\n" .> (_ -> os/exit 2)
+
+# The path from an app's directory back up to senro's, one `..` for each
+# directory the app's path names.
+fn up_from app
+  steps = list/to_list (list/select (text/split app "/") (s -> s != "."))
+  ups = list/to_list (list/map steps (_ -> ".."))
+  text/join ups "/"
+
+fn last_of app
+  steps = text/split app "/"
+  said steps[length steps]
+
+fn made_new ""
+  usage
+
+fn made_new app
+  os/exists app .> (there -> new_app there app)
+
+fn new_app true app
+  refused "{app} is there already"
+
+fn new_app false app
+  senro = up_from app
+  name = last_of app
+  os/make_dir app
+    .> (_ -> os/make_dir "{app}/views")
+    .> (_ -> written "{app}/main.kso" (app/entry senro name))
+    .> (_ -> written "{app}/home.kso" (app/home name))
+    .> (_ -> written "{app}/migrations.kso" (app/migrations senro))
+    .> (_ -> written "{app}/views/layout.kata" app/layout)
+    .> (_ -> written "{app}/views/home.kata" app/home_view)
+
+fn written path content
+  os/write_file path content .> (_ -> io/write "  create {path}\n")
+
+fn given f:scaffold/unreadable _ _
+  refused "cannot read `{f.word}`: a field is name:text or name:int"
+
+fn given fields app singular
+  plural = models/plural singular
+  module = "{app}/{plural}.kso"
+  os/exists module .> (there -> fresh there app singular fields)
+
+fn fresh true app singular _
+  refused "{app}/{models/plural singular}.kso is there already"
+
+fn fresh false app singular fields
+  os/read_file "{app}/main.kso" .> (main -> with_main app singular fields main)
+
+fn with_main app _ _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn with_main app singular fields main
+  os/read_file "{app}/migrations.kso"
+    .> (m -> wrote app singular fields main (text_of m))
+
+fn text_of _:os/file_not_found
+  ""
+
+fn text_of m
+  m
+
+fn wrote app singular fields main old
+  plural = models/plural singular
+  senro = up_from app
+  entry = app/entry_with main plural
+  migrations = migrated old senro plural fields
+  bare = "{app}/main.kso imports nothing of its own"
+  long = "{app}/migrations.kso has no one-line `all`"
+  return refused bare if entry == none
+  return refused long if migrations == none
+  module = scaffold/resource senro singular fields
+  index = scaffold/index_view singular fields
+  shown = scaffold/shown_view singular fields
+  form = scaffold/form_view singular fields
+  views = "{app}/views"
+  os/is_dir views
+    .> (there -> made_dir there views)
+    .> (_ -> written "{app}/{plural}.kso" module)
+    .> (_ -> written "{views}/{plural}_index.kata" index)
+    .> (_ -> written "{views}/{singular}_shown.kata" shown)
+    .> (_ -> written "{views}/{singular}_form.kata" form)
+    .> (_ -> changed "{app}/migrations.kso" (said migrations))
+    .> (_ -> changed "{app}/main.kso" (said entry))
+
+fn migrated "" senro plural fields
+  scaffold/migrations_new senro plural fields
+
+fn migrated old _ plural fields
+  scaffold/migrations_with old plural fields
+
+fn made_dir true _
+  effect ""
+
+fn made_dir false path
+  os/make_dir path
+
+fn changed path content
+  os/write_file path content .> (_ -> io/write "  change {path}\n")
+
+fn said none
+  ""
+
+fn said s
+  s

@@ -1,0 +1,116 @@
+import "std/list"
+import "std/text"
+
+# What `generate new` writes for an app, as `rails new` does: an entry that
+# connects to the Postgres the environment names, runs the app's migrations
+# and serves its routes; a home page; a layout; and a migrations module with
+# no changes yet. Each function answers a file's text.
+pub fn entry senro name
+  lines = [
+    "import \"{senro}/kata\""
+    "import \"{senro}/models\""
+    "import \"{senro}/pg\""
+    "import \"{senro}/routes\""
+    "import \"{senro}/web\""
+    "import \"./home\""
+    "import \"./migrations\""
+    "import \"./views\""
+    ""
+    "derive kata/views"
+    "derive models/tables"
+    "derive routes/rest"
+    ""
+    "# The database comes from PGHOST, PGPORT, PGUSER, PGDATABASE and"
+    "# PGPASSWORD, as libpq reads them, so the app runs wherever its host"
+    "# sets them."
+    "connected = pg/from_env"
+    ""
+    "connected"
+    "  .> (db -> models/migrated db \"{name}\" migrations/all)"
+    "  .> (db -> models/compared db schema)"
+    "  .> (db -> pg/close db)"
+    "  .> (_ -> web/serve 3000 routes connected)"
+  ]
+  "{text/join lines "\n"}\n"
+
+pub fn home name
+  lines = [
+    "import \"./views\""
+    ""
+    "pub fn index req _"
+    "  page = views/home_view \"{name}\""
+    "  effect (views/answer req (views/layout_view \"{name}\" page))"
+  ]
+  "{text/join lines "\n"}\n"
+
+pub layout = text/join layout_lines "\n"
+
+layout_lines = [
+  "takes title body"
+  "doctype html"
+  "html"
+  "  head"
+  "    meta charset=\"utf-8\""
+  "    meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
+  "    title = title"
+  "    script src=\"/senro.js\" defer=\"defer\""
+  "  body"
+  "    main"
+  "      == body"
+  ""
+]
+
+pub home_view = text/join home_lines "\n"
+
+home_lines = [
+  "takes name"
+  "header"
+  "  h1 = name"
+  "  p.lede A senro app. Its resources are listed in main.kso."
+  ""
+]
+
+pub fn migrations senro
+  lines = [
+    "import \"{senro}/models\""
+    ""
+    "# The app's schema, as the changes that built it, oldest first."
+    "pub all = []"
+  ]
+  "{text/join lines "\n"}\n"
+
+local = "import \"./"
+
+# An entry's text with `import "./<name>"` added among its own imports, in
+# order, or none when it imports nothing of its own to sit beside.
+pub fn entry_with old name
+  lines = text/split old "\n"
+  wanted = "import \"./{name}\""
+  own = list/to_list (list/select lines (l -> text/starts_with? l local))
+  return none if length own == 0
+  return old if list/any? own (l -> l == wanted)
+  after = list/to_list (list/select own (l -> l < wanted))
+  placed (said_line (list/last after)) (said_line (list/first own)) lines wanted
+
+fn placed "" first lines wanted
+  joined (list/to_list (list/map lines (l -> before l first wanted)))
+
+fn placed after _ lines wanted
+  joined (list/to_list (list/map lines (l -> behind l after wanted)))
+
+fn before line first wanted
+  return "{wanted}\n{line}" if line == first
+  line
+
+fn behind line after wanted
+  return "{line}\n{wanted}" if line == after
+  line
+
+fn joined lines
+  text/join lines "\n"
+
+fn said_line none
+  ""
+
+fn said_line l
+  l

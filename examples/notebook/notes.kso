@@ -1,0 +1,117 @@
+import "../../models"
+import "../../pg"
+import "../../web"
+import "./views"
+import "std/list"
+import "std/net/http"
+
+# A note as the `notes` table stores it. The models derivation checks each
+# field against the table's columns, and writes `note_from`, which builds
+# one from a row, and `note_model`, which the writes below go through.
+pub type note
+  id
+  title
+  pages
+
+# Anyone may make, change and remove a note. The models module asks these
+# before it writes; narrow them to the visitors who should.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
+
+pub fn destroy? _ _
+  true
+
+model = note_model
+
+pub fn index req db
+  pg/query db listed [] .> (r -> effect (listing req r.rows))
+
+listed = "select id, title, pages from notes order by id"
+
+found = "select id, title, pages from notes where id = $1::integer"
+
+pub fn show req db id:int
+  pg/query db found ["{id}"] .> (r -> effect (shown req (list/first r.rows)))
+
+pub fn new req _
+  effect (form req "/notes" "POST" blank {} 200)
+
+pub fn create req db
+  given = picked (web/form req.body)
+  models/created "" db model given .> (w -> effect (made req w))
+
+pub fn edit req db id:int
+  pg/query db found ["{id}"]
+    .> (r -> effect (editing req id (list/first r.rows)))
+
+pub fn update req db id:int
+  given = picked (web/form req.body)
+  models/updated "" db model "{id}" given .> (w -> effect (changed req id w))
+
+pub fn destroy _ db id:int
+  models/destroyed "" db model "{id}" .> (w -> effect (gone w))
+
+fn listing req rows
+  every = list/to_list (list/map rows note_from)
+  page = views/notes_index_view every
+  views/answer_as req 200 (views/layout_view "Notes" page)
+
+fn shown _ none
+  http/not_found
+
+fn shown req row
+  page = views/note_shown_view (note_from row)
+  views/answer_as req 200 (views/layout_view "Note" page)
+
+fn editing _ _ none
+  http/not_found
+
+fn editing req id row
+  form req "/notes/{id}" "PATCH" (filled (note_from row)) {} 200
+
+fn made req w:models/invalid
+  form req "/notes" "POST" (filled w.record) w.problems 422
+
+fn made _ w:web/denied
+  web/refusal w
+
+fn made _ w
+  web/redirect "/notes/{w.id}"
+
+fn changed req id w:models/invalid
+  form req "/notes/{id}" "PATCH" (filled w.record) w.problems 422
+
+fn changed _ _ w:web/denied
+  web/refusal w
+
+fn changed _ _ w:web/absent
+  web/refusal w
+
+fn changed _ id _
+  web/redirect "/notes/{id}"
+
+fn gone w:web/denied
+  web/refusal w
+
+fn gone w:web/absent
+  web/refusal w
+
+fn gone _
+  web/redirect "/notes"
+
+# The form a note is made and changed with: its fields as typed, and the
+# problem with each, if any.
+fn form req path method fields problems code
+  page = views/note_form_view path method fields problems
+  views/answer_as req code (views/layout_view "Note" page)
+
+blank = { "pages":"" "title":"" }
+
+fn filled r
+  { "pages":"{r.pages}" "title":"{r.title}" }
+
+fn picked f
+  { "pages":(web/value f "pages") "title":(web/value f "title") }

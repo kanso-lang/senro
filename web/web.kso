@@ -585,6 +585,14 @@ pub fn refused? absent
 pub fn refused? _
   false
 
+# The answer to a write a model refused: 403 for a policy's no, 404 for a
+# row that is not there.
+pub fn refusal denied
+  http/respond 403 [] "Forbidden\n"
+
+pub fn refusal absent
+  http/not_found
+
 # The app's components whose actions run on the server, added to its route
 # table. Each answers POST /senro/act/<component> and nothing else, so only
 # a component the app names here, and only an action one of its templates

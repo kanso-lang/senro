@@ -3,6 +3,7 @@ import "std/bits"
 import "std/list"
 import "std/math"
 import "std/net"
+import "std/os"
 import "std/sha256"
 import "std/text"
 
@@ -74,6 +75,45 @@ wide = 1000000000000000000
 # never puts the password itself on the wire.
 pub fn connect host at user database password
   net/dial host at .> (c -> started c user database password)
+
+# A session with the Postgres the environment names, as libpq reads it:
+# PGHOST, PGPORT, PGUSER, PGDATABASE and PGPASSWORD, each with libpq's
+# default when it is unset or empty. An app that connects this way runs
+# against whatever database its host sets, with nothing to edit.
+pub from_env = os/env "PGHOST" .> (h -> port_from (or_default h "127.0.0.1"))
+
+fn port_from host
+  os/env "PGPORT" .> (p -> user_from host (port_of (number_of p)))
+
+fn number_of none
+  none
+
+fn number_of p
+  text/to_int p
+
+fn port_of none
+  5432
+
+fn port_of n
+  n
+
+fn user_from host at
+  os/env "PGUSER" .> (u -> database_from host at (or_default u "postgres"))
+
+fn database_from host at user
+  os/env "PGDATABASE" .> (d -> password_from host at user (or_default d user))
+
+fn password_from host at user database
+  os/env "PGPASSWORD" .> (w -> connect host at user database (or_default w ""))
+
+fn or_default none fallback
+  fallback
+
+fn or_default "" fallback
+  fallback
+
+fn or_default v _
+  v
 
 # The same login over TLS, as a hosted server asks for. Postgres starts TLS
 # inside the plain connection: the client sends an SSLRequest, the server

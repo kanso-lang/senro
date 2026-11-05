@@ -1,0 +1,396 @@
+import "../models"
+import "std/list"
+import "std/text"
+
+# What `generate scaffold` writes for a resource, as Rails' generator writes
+# it: a migration that makes the table, a module whose actions list, show,
+# make, change and remove rows through the model, and three views. Each
+# function answers a file's text, so a spec can read what would be written
+# without writing it.
+#
+# A field is written `name:kind` on the command line. A kind is `text` or
+# `int`, the two a form's fields read back as without a parser of their own.
+pub type field
+  name
+  kind
+
+# The fields a command line names, or the first that cannot be read.
+pub type unreadable
+  word
+
+# A comment being wrapped: the lines it has filled, and the one it is on.
+type wrap
+  lines
+  line
+
+pub fn fields_of words
+  read = list/to_list (list/map words field_of)
+  bad = list/to_list (list/select read (f -> f.kind == ""))
+  unread (list/first bad) read
+
+fn unread none read
+  read
+
+fn unread f _
+  unreadable f.name
+
+# Each of `xs` made a list by `f`, the lists joined end to end.
+fn spread xs f
+  list/fold xs [] (acc x -> list/concat acc (f x))
+
+fn field_of word
+  parts = text/split word ":"
+  return field word "" if length parts != 2
+  kind = column_kind parts[2]
+  return field word "" if kind == ""
+  field parts[1] kind
+
+fn column_kind "text"
+  "text"
+
+fn column_kind "int"
+  "integer"
+
+fn column_kind _
+  ""
+
+# The migration that makes the table, as the lines a migrations module
+# gains: the change, then a column for each field, named after the table so
+# two tables' columns never share a name.
+pub fn migration plural fields
+  cols = list/to_list (list/map fields (f -> "{plural}_{f.name}"))
+  named = text/join (list/concat ["{plural}_id"] cols) " "
+  made = "{plural}_made = models/create_table \"{plural}\" [{named}]"
+  each = list/to_list (list/map fields (f -> column_line plural f))
+  id = "{plural}_id = models/column \"id\" \"serial\""
+  lines = list/concat [made "" id] (spread each (l -> ["" l]))
+  text/join lines "\n"
+
+fn column_line plural f
+  "{plural}_{f.name} = models/column \"{f.name}\" \"{f.kind}\""
+
+# A migrations module's text with the change added at the end of `all`, or
+# none when its `all` is not one line this can read.
+pub fn migrations_with old plural fields
+  lines = text/split old "\n"
+  at = list/to_list (list/select lines (l -> text/starts_with? l "pub all = ["))
+  return none if length at != 1
+  was = said at[1]
+  listed = listed_after was "{plural}_made"
+  kept = list/to_list (list/map lines (l -> replaced l was listed))
+  added = migration plural fields
+  "{text/trim (text/join kept "\n")}\n\n{added}\n"
+
+fn replaced line was now
+  return now if line == was
+  line
+
+# `pub all = [a b]` with `name` added, one name to a line once the list is
+# too long for one.
+fn listed_after line name
+  inner = text/slice line 12 (length line - 1)
+  names = list/concat (words_of (said inner)) [name]
+  one = "pub all = [{text/join names " "}]"
+  return one if length one <= 80
+  "pub all = [\n  {text/join names "\n  "}\n]"
+
+fn words_of inner
+  list/to_list (list/select (text/split inner " ") (w -> w != ""))
+
+fn said none
+  ""
+
+fn said s
+  s
+
+# A migrations module for an app that has none.
+pub fn migrations_new senro plural fields
+  head = [
+    "import \"{senro}/models\""
+    ""
+    "# The app's schema, as the changes that built it, oldest first."
+    "pub all = [{plural}_made]"
+    ""
+  ]
+  "{text/join head "\n"}{migration plural fields}\n"
+
+# The resource's module: the model's record and its policies, and the seven
+# actions Rails' scaffold writes.
+pub fn resource senro singular fields
+  plural = models/plural singular
+  cols = text/join (list/concat ["id"] (names_of fields)) ", "
+  parts = [
+    (imports senro)
+    (record singular plural fields)
+    (policies singular)
+    (actions plural cols)
+    (helpers singular plural fields)
+  ]
+  "{text/join parts "\n"}\n"
+
+fn names_of fields
+  list/to_list (list/map fields (f -> f.name))
+
+fn imports senro
+  lines = [
+    "import \"{senro}/models\""
+    "import \"{senro}/pg\""
+    "import \"{senro}/web\""
+    "import \"./views\""
+    "import \"std/list\""
+    "import \"std/net/http\""
+    ""
+  ]
+  text/join lines "\n"
+
+# Words as `# ` lines of at most 76 columns, as a person would wrap them.
+fn comment words
+  w = list/fold (text/split words " ") (wrap [] "") wrapped
+  lines = list/concat w.lines [w.line]
+  text/join (list/to_list (list/map lines (l -> "# {l}"))) "\n"
+
+fn wrapped acc word
+  return wrap acc.lines word if acc.line == ""
+  over = length acc.line + length word >= 74
+  return wrap (list/concat acc.lines [acc.line]) word if over
+  wrap acc.lines "{acc.line} {word}"
+
+fn record singular plural fields
+  about = [
+    "A {singular} as the `{plural}` table stores it. The models derivation"
+    "checks each field against the table's columns, and writes"
+    "`{singular}_from`, which builds one from a row, and `{singular}_model`,"
+    "which the writes below go through."
+  ]
+  head = [(comment (text/join about " ")) "pub type {singular}" "  id"]
+  each = list/to_list (list/map fields (f -> "  {f.name}"))
+  text/join (list/concat head (list/concat each [""])) "\n"
+
+fn policies singular
+  about = [
+    "Anyone may make, change and remove a {singular}. The models module asks"
+    "these before it writes; narrow them to the visitors who should."
+  ]
+  lines = [
+    (comment (text/join about " "))
+    "pub fn create? _ _"
+    "  true"
+    ""
+    "pub fn update? _ _"
+    "  true"
+    ""
+    "pub fn destroy? _ _"
+    "  true"
+    ""
+    "model = {singular}_model"
+    ""
+  ]
+  text/join lines "\n"
+
+fn actions plural cols
+  shown_then = ".> (r -> effect (shown req (list/first r.rows)))"
+  changed_then = ".> (w -> effect (changed req id w))"
+  lines = [
+    "pub fn index req db"
+    "  pg/query db listed [] .> (r -> effect (listing req r.rows))"
+    ""
+    "listed = \"select {cols} from {plural} order by id\""
+    ""
+    "found = \"select {cols} from {plural} where id = $1::integer\""
+    ""
+    "pub fn show req db id:int"
+    "  pg/query db found [\"\{id}\"] {shown_then}"
+    ""
+    "pub fn new req _"
+    "  effect (form req \"/{plural}\" \"POST\" blank \{} 200)"
+    ""
+    "pub fn create req db"
+    "  given = picked (web/form req.body)"
+    "  models/created \"\" db model given .> (w -> effect (made req w))"
+    ""
+    "pub fn edit req db id:int"
+    "  pg/query db found [\"\{id}\"]"
+    "    .> (r -> effect (editing req id (list/first r.rows)))"
+    ""
+    "pub fn update req db id:int"
+    "  given = picked (web/form req.body)"
+    "  models/updated \"\" db model \"\{id}\" given {changed_then}"
+    ""
+    "pub fn destroy _ db id:int"
+    "  models/destroyed \"\" db model \"\{id}\" .> (w -> effect (gone w))"
+    ""
+  ]
+  text/join lines "\n"
+
+fn helpers singular plural fields
+  title = capitalized singular
+  every_title = capitalized plural
+  path = "\"/{plural}/\{id}\""
+  lines = [
+    "fn listing req rows"
+    "  every = list/to_list (list/map rows {singular}_from)"
+    "  page = views/{plural}_index_view every"
+    "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
+    ""
+    "fn shown _ none"
+    "  http/not_found"
+    ""
+    "fn shown req row"
+    "  page = views/{singular}_shown_view ({singular}_from row)"
+    "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
+    ""
+    "fn editing _ _ none"
+    "  http/not_found"
+    ""
+    "fn editing req id row"
+    "  form req {path} \"PATCH\" (filled ({singular}_from row)) \{} 200"
+    ""
+    "fn made req w:models/invalid"
+    "  form req \"/{plural}\" \"POST\" (filled w.record) w.problems 422"
+    ""
+    "fn made _ w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn made _ w"
+    "  web/redirect \"/{plural}/\{w.id}\""
+    ""
+    "fn changed req id w:models/invalid"
+    "  form req {path} \"PATCH\" (filled w.record) w.problems 422"
+    ""
+    "fn changed _ _ w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn changed _ _ w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn changed _ id _"
+    "  web/redirect \"/{plural}/\{id}\""
+    ""
+    "fn gone w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn gone w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn gone _"
+    "  web/redirect \"/{plural}\""
+    ""
+    (comment (form_about singular))
+    "fn form req path method fields problems code"
+    "  page = views/{singular}_form_view path method fields problems"
+    "  views/answer_as req code (views/layout_view \"{title}\" page)"
+    ""
+    (map_line "blank" "" fields (_ -> "\"\""))
+    ""
+    (map_line "fn filled r" "  " fields (f -> "\"\{r.{f.name}}\""))
+    ""
+    (map_line "fn picked f" "  " fields (f -> "(web/value f \"{f.name}\")"))
+  ]
+  text/join lines "\n"
+
+fn form_about singular
+  about = [
+    "The form a {singular} is made and changed with: its fields as typed,"
+    "and the problem with each, if any."
+  ]
+  text/join about " "
+
+# A map from each field's name, as a constant or a function's one line: on
+# one line when it fits, and one entry to a line when it does not.
+fn map_line head indent fields value
+  ordered = list/sort (names_of fields)
+  by_name = list/fold fields {} (m f -> put m f.name f)
+  pairs = list/to_list (list/map ordered (n -> pair_of by_name[n] value))
+  lead = lead_of head indent
+  one = "{lead}\{ {text/join pairs " "} }"
+  return one if length (last_line one) <= 80
+  each = list/to_list (list/map pairs (p -> "{indent}  {p}"))
+  "{lead}\{\n{text/join each "\n"}\n{indent}}"
+
+fn pair_of none _
+  ""
+
+fn pair_of f value
+  "\"{f.name}\":{value f}"
+
+fn lead_of head ""
+  "{head} = "
+
+fn lead_of head indent
+  "{head}\n{indent}"
+
+fn last_line s
+  parts = text/split s "\n"
+  said parts[length parts]
+
+fn capitalized word
+  first = text/uppercase (said (text/slice word 1 1))
+  "{first}{said (text/slice word 2 (length word))}"
+
+# The views: a list, a record shown, and the form that makes and changes one.
+pub fn index_view singular fields
+  plural = models/plural singular
+  first = (said_field (list/first fields)).name
+  lines = [
+    "takes rows"
+    "header"
+    "  h1 {capitalized plural}"
+    "  p.lede"
+    "    a href=\"/{plural}/new\" New {singular}"
+    "ul.{plural}"
+    "  for r in rows"
+    "    li"
+    "      a href=\"/{plural}/\{r.id}\" = r.{first}"
+  ]
+  "{text/join lines "\n"}\n"
+
+fn said_field none
+  field "id" ""
+
+fn said_field f
+  f
+
+pub fn shown_view singular fields
+  plural = models/plural singular
+  each = spread fields (f -> ["  dt {f.name}" "  dd = row.{f.name}"])
+  head = [
+    "takes row"
+    "header"
+    "  h1 {capitalized singular} \{row.id}"
+    "  p.lede"
+    "    a href=\"/{plural}\" All {plural}"
+    "dl"
+  ]
+  lines = list/concat head each
+  tail = [
+    "p"
+    "  a href=\"/{plural}/\{row.id}/edit\" Edit"
+    "form method=\"post\" action=\"/{plural}/\{row.id}\""
+    "  input type=\"hidden\" name=\"_method\" value=\"DELETE\""
+    "  button Delete"
+  ]
+  "{text/join (list/concat lines tail) "\n"}\n"
+
+pub fn form_view singular fields
+  plural = models/plural singular
+  each = spread fields field_lines
+  head = [
+    "takes path method fields problems"
+    "header"
+    "  h1 {capitalized singular}"
+    "  p.lede"
+    "    a href=\"/{plural}\" All {plural}"
+    "form method=\"post\" action=path"
+    "  input type=\"hidden\" name=\"_method\" value=method"
+  ]
+  lines = list/concat (list/concat head each) ["  button Save"]
+  "{text/join lines "\n"}\n"
+
+fn field_lines f
+  [
+    "  label"
+    "    | {f.name}"
+    "    input name=\"{f.name}\" value=fields[\"{f.name}\"]"
+    "  if problems[\"{f.name}\"] != none"
+    "    p.problem = problems[\"{f.name}\"]"
+  ]
