@@ -180,9 +180,9 @@ fn named_arm _ _ none _
 
 fn named_arm m f (place _ path) nest
   member = has_id? path
-  params = with_id "within" member
-  within = text/join (text/split path ":{nest}") "\{within}"
-  body = text/join (text/split within ":id") "\{id}"
+  params = with_id nest member
+  parented = text/join (text/split path ":{nest}") "\{{nest}}"
+  body = text/join (text/split parented ":id") "\{id}"
   name = "{m.name}/{f.name}"
   derive/define name "fn routes/path_to \"{name}\" {params}\n  \"{body}\"\n"
 
