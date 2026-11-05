@@ -200,6 +200,15 @@ console.log(`changing with a wrong password: ${await changed("not hers", "cys th
 console.log(`changing with hers: ${await changed("cys second password", "cys third password")}`);
 await cy.goto(at("/account/edit"));
 console.log(`and then her account page: ${new URL(cy.url()).pathname}`);
+// The page counts her sign-ins and, from the second on, says when and from
+// where the one before this came. The database outlives a run, so whether
+// this is her first depends on the runs before: the line prints as agreed
+// when it reads one way or the other, and as it reads otherwise.
+const arrivals = await cy.evaluate(() => document.querySelector("p.seen")?.textContent ?? "nothing");
+const first = /^You have signed in once\.$/;
+const later = /^You have signed in \d+ times\. The time before this one was \d{4}-\d\d-\d\d \d\d:\d\d UTC, from 127\.0\.0\.1\.$/;
+const agreed = first.test(arrivals) || later.test(arrivals);
+console.log(`her sign-ins: ${agreed ? "counted, and the one before named" : arrivals}`);
 console.log(`the old one again: ${await changed("cys second password", "cys fourth password")}`);
 
 // Fay's account locks after three wrong passwords in a row. Each is answered
