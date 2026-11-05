@@ -3,7 +3,7 @@ header
   h1 Note
   p.lede
     a href="/notes" All notes
-form method="post" action=path
+form method="post" action=path enctype="multipart/form-data"
   input type="hidden" name="_method" value=method
   label
     | title
@@ -15,4 +15,9 @@ form method="post" action=path
     input name="pages" value=fields["pages"]
   if problems["pages"] != none
     p.problem = problems["pages"]
+  label
+    | cover
+    input type="file" name="cover"
+  if fields["cover"] != ""
+    p.kept Leave it empty to keep the file it has.
   button Save

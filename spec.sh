@@ -226,7 +226,8 @@ gen=spec/notebook
 rm -rf "$gen"
 made=$({
   "$KANSO" run generate -- new "$gen"
-  "$KANSO" run generate -- scaffold "$gen" note title:text pages:int
+  "$KANSO" run generate -- scaffold "$gen" note title:text pages:int \
+    cover:attachment
   "$KANSO" run generate -- scaffold "$gen" page body:text note:references
   "$KANSO" run generate -- authentication "$gen"
   "$KANSO" run generate -- scaffold "$gen" note title:text
@@ -313,7 +314,7 @@ fi
 wide="title:text author:text summary:text published_year:int page_count:int"
 "$KANSO" run generate -- scaffold "$gen" book $wide isbn:text >/dev/null
 "$KANSO" run generate -- scaffold "$gen" margin_footnote words:text \
-  year:int note:references >/dev/null
+  year:int scan:attachment note:references >/dev/null
 if out=$("$KANSO" check "$gen" 2>&1); then
   note "ok: a resource with many fields checks"
 else

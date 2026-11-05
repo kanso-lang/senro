@@ -8,6 +8,10 @@ dl
   dd = row.title
   dt pages
   dd = row.pages
+  dt cover
+  dd
+    if row.cover != ""
+      a href="/senro/blobs/{row.cover}" open
 p
   a href="/notes/{row.id}/edit" Edit
 form method="post" action="/notes/{row.id}"

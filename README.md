@@ -32,7 +32,7 @@ from senro's own directory, and take the app's path relative to it:
 
 ```
 kanso run generate -- new apps/notebook
-kanso run generate -- scaffold apps/notebook note title:text pages:int
+kanso run generate -- scaffold apps/notebook note title:text pages:int cover:attachment
 kanso run generate -- scaffold apps/notebook page body:text note:references
 kanso run generate -- authentication apps/notebook
 ```
@@ -43,7 +43,7 @@ changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 serves on port 3000.
 
 `scaffold` takes a singular name and its fields, each `name:text`,
-`name:int` or `name:references`. A field's name is a lowercase letter and
+`name:int`, `name:references` or `name:attachment`. A field's name is a lowercase letter and
 then letters, digits and underscores, at most 24 in all; a resource's name
 is spelled the same way, at most 16. It writes a module whose seven actions
 list, show, make, change and remove rows through the model, and the three views
@@ -60,6 +60,12 @@ column and a foreign key to `notes` that removes a note's pages with it
 /notes/:note_id/pages, and a page is found only under its own note. The
 note's resource must be there already, a resource names one parent, and a
 reference's name is at most 12 characters.
+
+An `attachment` field is a file, kept as an upload is (see the web module
+below) and stored as its key, as Active Storage's `has_one_attached` keeps
+one. `cover:attachment` gives the note a `cover` column, a file input in a
+form sent as multipart, and a link to the file on the note's page. Changing
+the note without choosing a file keeps the one it has.
 
 `authentication` adds accounts, as Rails 8's authentication generator does,
 with a sign-up page as Devise's registerable adds. It writes a `users` table

@@ -3,13 +3,20 @@ import "../../models"
 # The app's schema, as the changes that built it, oldest first.
 pub all = [notes_made pages_made pages_to_notes users_made]
 
-notes_made = models/create_table "notes" [notes_id notes_title notes_pages]
+notes_made = models/create_table "notes" [
+  notes_id
+  notes_title
+  notes_pages
+  notes_cover
+]
 
 notes_id = models/column "id" "serial primary key"
 
 notes_title = models/column "title" "text"
 
 notes_pages = models/column "pages" "integer"
+
+notes_cover = models/column "cover" "text not null default ''"
 
 pages_made = models/create_table "pages" [pages_id pages_body pages_note_id]
 
