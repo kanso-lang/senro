@@ -1,0 +1,24 @@
+import "../../../tokens"
+
+# A token is good for the purpose, secret, record and bound value it was made
+# for, until its expiry, and for nothing else: a reset token does not confirm
+# an address, and a confirmation bound to an address stops working when the
+# address changes.
+made = 1793000000000
+
+ana = "ana@example.com"
+
+token = tokens/made "confirm" "a secret" 4 ana made 1440
+
+day = 86400000
+
+late = made + day + 1
+
+print token
+  .> (_ -> print "{tokens/id_of token}")
+  .> (_ -> print (tokens/valid? "confirm" "a secret" token ana made))
+  .> (_ -> print (tokens/valid? "reset" "a secret" token ana made))
+  .> (_ -> print (tokens/valid? "confirm" "another" token ana made))
+  .> (_ -> print (tokens/valid? "confirm" "a secret" token "ana@x.org" made))
+  .> (_ -> print (tokens/valid? "confirm" "a secret" token ana (made + day)))
+  .> (_ -> print (tokens/valid? "confirm" "a secret" token ana late))
