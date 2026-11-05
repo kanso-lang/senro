@@ -11,9 +11,10 @@ import "std/net/http"
 # it began, it has forgotten them and kept its notice. A request the server
 # did not stamp has no age to measure.
 #
-# The cookie a sign-in sets lasts as long as the browser; `web/lasting` keeps
-# it for the fourteen days the sign-in itself lasts, and leaves a response
-# that sets no session cookie as it was.
+# The cookie a sign-in sets lasts as long as the browser; a session made
+# `web/lasting` keeps it for the fourteen days the sign-in itself lasts, and
+# so does every later response that keeps that session with a notice of its
+# own, until it is signed out.
 secret = "a spec's secret"
 
 answered = web/kept (http/text_page "ok") secret { "name":"ada" }
@@ -40,7 +41,15 @@ early = cookies/asked_at kept_in (began - 1)
 
 plain = http/text_page "ok"
 
-same = http/rendered (web/lasting plain) == http/rendered plain
+remembered = web/signed_in signing plain secret (web/lasting held) "ada" ""
+
+remembered_in = cookies/sealed_from (http/rendered remembered)
+
+back = web/session (cookies/asked remembered_in) secret
+
+noticed = web/kept plain secret (put back "flash" "thanks")
+
+gone = web/kept plain secret (web/signed_out back)
 
 print "kept: {web/session (cookies/asked value) secret}"
 print "another secret: {web/session (cookies/asked value) "not the app's"}"
@@ -51,5 +60,7 @@ print "fifteen days later: {web/session expired secret}"
 print "before it began: {web/session early secret}"
 print "unstamped: {web/viewer (cookies/asked kept_in) secret}"
 print "until the browser closes: {cookies/attributes_of (http/rendered signed)}"
-print "kept: {cookies/attributes_of (http/rendered (web/lasting signed))}"
-print "no cookie, unchanged: {same}"
+print "lasting: {cookies/attributes_of (http/rendered remembered)}"
+print "and with a notice: {cookies/attributes_of (http/rendered noticed)}"
+print "signed out: {cookies/attributes_of (http/rendered gone)}"
+print "and forgets: {web/signed_out back}"

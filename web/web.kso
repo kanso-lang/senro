@@ -752,7 +752,8 @@ fn aged m at since
   m
 
 fn forgotten m
-  delete (delete (delete m "viewer") "since") "bound"
+  signing = ["viewer" "since" "bound" "lasting"]
+  list/fold signing m (acc k -> delete acc k)
 
 fn said none
   ""
@@ -790,24 +791,30 @@ fn fingerprint secret bound
 # The response, with `held` kept as the session the next request reads.
 #
 # The cookie lasts as long as the browser does, so closing it signs the
-# visitor out. `lasting` keeps it past that.
+# visitor out, unless the session was made `lasting`.
 pub fn kept r secret held
   sealed = sealed_of secret held
   line = "set-cookie: senro={sealed}; Path=/; HttpOnly; SameSite=Lax"
-  http/respond r.status (push r.headers line) r.body
+  http/respond r.status (push r.headers (aged_line line held)) r.body
 
-# The response `r`, with the session cookie it sets kept by the browser for
-# `session_days` rather than until it closes, as Devise's "remember me" does.
-# A sign-in still ends `session_days` after it began, because the session
-# keeps the time it began; this only lets it outlive the browser. A response
-# that sets no session cookie is answered unchanged.
-pub fn lasting r
-  kept_on = list/to_list (list/map r.headers lasted)
-  http/respond r.status kept_on r.body
-
-fn lasted line
-  return line if not text/starts_with? line "set-cookie: senro="
+fn aged_line line held
+  return line if held["lasting"] != "yes"
   "{line}; Max-Age={session_days * 24 * 60 * 60}"
+
+# The session `held`, kept by the browser for `session_days` rather than
+# until it closes, as Devise's "remember me" does. The session says so
+# itself, so every later response that keeps it keeps the cookie as long,
+# whatever else it changes. A sign-in still ends `session_days` after it
+# began, because the session keeps the time it began; this only lets it
+# outlive the browser. Signing out forgets it with the viewer.
+pub fn lasting held
+  put held "lasting" "yes"
+
+# The session `held` without its sign-in: the viewer, when it began, what it
+# rests on, and whether it outlives the browser. Whatever else it keeps,
+# such as a notice, stays.
+pub fn signed_out held
+  forgotten held
 
 fn sealed_of secret held
   body = base64/encode (text/bytes (json/encode held))
