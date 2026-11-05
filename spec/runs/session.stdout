@@ -7,5 +7,7 @@ fifteen days later: { "flash":"hello" }
 before it began: { "flash":"hello" }
 unstamped: ada
 until the browser closes: Path=/; HttpOnly; SameSite=Lax
-kept: Path=/; HttpOnly; SameSite=Lax; Max-Age=1209600
-no cookie, unchanged: true
+lasting: Path=/; HttpOnly; SameSite=Lax; Max-Age=1209600
+and with a notice: Path=/; HttpOnly; SameSite=Lax; Max-Age=1209600
+signed out: Path=/; HttpOnly; SameSite=Lax
+and forgets: { "flash":"hello" }

@@ -73,17 +73,17 @@ fn entered req name a password remember
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
   welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
+  signing = kept_if welcomed remember
   home = web/redirect back
-  signed = web/signed_in req home entries/secret welcomed name a.digest
-  effect (kept_if signed remember)
+  effect (web/signed_in req home entries/secret signing name a.digest)
 
 # A visitor who ticked "Keep me signed in" keeps the sign-in after the
 # browser closes.
-fn kept_if r true
-  web/lasting r
+fn kept_if s true
+  web/lasting s
 
-fn kept_if r false
-  r
+fn kept_if s false
+  s
 
 # The right password for an address not yet confirmed: the link is sent
 # again, and the visitor is told to follow it. Only the holder of the
@@ -102,9 +102,9 @@ pub fn over_limit req
   wait = { "password":"Too many tries. Try again in a few minutes." }
   effect (opened req "" wait 429)
 
-# Signing out keeps the rest of the session and forgets the viewer.
+# Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
-  s = delete (web/session req entries/secret) "viewer"
+  s = web/signed_out (web/session req entries/secret)
   r = web/redirect "/"
   effect (web/kept r entries/secret (put s "flash" "Signed out."))
 

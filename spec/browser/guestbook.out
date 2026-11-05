@@ -16,10 +16,12 @@ flash: Thank you for signing.
 newest entry: signed without a reload, by Ada
 signed in: Signed in as Ada.
 message field: ""
+Ada's cookie, kept: 14 days
 remove buttons only on Ada's entries: true
 newest entry after Ada removes hers: from Bob, by Bob
 Ada asking to remove Bob's entry: 403
 after signing out: Signed out.
+and her cookie: until the browser closes
 modules fetched by a second load: 0
 after a deploy, fetched: /senro/app.wasm
 Ada's page fetched / as: data, data, data, data

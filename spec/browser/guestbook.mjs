@@ -1,7 +1,9 @@
 // The guestbook signed in a real browser, with senro's page script and the
 // guestbook's browser module loaded. Each visitor makes an account and signs
 // with it. The page marks its window before signing; a page that reloaded
-// would lose the mark. Then the visitor removes her own entry, and is refused
+// would lose the mark. A visitor who asks to be kept signed in keeps a cookie
+// that outlives the browser through every later write to her session, until
+// she signs out. Then the visitor removes her own entry, and is refused
 // when she asks to remove someone else's. A visitor who has lost her password
 // asks for a link, reads it in the mail the app wrote to <outbox>, and
 // chooses a new one. Prints what a visitor sees, for spec.sh to compare with
@@ -22,9 +24,10 @@ page.on("pageerror", (e) => said.push(`page error: ${e.message}`));
 const at = (path) => `http://127.0.0.1:${port}${path}`;
 
 // Makes an account from the front page's link, confirms its address through
-// the link the guestbook mails, and signs in. The interpreted run finds the
-// account the native run made and confirmed, and only signs in.
-async function joined(p, name, password) {
+// the link the guestbook mails, and signs in, ticking "Keep me signed in"
+// when `remember` says to. The interpreted run finds the account the native
+// run made and confirmed, and only signs in.
+async function joined(p, name, password, remember = false) {
   const email = `${name.toLowerCase()}@guestbook.test`;
   await p.goto(at("/"));
   await p.click("a[href='/accounts/new']");
@@ -43,8 +46,16 @@ async function joined(p, name, password) {
   await p.goto(at("/session/new"));
   await p.fill("input[name=name]", name);
   await p.fill("input[name=password]", password);
+  if (remember) await p.check("input[name=remember]");
   await p.click("form button");
   await p.waitForSelector("form.out");
+}
+
+// How long the browser keeps the session cookie of the context `p` is in.
+async function cookieLife(p) {
+  const [c] = await p.context().cookies(at("/"));
+  if (c.expires === -1) return "until the browser closes";
+  return `${Math.round((c.expires - Date.now() / 1000) / 86400)} days`;
 }
 
 // The newest mail the guestbook wrote to `to`, and the link in it.
@@ -172,7 +183,7 @@ function mails() {
 // guestbook's views compiled for the browser render, once the module has
 // loaded. They are counted once Ada has signed in, since how she got there
 // depends on whether an earlier run made her account.
-await joined(page, "Ada", "adas password");
+await joined(page, "Ada", "adas password", true);
 const fetched = [];
 page.on("response", (r) => {
   const asked = r.request();
@@ -213,6 +224,11 @@ console.log(`newest entry: ${seen.first}, by ${seen.who}`);
 console.log(`signed in: ${seen.signed}`);
 console.log(`message field: "${seen.message}"`);
 
+// Ada ticked "Keep me signed in", and the cookie keeps that through every
+// later write to the session: the notice set when she signed, and the one
+// cleared when the page showed it.
+console.log(`Ada's cookie, kept: ${await cookieLife(page)}`);
+
 // Ada's entries have a remove button,
 // and nobody else's do; the button is a server action, so the click posts to
 // the server, which removes the entry only because the policy says she may.
@@ -250,6 +266,7 @@ await page.click("form.out button");
 await page.waitForSelector("nav.door");
 const out = await page.evaluate(() => document.querySelector("p.flash").textContent);
 console.log(`after signing out: ${out}`);
+console.log(`and her cookie: ${await cookieLife(page)}`);
 
 // The page's modules come from the browser's Cache Storage once they have
 // been fetched, so loading the page again asks the server for neither.
