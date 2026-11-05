@@ -2,7 +2,7 @@ import "../../models"
 
 # The guestbook's schema, as the changes that built it, oldest first. The
 # models derivation folds these into the schema the app is compiled against.
-pub all = [signed joined emailed confirmable]
+pub all = [signed joined emailed confirmable counted lockable]
 
 signed = models/create_table "signatures" [id name message]
 
@@ -16,6 +16,12 @@ emailed = models/add_column "accounts" email
 # When the address was confirmed, or empty until it is.
 confirmable = models/add_column "accounts" confirmed
 
+# How many wrong passwords in a row the account has had, and when too many
+# of them locked it, or empty while it is open.
+counted = models/add_column "accounts" failures
+
+lockable = models/add_column "accounts" locked
+
 name = models/column "name" "text"
 
 message = models/column "message" "text"
@@ -25,3 +31,7 @@ digest = models/column "digest" "text"
 email = models/column "email" "text"
 
 confirmed = models/column "confirmed" "text"
+
+failures = models/column "failures" "integer not null default 0"
+
+locked = models/column "locked" "text not null default ''"

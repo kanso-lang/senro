@@ -80,11 +80,21 @@ place, rendered on the server.
   every link confirms nobody; the button's PATCH /confirmations/:id stamps
   the account's `confirmed` column. The token is bound to the address and
   to that column being empty, so it works once, and it lasts a day.
-- `account_mailer.kso` holds both letters and the links they carry, which
+- Three wrong passwords in a row lock an account, as Devise's `lockable`
+  does (`session/locks_after`). The third mails a link to unlock it, and
+  the lock ends by itself after an hour (`session/locked_minutes`). A wrong
+  password on a locked account is answered as any wrong password is, and
+  only the right one is told that the account is locked. The link is GET
+  /unlocks/:id/edit, a button again, and PATCH /unlocks/:id clears the lock;
+  its token is bound to the moment of the lock, so it works once. A right
+  password ends a run of wrong ones, and so does a password reset, which
+  also unlocks.
+- `account_mailer.kso` holds the letters and the links they carry, which
   start with `mail/url_for`. A module whose name ends in `_mailer` is no
-  resource, so `account`, `session`, `resets` and `confirmations` can all
-  call it. Mail goes where `SENRO_MAIL` says (see senro's README); unset, it
-  is printed to standard error, which is where a developer finds the link.
+  resource, so `account`, `session`, `resets`, `confirmations` and
+  `unlocks` can all call it. Mail goes where `SENRO_MAIL` says (see senro's
+  README); unset, it is printed to standard error, which is where a
+  developer finds the link.
 - Signing in keeps the account's name in the session, a cookie signed with
   HMAC-SHA-256, as its viewer; a cookie whose signature does not match reads
   as an empty session. `entries/create` signs with the viewer's name, so

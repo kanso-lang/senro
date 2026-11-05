@@ -13,6 +13,7 @@ import "./removal"
 import "./resets"
 import "./session"
 import "./signatures"
+import "./unlocks"
 import "./views"
 
 derive kata/views
