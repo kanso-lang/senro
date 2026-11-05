@@ -1,0 +1,189 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+import "std/time"
+
+# A form with a title and two files is sent the way a browser sends it, the
+# head first and the multipart body a moment later. The answer names the key
+# each file was stored under, and each key is asked for at /senro/blobs.
+pub fn index _ _
+  sent head body
+    .> (r -> stored (lines_of r))
+    .> (seen -> refused seen)
+    .> (seen -> continued .> (line -> effect (push seen line)))
+    .> (seen -> effect (http/text_page (text/join seen "\n")))
+
+boundary = "----senro0123456789"
+
+head = text/join head_lines "\r\n"
+
+head_lines = [
+  "POST /photo HTTP/1.1"
+  "host: localhost"
+  "content-type: multipart/form-data; boundary={boundary}"
+  "content-length: {length body}"
+  ""
+  ""
+]
+
+# The PNG signature, a NUL, a 255, and the boundary's own dashes, so the
+# file holds a line break and bytes that are not text.
+png = text/to_bytes [137 80 78 71 13 10 26 10 0 255 45 45]
+
+script_page = text/bytes "<script>alert(1)</script>"
+
+body = text/to_bytes (list/to_list (list/fold pieces [] joined))
+
+fn joined a p
+  list/concat a p
+
+pieces = [
+  text/bytes (field "title" "a cat & a hat")
+  text/bytes (file_head "photo" "c.png" "image/png")
+  png
+  text/bytes "\r\n"
+  text/bytes (file_head "notes" "x.html" "text/html")
+  script_page
+  text/bytes "\r\n--{boundary}--\r\n"
+]
+
+fn field name value
+  "--{boundary}\r\n{disposition name}\r\n\r\n{value}\r\n"
+
+fn disposition name
+  "content-disposition: form-data; name=\"{name}\""
+
+fn file_head name filename kind
+  named = "{disposition name}; filename=\"{filename}\""
+  text/join ["--{boundary}" named "content-type: {kind}" "" ""] "\r\n"
+
+# One request, its head and its body written apart, and the whole answer.
+fn sent h b
+  net/dial "127.0.0.1" 54410 .> (c -> wrote c h b)
+
+fn wrote c h b
+  net/write c h
+    .> (_ -> time/sleep 300)
+    .> (_ -> net/write c b)
+    .> (_ -> heard c (text/to_bytes []))
+
+fn heard c had
+  net/read_bytes c .> (more -> heard_more c had more)
+
+fn heard_more c had more
+  return net/close_conn c .> (_ -> effect had) if length more == 0
+  heard c (list/concat had more)
+
+# The answer's body, as lines.
+fn lines_of raw
+  text/split (decoded (after_head raw)) "\n"
+
+fn after_head raw
+  at = gap raw 1
+  text/slice raw (at + 4) (length raw)
+
+fn gap raw i
+  return i if text/slice raw i (i + 3) == text/bytes "\r\n\r\n"
+  gap raw (i + 1)
+
+# What the action read, and each file as /senro/blobs gives it back.
+fn stored said
+  title = nth said 1
+  photo = nth said 2
+  notes = nth said 3
+  keyed = "keys are 32 hex digits: {hex32? photo and hex32? notes}"
+  asked_for photo
+    .> (a -> asked_for notes .> (b -> effect (both "title: {title}" keyed a b)))
+
+fn nth xs i
+  blank xs[i]
+
+fn blank none
+  ""
+
+fn blank v
+  v
+
+fn decoded none
+  ""
+
+fn decoded bs
+  text/utf8 bs
+
+fn both told keyed a b
+  [told keyed (shown "photo" a png) (shown "notes" b script_page)]
+
+fn hex32? k
+  digits = "0123456789abcdef"
+  length k == 32 and list/all? (text/chars k) (c -> one_of? digits c)
+
+fn one_of? digits c
+  length (text/split digits c) == 2
+
+fn asked_for key
+  asking = "GET /senro/blobs/{key} HTTP/1.1\r\nhost: localhost\r\n\r\n"
+  sent asking (text/to_bytes [])
+
+fn shown name raw want
+  heads = decoded (text/slice raw 1 (gap raw 1 - 1))
+  lines = text/split heads "\r\n"
+  kept = list/to_list (list/select lines (l -> kept? l))
+  same = after_head raw == want
+  "{name}: {text/join kept ", "}, same bytes: {same}"
+
+fn kept? line
+  list/any? shown_heads (p -> text/starts_with? line p)
+
+shown_heads = ["HTTP/" "content-type" "content-disposition" "x-content"]
+
+# A body larger than the server takes is refused before it is read, and a
+# key that is not one is not looked for.
+fn refused seen
+  big = text/join big_lines "\r\n"
+  sent big (text/to_bytes [])
+    .> (r -> status r)
+    .> (s -> asked_for "../../main.kso" .> (r -> effect [s (status r)]))
+    .> (more -> asked_for "0123" .> (r -> effect (added seen more r)))
+
+fn added seen more r
+  list/to_list (list/concat seen (push more (status r)))
+
+big_lines = [
+  "POST /photo HTTP/1.1"
+  "host: localhost"
+  "content-length: 20000000"
+  ""
+  ""
+]
+
+fn status raw
+  first = text/split (decoded (text/slice raw 1 (gap raw 1 - 1))) "\r\n"
+  first[1]
+
+# A client that asks to continue hears so before it sends its body, and then
+# the answer to the whole request.
+continued = net/dial "127.0.0.1" 54410 .> (c -> waited c)
+
+fn waited c
+  net/write c (text/join asking_lines "\r\n")
+    .> (_ -> net/read c)
+    .> (first -> net/write c body .> (_ -> effect first))
+    .> (first -> heard c (text/to_bytes []) .> (r -> told_both first r))
+
+fn told_both first r
+  effect (both_told first r)
+
+asking_lines = [
+  "POST /photo HTTP/1.1"
+  "host: localhost"
+  "content-type: multipart/form-data; boundary={boundary}"
+  "expect: 100-continue"
+  "content-length: {length body}"
+  ""
+  ""
+]
+
+fn both_told first r
+  told = text/split first "\r\n"
+  "asked to continue: {told[1]}, then {status r}"

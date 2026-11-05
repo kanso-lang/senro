@@ -110,8 +110,21 @@ fn forked l c s
   served l s
 
 fn answered c s
-  net/read c
-    .> (raw -> time/now .> (t -> net/peer c .> (from -> heard_from raw t from)))
+  gathered c (text/to_bytes []) -1
+    .> (raw -> request_text raw)
+    .> (got -> handed_on c s got)
+
+# A refusal is written as it stands: std/net/http has no reason phrase for
+# every status the server refuses with.
+fn handed_on c _ r:refused_with
+  phrase = "{r.reason}\n"
+  line = "HTTP/1.1 {r.status} {r.reason}\r\ncontent-length: {length phrase}"
+  net/write c "{line}\r\nconnection: close\r\n\r\n{phrase}"
+    .> (_ -> net/close_conn c)
+
+fn handed_on c s raw
+  time/now
+    .> (t -> net/peer c .> (from -> heard_from raw t from))
     .> (req -> heard c s req)
 
 fn heard_from raw t from
@@ -560,6 +573,7 @@ fn limited (hit action kind id _) l
 fn routed none req _
   return effect http/not_found if req.method != "GET"
   return page_script if req.path == "/senro.js"
+  return blob req if text/starts_with? req.path "/senro/blobs/"
   return effect http/not_found if length (text/split req.path "..") > 1
   return served_module req if text/ends_with? req.path ".wasm"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)

@@ -197,7 +197,19 @@ when they are given that path. The specs write it again and compare the two.
   from `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD`, with
   libpq's defaults for any that are unset.
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. The server opens a pool of database sessions when it
+  decodes a posted form. A request is read as bytes until its body is as long
+  as its `Content-Length` says, since a browser often sends the head and the
+  body in separate packets. A body over 10 MiB is refused with a 413 before it
+  is read, and a client that sends `Expect: 100-continue`, as curl does before
+  a large upload, is told to go on. A form sent as `multipart/form-data`, which is how a browser sends a
+  file, reaches its action as any other form does: each file is written to
+  `storage/` beside the app (or the directory `SENRO_STORAGE` names) under a
+  key of 32 random hex digits, and the form holds the key where the file was,
+  as Active Storage's disk service keeps a blob. The action stores the key in
+  a column, and a view links it with `web/blob_path key`, which serves the
+  file at `/senro/blobs/<key>`. An image or a PDF is shown in the page; any
+  other kind is sent as a download, so an HTML file someone uploaded never runs
+  as a page of the app. A file input left empty reads as "". The server opens a pool of database sessions when it
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
   when it has answered, and a request that finds them all lent waits. An action
   that fails is answered with a 500, its reason goes to standard error, and the

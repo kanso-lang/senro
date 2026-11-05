@@ -1,0 +1,7 @@
+import "std/net/http"
+import "std/text"
+
+# The body as the action read it, each line break written as `|`.
+pub fn create req _
+  shown = text/join (text/split req.body "\r\n") "|"
+  effect (http/text_page "heard {shown}")

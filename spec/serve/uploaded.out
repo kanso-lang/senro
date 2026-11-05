@@ -1,0 +1,8 @@
+title: a cat & a hat
+keys are 32 hex digits: true
+photo: HTTP/1.1 200 OK, content-type: image/png, content-disposition: inline, x-content-type-options: nosniff, same bytes: true
+notes: HTTP/1.1 200 OK, content-type: application/octet-stream, content-disposition: attachment; filename="x.html", x-content-type-options: nosniff, same bytes: true
+HTTP/1.1 413 Content Too Large
+HTTP/1.1 404 Not Found
+HTTP/1.1 404 Not Found
+asked to continue: HTTP/1.1 100 Continue, then HTTP/1.1 200 OK

@@ -1,0 +1,421 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/os"
+import "std/text"
+
+# A request the server answers itself, before any action sees it.
+pub type refused_with
+  status
+  reason
+
+# One part of a multipart body: a field's name, the file's name and kind
+# when it is a file, and its bytes.
+pub type part
+  name
+  filename
+  kind
+  content
+
+# A request read as bytes, and a form sent as multipart/form-data, which is how
+# a browser sends a file. Each file is written to the app's storage directory
+# under a key of 32 random hex digits, and the form the action reads holds
+# the key where the file was, as Active Storage's disk service keeps a blob.
+# /senro/blobs/<key> serves it back.
+#
+# The most a request's body may hold, 10 MiB. A request that promises more
+# is answered 413 before its body is read.
+body_limit = 10485760
+
+blank_line = text/bytes "\r\n\r\n"
+
+# A read is one segment of what the client sent, and a browser often sends a
+# request's head in one packet and its body in the next. The server reads
+# again until the body has the bytes content-length promised, or the client
+# stops sending. `wanted` is the whole request's length once its head is in,
+# and -1 until then.
+fn gathered c had wanted
+  net/read_bytes c .> (more -> gathered_after c had wanted more)
+
+fn gathered_after c had wanted more
+  return effect had if length more == 0
+  raw = text/append had more
+  want = wanted_of raw wanted
+  return effect raw if whole? raw want
+  return continued c raw want if wanted < 0 and want >= 0 and expects? raw
+  gathered c raw want
+
+# A client that sends `Expect: 100-continue` waits to hear that the server
+# will take its body before it sends it, as curl does for a large upload.
+fn continued c raw want
+  net/write c "HTTP/1.1 100 Continue\r\n\r\n" .> (_ -> gathered c raw want)
+
+fn expects? raw
+  at = found raw blank_line 1
+  continue_asked? raw at
+
+fn continue_asked? _ none
+  false
+
+fn continue_asked? raw at
+  head = ascii_of (some_bytes (text/slice raw 1 (at - 1)))
+  asks_to_continue? (header_in head "expect")
+
+fn asks_to_continue? none
+  false
+
+fn asks_to_continue? asked
+  text/lowercase asked == "100-continue"
+
+fn wanted_of raw -1
+  head_end raw (found raw blank_line 1)
+
+fn wanted_of _ w
+  w
+
+fn head_end _ none
+  -1
+
+# A body larger than the limit is not waited for: the request is whole at
+# its head, and `opened` refuses it.
+fn head_end raw at
+  head = ascii_of (some_bytes (text/slice raw 1 (at - 1)))
+  promised = length_promised (header_in head "content-length")
+  return at + 3 if promised > body_limit
+  at + 3 + promised
+
+fn whole? raw w
+  w >= 0 and length raw >= w
+
+# A head's bytes as text, each byte past ASCII read as `?`. A head is ASCII,
+# and this reads one that is not without failing.
+fn ascii_of bs
+  each = list/map (list/to_list bs) (b -> if (b < 128) (text/from_code b) "?")
+  text/join (list/to_list each) ""
+
+# The value of the header `name` in a request's head, or none. Header names
+# are read without regard to case, and the last of two with one name counts,
+# as `http/parsed` reads them.
+fn header_in head name
+  lines = list/select (text/split head "\r\n") (l -> named? l name)
+  value_in (list/last (list/to_list lines))
+
+fn named? line name
+  text/starts_with? (text/lowercase line) "{name}:"
+
+fn value_in none
+  none
+
+fn value_in line
+  value_of line
+
+fn length_promised none
+  0
+
+fn length_promised n
+  counted (text/to_int n)
+
+fn counted none
+  0
+
+fn counted n
+  n
+
+fn text_or_blank none
+  ""
+
+fn text_or_blank bs
+  text/utf8 bs .? (_ -> effect "")
+
+# The request as text, as the rest of the server reads it: a multipart body
+# becomes the form it carries, with each file stored and named by its key.
+# Anything else is its body utf8_or_refused as UTF-8. A body over the limit is
+# refused with a 413, and bytes that are not text with a 400.
+fn request_text raw
+  text_at raw (found raw blank_line 1)
+
+fn text_at raw none
+  utf8_or_refused raw
+
+fn text_at raw at
+  head = text/slice raw 1 (at - 1)
+  body = some_bytes (text/slice raw (at + 4) (length raw))
+  utf8_or_refused head .> (h -> from_head h body)
+
+fn from_head none _
+  effect (refused_with 400 "Bad Request")
+
+fn from_head h:refused_with _
+  effect h
+
+fn from_head h body
+  too_big = length_promised (header_in h "content-length") > body_limit
+  return effect (refused_with 413 "Content Too Large") if too_big
+  from_parts h body (boundary_of (header_in h "content-type"))
+
+fn from_parts h body none
+  utf8_or_refused body .> (b -> joined h b)
+
+fn from_parts h body boundary
+  fields = parts_of body boundary
+  stored_all fields .> (pairs -> joined h (encoded_form pairs))
+
+fn joined _ b:refused_with
+  effect b
+
+fn joined h b
+  effect "{h}\r\n\r\n{b}"
+
+fn utf8_or_refused none
+  effect ""
+
+fn utf8_or_refused bs
+  text/utf8 bs .? (_ -> effect (refused_with 400 "Bad Request"))
+
+# The boundary a multipart/form-data body is cut along, or none for any other
+# body.
+fn boundary_of none
+  none
+
+fn boundary_of kind
+  return none if not text/starts_with? kind "multipart/form-data"
+  cut = text/split kind "boundary="
+  return none if length cut < 2
+  unquoted (text/trim cut[2])
+
+fn unquoted s
+  without s "\""
+
+# The parts of a multipart body, in order. Each starts after a line holding
+# the boundary, and its headers end at a blank line; its content runs to the
+# line break before the next boundary. The last boundary ends in `--`.
+fn parts_of body boundary
+  starting = text/bytes "--{boundary}"
+  between = text/bytes "\r\n--{boundary}"
+  first = found body starting 1
+  walked body between (past first (length starting)) []
+
+fn past none _
+  none
+
+fn past at n
+  at + n
+
+fn walked _ _ none got
+  got
+
+fn walked body between p got
+  return got if text/slice body p (p + 1) == text/bytes "--"
+  starts = p + 2
+  ends = found body blank_line starts
+  part_at body between got (headers_at body starts ends) ends
+
+fn headers_at _ _ none
+  ""
+
+fn headers_at body starts ends
+  text_or_blank (text/slice body starts (ends - 1))
+
+fn part_at _ _ got _ none
+  got
+
+fn part_at body between got heads ends
+  from = ends + 4
+  next = found body between from
+  content = some_bytes (text/slice body from (minus_one next))
+  more = push got (read_part heads content)
+  walked body between (past next (length between)) more
+
+fn some_bytes none
+  text/to_bytes []
+
+fn some_bytes bs
+  bs
+
+fn minus_one none
+  0
+
+fn minus_one n
+  n - 1
+
+fn read_part heads content
+  lines = text/split heads "\r\n"
+  given_as = header_named lines "content-disposition"
+  params = disposition_params given_as
+  kind = header_named lines "content-type"
+  part params["name"] params["filename"] kind content
+
+fn header_named lines name
+  line = list/find lines (l -> text/starts_with? (text/lowercase l) "{name}:")
+  value_of line
+
+fn value_of none
+  ""
+
+fn value_of line
+  parts = text/split line ":"
+  text/trim (text/join (list/to_list (list/drop parts 1)) ":")
+
+# `form-data; name="photo"; filename="c.png"` as a map of its parameters.
+fn disposition_params header
+  pieces = list/drop (text/split header ";") 1
+  list/fold pieces {} (acc p -> param acc (text/split (text/trim p) "="))
+
+fn param acc kv
+  return acc if length kv < 2
+  rest = text/join (list/to_list (list/drop kv 1)) "="
+  put acc (text/lowercase kv[1]) (unquoted rest)
+
+# Each part as a name and the value the action reads: a text field's text,
+# a chosen file's key once it is stored, and "" for a file input left empty.
+fn stored_all parts
+  list/fold parts (effect []) (acc p -> acc .> (got -> added got p))
+
+fn added got p
+  stored_part p .> (pair -> effect (push got pair))
+
+fn stored_part p
+  stored_as p p.filename
+
+fn stored_as p none
+  text_or_blank p.content .> (v -> effect [(field_name p.name) v])
+
+fn stored_as p ""
+  effect [(field_name p.name) ""]
+
+fn stored_as p filename
+  os/random_bytes 16
+    .> (r -> written (hexed r) p filename)
+    .> (key -> effect [(field_name p.name) key])
+
+fn field_name none
+  ""
+
+fn field_name n
+  n
+
+fn written key p filename
+  storage_dir
+    .> (dir -> os/make_dir dir .> (_ -> effect dir))
+    .> (dir -> os/write_file "{dir}/{key}" p.content .> (_ -> effect dir))
+    .> (dir -> os/write_file "{dir}/{key}.meta" "{p.kind}\n{filename}")
+    .> (_ -> effect key)
+
+# Where files are kept: SENRO_STORAGE, or storage/ beside the app.
+storage_dir = os/env "SENRO_STORAGE" .> (d -> effect (dir_or d))
+
+fn dir_or none
+  "storage"
+
+fn dir_or d
+  d
+
+# The fields as a posted form writes them, so `form` reads them as it reads
+# any other.
+fn encoded_form pairs
+  each = list/map pairs (pair -> "{escaped pair[1]}={escaped pair[2]}")
+  text/join (list/to_list each) "&"
+
+fn escaped none
+  ""
+
+fn escaped s
+  bs = list/to_list (text/bytes s)
+  text/join (list/to_list (list/map bs (b -> escaped_byte b))) ""
+
+fn escaped_byte b
+  return text/from_code b if unreserved? b
+  "%{text/uppercase (byte_hex b)}"
+
+fn unreserved? b
+  letter = (b >= 65 and b <= 90) or (b >= 97 and b <= 122)
+  letter or (b >= 48 and b <= 57) or b == 45 or b == 46 or b == 95 or b == 126
+
+# The first place `needle` starts in `hay` at or after `from`, or none.
+fn found hay needle from
+  scanned hay needle from (length hay - length needle + 1)
+
+fn scanned _ _ none _
+  none
+
+fn scanned hay needle i last
+  return none if i > last
+  return i if starts? hay needle i
+  scanned hay needle (i + 1) last
+
+fn starts? hay needle i
+  hay[i] == needle[1] and text/slice hay i (i + length needle - 1) == needle
+
+# A stored file, by its key. An image or a PDF is shown in the page; any
+# other kind is a download, so an HTML file someone uploaded never runs as a
+# page of the app. A key that is not 32 hex digits is not looked for.
+fn blob req
+  key = text_or_blank_of (text/slice req.path 14 (length req.path))
+  return effect http/not_found if not key? key
+  storage_dir
+    .> (dir -> os/read_file "{dir}/{key}.meta" .> (m -> blob_read dir key m))
+
+fn key? k
+  length k == 32 and list/all? (text/chars k) (c -> hex_digit? c)
+
+fn hex_digit? c
+  length (text/split "0123456789abcdef" c) == 2
+
+fn blob_read _ _ _:os/file_not_found
+  effect http/not_found
+
+fn blob_read dir key meta
+  os/read_bytes "{dir}/{key}" .> (bs -> blob_answer meta bs)
+
+fn blob_answer _ _:os/file_not_found
+  effect http/not_found
+
+fn blob_answer meta bs
+  lines = text/split meta "\n"
+  kind = text_or_blank_of lines[1]
+  filename = text_or_blank_of lines[2]
+  effect (http/page (blob_headers kind filename) bs)
+
+fn text_or_blank_of none
+  ""
+
+fn text_or_blank_of s
+  s
+
+fn blob_headers kind filename
+  shown = list/any? inline_kinds (k -> k == kind)
+  [
+    "content-type: {shown_kind shown kind}"
+    "content-disposition: {disposition shown filename}"
+    "x-content-type-options: nosniff"
+    "cache-control: private, max-age=31536000, immutable"
+  ]
+
+inline_kinds = [
+  "image/png"
+  "image/jpeg"
+  "image/gif"
+  "image/webp"
+  "image/avif"
+  "application/pdf"
+]
+
+fn shown_kind true kind
+  kind
+
+fn shown_kind false _
+  "application/octet-stream"
+
+fn disposition true _
+  "inline"
+
+fn disposition false filename
+  bare = without (without filename "\"") "\\"
+  "attachment; filename=\"{bare}\""
+
+fn without s piece
+  text/join (text/split s piece) ""
+
+# Where a stored file is served, for a view's `src` or `href`.
+pub fn blob_path key
+  "/senro/blobs/{key}"
