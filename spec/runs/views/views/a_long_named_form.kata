@@ -1,0 +1,7 @@
+takes problems
+if problems["a_field_whose_name_runs_long"] != none
+  p.problem = problems["a_field_whose_name_runs_long"]
+else if problems["another_field_with_a_long_name"] != none
+  p.other = problems["another_field_with_a_long_name"]
+else
+  p.fine Nothing to fix.

@@ -1,9 +1,15 @@
 import "../../../models"
 
-pub all = [notes]
+pub all = [notes marginalia]
 
 notes = models/create_table "notes" [id title]
 
 id = models/column "id" "serial"
 
 title = models/column "title" "text"
+
+first = models/column "the_first_rather_long_column" "text"
+
+second = models/column "the_second_rather_long_column" "text"
+
+marginalia = models/create_table "marginal_entries" [id first second]
