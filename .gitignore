@@ -3,3 +3,6 @@
 *.ll
 browser.wasm
 **/public/senro/
+
+# What `generate` writes for spec.sh, made afresh each run.
+spec/notebook/

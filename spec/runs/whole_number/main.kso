@@ -1,0 +1,24 @@
+import "../../../models"
+import "std/list"
+
+# What an `integer` column takes, as `models/integer?` reads it, and the
+# rule a model writes with it. Postgres reads the edges of its range and
+# trims the spaces around the digits; it refuses a fraction, an exponent,
+# a blank and a number past the range.
+said = [
+  "12"
+  " 12 "
+  "-7"
+  "+5"
+  "2147483647"
+  "-2147483648"
+  "2147483648"
+  "12.5"
+  "1e3"
+  ""
+  "twelve"
+]
+
+print (list/to_list (list/map said (v -> "[{v}] {models/integer? v}")))
+print (models/problems [(models/whole_number "pages" "12")])
+print (models/problems [(models/whole_number "pages" "twelve")])

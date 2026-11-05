@@ -1,0 +1,9 @@
+takes rows
+header
+  h1 Notes
+  p.lede
+    a href="/notes/new" New note
+ul.notes
+  for r in rows
+    li
+      a href="/notes/{r.id}" = r.title

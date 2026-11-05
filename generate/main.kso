@@ -1,0 +1,4 @@
+import "./command"
+import "std/os"
+
+os/args .> (a -> command/run a)

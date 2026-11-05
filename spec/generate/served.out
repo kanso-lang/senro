@@ -1,0 +1,9 @@
+the list:  Notes Notes New note 
+pages of twelve: 422 Give a whole number.
+making one: sent to /notes/N
+it shows:  Note Note N All notes title First pages 12 Edit Delete 
+its form: value="PATCH" value="First" value="12" 
+changing it: 303 to /notes/N
+the list then:  Notes Notes New note Renamed 
+removing it: 303 to /notes
+asked for again: 404

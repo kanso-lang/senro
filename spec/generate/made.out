@@ -1,0 +1,15 @@
+  create spec/notebook/main.kso
+  create spec/notebook/home.kso
+  create spec/notebook/migrations.kso
+  create spec/notebook/views/layout.kata
+  create spec/notebook/views/home.kata
+  create spec/notebook/notes.kso
+  create spec/notebook/views/notes_index.kata
+  create spec/notebook/views/note_shown.kata
+  create spec/notebook/views/note_form.kata
+  change spec/notebook/migrations.kso
+  change spec/notebook/main.kso
+generate: spec/notebook/notes.kso is there already
+generate: cannot read `title:words`: a field is name:text or name:int
+generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _
+generate: cannot read `id:int`: `id` is a column every table has

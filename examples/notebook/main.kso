@@ -1,0 +1,24 @@
+import "../../kata"
+import "../../models"
+import "../../pg"
+import "../../routes"
+import "../../web"
+import "./home"
+import "./migrations"
+import "./notes"
+import "./views"
+
+derive kata/views
+derive models/tables
+derive routes/rest
+
+# The database comes from PGHOST, PGPORT, PGUSER, PGDATABASE and
+# PGPASSWORD, as libpq reads them, so the app runs wherever its host
+# sets them.
+connected = pg/from_env
+
+connected
+  .> (db -> models/migrated db "notebook" migrations/all)
+  .> (db -> models/compared db schema)
+  .> (db -> pg/close db)
+  .> (_ -> web/serve 3000 routes connected)

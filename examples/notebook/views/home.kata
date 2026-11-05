@@ -1,0 +1,4 @@
+takes name
+header
+  h1 = name
+  p.lede A senro app. Its resources are listed in main.kso.

@@ -25,6 +25,36 @@ adds, counts, renames and removes things on a shelf without a page reload.
 
 `PRINCIPLES.md` states what senro's design follows.
 
+## Generating an app
+
+senro's generators write an app and its resources, as Rails' do. They run
+from senro's own directory, and take the app's path relative to it:
+
+```
+kanso run generate -- new apps/notebook
+kanso run generate -- scaffold apps/notebook note title:text pages:int
+```
+
+`new` writes an entry, a home page, a layout and a migrations module with no
+changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
+`PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
+serves on port 3000.
+
+`scaffold` takes a singular name and its fields, each `name:text` or
+`name:int`, where a name is a lowercase letter and then letters, digits and
+underscores, at most 24 in all. It writes a module whose seven actions list,
+show, make, change and remove rows through the model, and the three views
+they render. Each `int` field gets a rule that the value is a whole number,
+so a form that says otherwise is shown again with the problem rather than
+refused by Postgres. It adds the migration that makes the table to the end
+of `migrations/all`, and the module's import to the entry. The policies it
+writes let anyone write; narrow them before the app is public.
+
+Each generator prints the files it writes and changes. A file that is there
+already stops it before it writes anything, and so does a field it cannot
+read. `examples/notebook` is the app the two commands above write when
+they are given that path. The specs write it again and compare the two.
+
 ## What is here
 
 - `routes`: the REST convention, run as a derivation while the app compiles.
@@ -99,7 +129,9 @@ adds, counts, renames and removes things on a shelf without a page reload.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. A model's module may declare
+  such policy cannot be written this way. A model with too many columns to
+  list on the value's line has them in a constant of their own,
+  `signature_columns`, one to a line. A model's module may declare
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row
   shows: a missing read policy can show a row but never change one, so reads
@@ -109,14 +141,19 @@ adds, counts, renames and removes things on a shelf without a page reload.
   module's `problems`, and inserts only when both pass; `models/updated`
   checks `problems` too, on the record as the change leaves it.
   `problems` takes the record and answers `models/problems` of a list of
-  `models/rule field broken message`. A record that breaks a rule comes
-  back as `models/invalid`, holding each broken field's message and the
-  record as given, so the action can show the form again with both.
+  `models/rule field broken message`. `models/whole_number field value` is
+  the rule that a value is one an `integer` column takes, which
+  `models/integer? value` answers: digits with or without a sign, inside the
+  column's range. A record that breaks a rule comes back as
+  `models/invalid`, holding each broken field's message and the record as
+  given, so the action can show the form again with both.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
   socket, with SCRAM-SHA-256 login and parameterized queries.
   `pg/connect_tls` asks the server for TLS inside the connection, as Postgres
   expects, and checks its certificate against the machine's trusted roots
-  (`SSL_CERT_FILE` names others).
+  (`SSL_CERT_FILE` names others). `pg/from_env` connects as libpq would,
+  from `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD`, with
+  libpq's defaults for any that are unset.
 - `web`: serves the route table, each connection in a fiber of its own, and
   decodes a posted form. The server opens a pool of database sessions when it
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
@@ -153,6 +190,8 @@ adds, counts, renames and removes things on a shelf without a page reload.
   Rails. When a request that isn't a GET finishes, the server notifies
   Postgres's `senro` channel, and every page holding `/senro/live` open fetches
   itself again, so one visitor's change shows on another's page.
+  `web/refusal` answers a `web/denied` with 403 Forbidden and a `web/absent`
+  with 404 Not Found.
 - `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
   the operating system's secure source (`os/random_bytes`).
   `passwords/digested password` describes the stored text, which names its
