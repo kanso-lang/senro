@@ -1,0 +1,30 @@
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# A path with a query string finds the route its path names, and the action
+# reads the query as it reads a form. A request without one reads none, and
+# a `senro-query` header a client sends is not taken for one.
+pub fn index _ _
+  asked "/search?q=two%20words&page=3" ""
+    .> (one -> asked "/search" "" .> (two -> forged one two))
+
+fn forged one two
+  asked "/search" "senro-query: q=forged\r\n"
+    .> (three -> effect (http/text_page "{one}\n{two}\n{three}"))
+
+fn asked path extra
+  net/dial "127.0.0.1" 54411 .> (c -> sent c path extra)
+
+fn sent c path extra
+  net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n{extra}\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> told c raw)
+
+fn told c raw
+  net/close_conn c .> (_ -> effect (answer_of raw))
+
+fn answer_of raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  parts[2]

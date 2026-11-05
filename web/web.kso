@@ -131,8 +131,9 @@ fn heard_from raw t from
   effect (arrived raw t from)
 
 # The request as the server heard it, with the time it arrived, in
-# milliseconds since the epoch, under `senro-at`, and the address of the
-# client under `senro-peer`. The lines go after the client's headers, and the
+# milliseconds since the epoch, under `senro-at`, the address of the client
+# under `senro-peer`, and the query string, taken off the path, under
+# `senro-query`. The lines go after the client's headers, and the
 # last of two headers with one name is the one parsed, so a value the client
 # sent under either name is replaced: a session's age is measured by the
 # server's clock alone, and a client cannot name itself another.
@@ -140,8 +141,17 @@ fn arrived raw t from
   parts = text/split raw "\r\n\r\n"
   return http/parsed raw if length parts < 2
   rest = text/join (list/to_list (list/drop parts 1)) "\r\n\r\n"
-  ours = "senro-at: {t}\r\nsenro-peer: {from}"
-  http/parsed "{parts[1]}\r\n{ours}\r\n\r\n{rest}"
+  lines = text/split parts[1] "\r\n"
+  asked = text/split (said lines[1]) " "
+  return http/parsed raw if length asked < 3
+  cut = text/split (said asked[2]) "?"
+  query = text/join (list/to_list (list/drop cut 1)) "?"
+  path = list/concat [asked[1] cut[1]] (list/to_list (list/drop asked 2))
+  line = text/join path " "
+  theirs = list/to_list (list/drop lines 1)
+  ours = ["senro-at: {t}" "senro-peer: {from}" "senro-query: {query}"]
+  head = list/concat (list/concat [line] theirs) ours
+  http/parsed "{text/join head "\r\n"}\r\n\r\n{rest}"
 
 # The address of the client that made a request, as Rails' `remote_ip` reads
 # it: "127.0.0.1", or an IPv6 address in its short form.
@@ -994,6 +1004,11 @@ pub fn form body
 fn field acc parts
   return acc if length parts < 2
   put acc (decoded parts[1]) (decoded parts[2])
+
+# The query string a request came with, as a form: `/notes?page=2` reads
+# as `{ "page":"2" }`, which `value` reads as it reads a posted field.
+pub fn query req
+  form (said req.headers["senro-query"])
 
 pub fn value f name
   given f[name]

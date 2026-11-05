@@ -197,7 +197,10 @@ when they are given that path. The specs write it again and compare the two.
   from `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD`, with
   libpq's defaults for any that are unset.
 - `web`: serves the route table, each connection in a fiber of its own, and
-  decodes a posted form. A request is read as bytes until its body is as long
+  decodes a posted form. A path's query string is taken off before the route
+  is matched, so `/notes?page=2` answers as `/notes` does, and `web/query req`
+  reads it as a form: `web/value (web/query req) "page"` is "2". A request is
+  read as bytes until its body is as long
   as its `Content-Length` says, since a browser often sends the head and the
   body in separate packets. A body over 10 MiB is refused with a 413 before it
   is read, and a client that sends `Expect: 100-continue`, as curl does before
