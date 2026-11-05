@@ -1,0 +1,35 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# The server closes a connection once it has answered one request, and its
+# answer says so, or a browser keeps the connection to send another request
+# down it. This asks for a page and shows the answer's `connection` header.
+pub fn index _ _
+  net/dial "127.0.0.1" 54412 .> (c -> asked c)
+
+fn asked c
+  net/write c "GET /note HTTP/1.1\r\nhost: localhost\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect (told raw)))
+
+fn told raw
+  head = text/split (said (text/split raw "\r\n\r\n")[1]) "\r\n"
+  lines = list/select head (l -> named? l)
+  http/text_page "connection: {said_line (list/first (list/to_list lines))}"
+
+fn named? line
+  text/starts_with? (text/lowercase line) "connection:"
+
+fn said none
+  ""
+
+fn said s
+  s
+
+fn said_line none
+  "none"
+
+fn said_line l
+  text/trim (text/join (list/to_list (list/drop (text/split l ":") 1)) ":")
