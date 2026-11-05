@@ -11,6 +11,7 @@ the link again: That link has expired or was used. Ask for another.
 changing with a wrong password: That is not your password.
 changing with hers: Your password is changed.
 and then her account page: /account/edit
+her sign-ins: You have signed in N times. The time before this one was T, from 127.0.0.1.
 the old one again: That is not your password.
 Fay, three wrong passwords: That name and password do not match.; mail sent: 1
 and then her own: This account is locked. Follow the link we mailed to unlock it.

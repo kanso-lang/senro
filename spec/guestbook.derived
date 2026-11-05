@@ -88,28 +88,33 @@ fn kata_raw node:map[string some]
 fn kata_raw x
   "{x}"
 # in views, by kata/views
-fn account_9 problems
-  # account.kata:10
+fn account_6 seen
+  # account.kata:7
+  "<p class=\"seen\">{escape seen}</p>"
+
+fn account_11 problems
+  # account.kata:12
   "<p class=\"problem\">{escape problems["current"]}</p>"
 
-fn account_12 problems
-  # account.kata:13
+fn account_14 problems
+  # account.kata:15
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-pub fn account path problems
+pub fn account path problems seen
   joined [
     "<header><h1>Your account</h1><p class=\"lede\"><a href=\"/\">Back to "
     # account.kata:6
-    "the book</a></p></header><form method=\"post\" action=\"{escape path}\">"
-    "<input type=\"hidden\" name=\"_method\" value=\"PATCH\"><input "
-    "type=\"password\" name=\"current\" placeholder=\"current password\" "
-    "required=\"required\">"
-    # account.kata:9
-    "{if (problems["current"] != none) (account_9 problems) ""}<input "
+    "the book</a></p></header>{if (seen != "") (account_6 seen) ""}<form "
+    # account.kata:8
+    "method=\"post\" action=\"{escape path}\"><input type=\"hidden\" "
+    "name=\"_method\" value=\"PATCH\"><input type=\"password\" "
+    "name=\"current\" placeholder=\"current password\" required=\"required\">"
+    # account.kata:11
+    "{if (problems["current"] != none) (account_11 problems) ""}<input "
     "type=\"password\" name=\"password\" placeholder=\"new password\" "
     "required=\"required\">"
-    # account.kata:12
-    "{if (problems["password"] != none) (account_12 problems) ""}<button>"
+    # account.kata:14
+    "{if (problems["password"] != none) (account_14 problems) ""}<button>"
     "Change it</button></form>"
   ]
 # in views, by kata/views
@@ -286,28 +291,33 @@ pub fn unlock_offered path
     "value=\"PATCH\"><button>Unlock it</button></form>"
   ]
 # in views, by kata/views
-fn account_k_9 problems
-  # account.kata:10
+fn account_k_6 seen
+  # account.kata:7
+  "<p class=\"seen\">{escape seen}</p>"
+
+fn account_k_11 problems
+  # account.kata:12
   "<p class=\"problem\">{escape problems["current"]}</p>"
 
-fn account_k_12 problems
-  # account.kata:13
+fn account_k_14 problems
+  # account.kata:15
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-fn account_keyed path problems
+fn account_keyed path problems seen
   joined [
     "<header><h1>Your account</h1><p class=\"lede\"><a href=\"/\">Back to "
     # account.kata:6
-    "the book</a></p></header><form method=\"post\" action=\"{escape path}\">"
-    "<input type=\"hidden\" name=\"_method\" value=\"PATCH\"><input "
-    "type=\"password\" name=\"current\" placeholder=\"current password\" "
-    "required=\"required\">"
-    # account.kata:9
-    "{if (problems["current"] != none) (account_k_9 problems) ""}<input "
+    "the book</a></p></header>{if (seen != "") (account_k_6 seen) ""}<form "
+    # account.kata:8
+    "method=\"post\" action=\"{escape path}\"><input type=\"hidden\" "
+    "name=\"_method\" value=\"PATCH\"><input type=\"password\" "
+    "name=\"current\" placeholder=\"current password\" required=\"required\">"
+    # account.kata:11
+    "{if (problems["current"] != none) (account_k_11 problems) ""}<input "
     "type=\"password\" name=\"password\" placeholder=\"new password\" "
     "required=\"required\">"
-    # account.kata:12
-    "{if (problems["password"] != none) (account_k_12 problems) ""}<button>"
+    # account.kata:14
+    "{if (problems["password"] != none) (account_k_14 problems) ""}<button>"
     "Change it</button></form>"
   ]
 # in views, by kata/views
@@ -493,7 +503,8 @@ pub fn rendered node
 fn kata_shown "account" kata_l
   path = kata_at kata_l "path"
   problems = kata_at kata_l "problems"
-  account_keyed path problems
+  seen = kata_at kata_l "seen"
+  account_keyed path problems seen
 
 fn kata_shown "confirm_offered" kata_l
   path = kata_at kata_l "path"
@@ -541,8 +552,8 @@ fn kata_shown "unlock_offered" kata_l
 fn kata_shown _ _
   ""
 # in views, by kata/views
-pub fn account_view path problems
-  kata_locals = { "path":path "problems":problems }
+pub fn account_view path problems seen
+  kata_locals = { "path":path "problems":problems "seen":seen }
   { "locals":kata_locals "view":"account" }
 # in views, by kata/views
 pub fn confirm_offered_view path email
@@ -614,7 +625,7 @@ fn kata_answered _ code node
     "senro-view: 1"
   ]
   http/respond code heard (json/encode node)
-schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''"] "signatures":["id serial" "name text" "message text"] }    # models/tables
+schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text"] }    # models/tables
 # in account, by models/tables
 pub fn account_from row
   id = account_cell row["id"]

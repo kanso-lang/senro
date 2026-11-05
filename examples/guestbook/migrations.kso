@@ -2,7 +2,19 @@ import "../../models"
 
 # The guestbook's schema, as the changes that built it, oldest first. The
 # models derivation folds these into the schema the app is compiled against.
-pub all = [signed joined emailed confirmable counted lockable]
+pub all = [
+  signed
+  joined
+  emailed
+  confirmable
+  counted
+  lockable
+  tracked
+  arrived
+  arrived_before
+  arrived_from
+  arrived_from_before
+]
 
 signed = models/create_table "signatures" [id name message]
 
@@ -22,6 +34,18 @@ counted = models/add_column "accounts" failures
 
 lockable = models/add_column "accounts" locked
 
+# How many times the account has signed in, and when and from where the
+# latest sign-in and the one before it came, as Devise's trackable keeps them.
+tracked = models/add_column "accounts" sign_in_count
+
+arrived = models/add_column "accounts" current_sign_in_at
+
+arrived_before = models/add_column "accounts" last_sign_in_at
+
+arrived_from = models/add_column "accounts" current_sign_in_ip
+
+arrived_from_before = models/add_column "accounts" last_sign_in_ip
+
 name = models/column "name" "text"
 
 message = models/column "message" "text"
@@ -35,3 +59,15 @@ confirmed = models/column "confirmed" "text"
 failures = models/column "failures" "integer not null default 0"
 
 locked = models/column "locked" "text not null default ''"
+
+sign_in_count = models/column "sign_in_count" "integer not null default 0"
+
+current_sign_in_at = models/column "current_sign_in_at" blank_text
+
+last_sign_in_at = models/column "last_sign_in_at" blank_text
+
+current_sign_in_ip = models/column "current_sign_in_ip" blank_text
+
+last_sign_in_ip = models/column "last_sign_in_ip" blank_text
+
+blank_text = "text not null default ''"
