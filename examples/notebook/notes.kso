@@ -6,14 +6,11 @@ import "std/list"
 import "std/net/http"
 import "std/text"
 
-# A note as the `notes` table stores it. The models derivation checks each
-# field against the table's columns, and writes `note_from`, which builds
-# one from a row, and `note_model`, which the writes below go through.
-pub type note
-  id
-  title
-  pages
-
+# A note is a row of the `notes` table. This module is named for the table,
+# so the models derivation declares `note` here with a field for each
+# column, and writes `note_from`, which builds one from a row, and
+# `note_model`, which the writes below go through.
+#
 # Anyone may make, change and remove a note. The models module asks these
 # before it writes; narrow them to the visitors who should.
 pub fn create? _ _

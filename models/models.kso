@@ -37,6 +37,12 @@ type column_def
   name
   kind
 
+# A model's record: its name and its fields, as the module wrote it or as the
+# derivation declares it from the table.
+type shape
+  name
+  fields
+
 # How far `dumped` has read: the tables so far, and the one whose columns the
 # next lines hold, or "" between tables.
 type reading
@@ -101,11 +107,49 @@ pub fn column name kind
 # and the schema is read from that instead.
 pub fn tables p
   schema = schema_of p p.files["schema.sql"]
+  kinds = list/fold p.modules [] (acc m -> list/concat acc (typed_in m schema))
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
   given = list/fold p.modules [] (acc m -> list/concat acc (readers m schema))
-  declared = [(derive/declare "schema" "schema" schema)]
+  declared = list/concat [(derive/declare "schema" "schema" schema)] kinds
   list/concat (list/concat (list/concat declared refused) asked) given
+
+# A module named for a table, as `notes` is for `notes`, holds the table's
+# model, as a Rails model is named for its table. When the module declares
+# no record of the singular name, the derivation declares one in it with a
+# field for each of the table's columns, in the table's order, and the rest
+# of the derivation reads it as a record the module wrote. A module that
+# declares the record keeps its own, which may leave columns out.
+fn records_of m schema
+  own = list/to_list (list/map m.records (r -> shape r.name r.fields))
+  return own if wrote_model? m schema
+  t = singular m.name
+  list/concat own [(shape t (column_names schema[m.name]))]
+
+fn typed_in m schema
+  return [] if wrote_model? m schema
+  fields = column_names schema[m.name]
+  lines = list/to_list (list/map fields (f -> "  {f}"))
+  source = "pub type {singular m.name}\n{text/join lines "\n"}\n"
+  [(derive/define m.name source)]
+
+fn wrote_model? m schema
+  t = singular m.name
+  return true if t == "" or not table? schema[m.name]
+  declared = list/any? m.records (r -> r.name == t)
+  declared or list/any? m.functions (f -> f.name == t)
+
+fn table? none
+  false
+
+fn table? _
+  true
+
+fn column_names none
+  []
+
+fn column_names columns
+  list/to_list (list/map columns name_of)
 
 fn schema_of p none
   list/fold (migrations_of p) {} applied
@@ -165,7 +209,8 @@ fn moved col c
   "{c.to} {(text/split col " ")[2]}"
 
 fn models m schema
-  list/fold m.records [] (acc r -> list/concat acc (refusals m r schema))
+  each = records_of m schema
+  list/fold each [] (acc r -> list/concat acc (refusals m r schema))
 
 fn refusals m r schema
   table = plural r.name
@@ -216,7 +261,8 @@ fn checked origin table fields columns
 # such column. A module can pass the reader to `list/map` like any function
 # it wrote (kanso#2265).
 fn readers m schema
-  list/fold m.records [] (acc r -> list/concat acc (reader m r schema))
+  each = records_of m schema
+  list/fold each [] (acc r -> list/concat acc (reader m r schema))
 
 fn reader m r schema
   written m r schema[plural r.name]
@@ -558,6 +604,13 @@ fn table_named line
   text/join (text/split (plain parts[length parts]) "\"") ""
 
 # The inflector: enough English for table names.
+pub fn singular word
+  formed = ["{text/slice word 1 (length word - 3)}y" (cut word 2) (cut word 1)]
+  blank_if_none (list/find formed (w -> plural w == word))
+
+fn cut word n
+  blank_if_none (text/slice word 1 (length word - n))
+
 pub fn plural word
   return "{text/slice word 1 (length word - 1)}ies" if consonant_y? word
   return "{word}es" if sibilant? word
