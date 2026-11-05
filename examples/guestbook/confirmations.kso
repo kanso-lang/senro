@@ -1,0 +1,79 @@
+import "../../models"
+import "../../pg"
+import "../../tokens"
+import "../../web"
+import "./account_mailer"
+import "./entries"
+import "./views"
+import "std/list"
+import "std/time"
+
+# An account whose address a good token would confirm.
+type unconfirmed
+  id
+  email
+
+# The link in a confirmation mail leads here. Following it shows a button,
+# and the button confirms the address: a GET changes nothing, so a mail
+# scanner that fetches every link it sees confirms nobody. The `id` the
+# member routes take is the token `account_mailer/confirmation` signed.
+pub without_sign_in = ["edit" "update"]
+
+pub fn edit req db id
+  held db id .> (a -> offered req id a)
+
+fn offered req _ none
+  effect (told req stale)
+
+fn offered req id a
+  effect (shown req id a.email)
+
+stale = "That link has expired or was used. Sign in to have it sent again."
+
+# Confirming stamps the account with the moment, which also retires the link:
+# it was bound to the column being empty.
+pub fn update req db id
+  held db id .> (a -> confirmed req db a)
+
+fn confirmed req _ none
+  effect (told req stale)
+
+fn confirmed req db a
+  time/now
+    .> (t -> pg/query db stamped ["{t}" a.id])
+    .> (_ -> effect (told req "Your address is confirmed. Sign in with it."))
+
+stamped = "update accounts set confirmed = $1 where id = $2"
+
+# The account a token confirms now, or none when the token is no good for
+# the account it names.
+fn held db token
+  id = id_text (tokens/id_of token)
+  pg/query db looked [id]
+    .> (r -> time/now .> (t -> effect (checked token id (list/first r.rows) t)))
+
+looked = "select email, confirmed from accounts where id = $1"
+
+fn checked _ _ none _
+  none
+
+fn checked token id row t
+  email = models/cell row "email"
+  was = models/cell row "confirmed"
+  good = account_mailer/confirms? token email was t
+  if good (unconfirmed id email) none
+
+fn id_text none
+  "0"
+
+fn id_text n
+  "{n}"
+
+fn told req notice
+  s = web/session req entries/secret
+  web/kept (web/redirect "/") entries/secret (put s "flash" notice)
+
+fn shown req id email
+  page = views/confirm_offered_view "/confirmations/{id}" email
+  framed = views/layout_view "Confirm your address · Guestbook" page
+  views/answer_as req 200 framed

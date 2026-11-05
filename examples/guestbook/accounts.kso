@@ -2,8 +2,10 @@ import "../../models"
 import "../../passwords"
 import "../../pg"
 import "../../web"
+import "./account_mailer"
 import "./entries"
 import "./views"
+import "std/io"
 import "std/text"
 
 # What a sign-up form asked for.
@@ -13,13 +15,14 @@ type signup
   password
 
 # An account, as the `accounts` table stores it: the name its holder signs
-# with, a digest of the password, and the address a reset link goes to. The
-# password itself is never stored.
+# with, a digest of the password, the address its mail goes to, and when
+# that address was confirmed. The password itself is never stored.
 pub type account
   id
   name
   digest
   email
+  confirmed
 
 # Anyone may make an account.
 pub without_sign_in = ["create" "new"]
@@ -68,11 +71,17 @@ fn joined req db asked by_name by_email
 fn addressed? email
   length (text/split email "@") == 2
 
+# A new account is not signed in: its holder confirms the address first,
+# through the link the mail carries, as Devise's `confirmable` asks. A mail
+# that cannot be sent is logged, and the account can ask again by signing
+# in.
 fn made req kept:account
   s = web/session req entries/secret
-  welcomed = put s "flash" "Welcome, {kept.name}. Your account is made."
-  home = web/redirect "/"
-  effect (web/signed_in req home entries/secret welcomed kept.name)
+  told = "Welcome, {kept.name}. Confirm your address with the link we sent."
+  welcomed = put s "flash" told
+  account_mailer/confirmation kept.id kept.email
+    .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
+    .> (_ -> effect (web/kept (web/redirect "/") entries/secret welcomed))
 
 fn made _ _
   effect web/denied

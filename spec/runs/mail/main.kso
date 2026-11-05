@@ -6,8 +6,9 @@ import "std/text"
 # headers, a subject and body that are not ASCII and so travel encoded, the
 # date on a leap day and on the last second of a February with none, a body
 # whose line fits SMTP's limit beside one a byte too long for it, the same
-# text written to standard error and to a file of its own, and the refusals
-# that come before anything is sent.
+# text written to standard error and to a file of its own, a link on the
+# development site when `SENRO_URL` is unset, and the refusals that come
+# before anything is sent.
 #
 # Then the conversation with an SMTP server, played by a sink in this program
 # that answers each command and writes down what it heard. Over
@@ -41,6 +42,7 @@ print (sink/shown (mail/text_at sink/plain at "spec"))
   .> (_ -> print (sink/encoding long))
   .> (_ -> mail/sent_through "" (mail/text_at sink/plain at "spec") sink/plain)
   .> (_ -> sink/filed sink/plain)
+  .> (_ -> mail/url_for "/resets/a.b.c/edit" .> (u -> print u))
   .> (_ -> print (mail/refusal injected))
   .> (_ -> print (mail/refusal nameless))
   .> (_ -> sink/conversed insecure)

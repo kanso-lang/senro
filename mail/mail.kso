@@ -24,6 +24,20 @@ type server
   host
   port
 
+# The address of `path` on the app's site, for a link in a mail: what
+# `SENRO_URL` holds, such as `https://guestbook.example`, then the path.
+# Unset, it is `http://127.0.0.1:3000`, where a development server listens.
+# It is never read from a request's Host header, which whoever sends the
+# request chooses: a link built from it could carry a token to their site.
+pub fn url_for path
+  os/env "SENRO_URL" .> (u -> effect "{site_of u}{path}")
+
+fn site_of none
+  "http://127.0.0.1:3000"
+
+fn site_of u
+  u
+
 # A message from `from` to `to`. Each address is bare, `ana@example.com`, or
 # follows a name, `Ana <ana@example.com>`.
 pub fn composed from to subject body

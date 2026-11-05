@@ -21,23 +21,43 @@ page.on("pageerror", (e) => said.push(`page error: ${e.message}`));
 
 const at = (path) => `http://127.0.0.1:${port}${path}`;
 
-// Makes an account from the front page's link, and waits for the book. The
-// interpreted run finds the account the native run made, and signs in.
+// Makes an account from the front page's link, confirms its address through
+// the link the guestbook mails, and signs in. The interpreted run finds the
+// account the native run made and confirmed, and only signs in.
 async function joined(p, name, password) {
+  const email = `${name.toLowerCase()}@guestbook.test`;
   await p.goto(at("/"));
   await p.click("a[href='/accounts/new']");
   await p.waitForSelector("input[type=password]");
   await p.fill("input[name=name]", name);
-  await p.fill("input[name=email]", `${name.toLowerCase()}@guestbook.test`);
+  await p.fill("input[name=email]", email);
   await p.fill("input[name=password]", password);
   await p.click("form button");
-  await p.waitForSelector("form.out, p.problem");
-  if (await p.$("form.out")) return;
+  await p.waitForSelector("p.flash, p.problem");
+  if (await p.$("p.flash")) {
+    await p.goto(linkIn(mailTo(email)));
+    await p.click("form button");
+    await p.waitForFunction(() =>
+      document.querySelector("p.flash")?.textContent.startsWith("Your address"));
+  }
   await p.goto(at("/session/new"));
   await p.fill("input[name=name]", name);
   await p.fill("input[name=password]", password);
   await p.click("form button");
   await p.waitForSelector("form.out");
+}
+
+// The newest mail the guestbook wrote to `to`, and the link in it.
+function mailTo(to) {
+  for (const f of mails().reverse()) {
+    const m = readFileSync(`${outbox}/${f}`, "utf8");
+    if (m.includes(`\r\nTo: ${to}\r\n`)) return m;
+  }
+  throw new Error(`no mail to ${to}`);
+}
+
+function linkIn(mail) {
+  return mail.match(/^(http:\/\/\S+\/edit)\r$/m)[1];
 }
 
 // Bob signs first, in a browser context of his own.
@@ -81,6 +101,25 @@ const taken = await visitor.evaluate(() =>
   [...document.querySelectorAll("p.problem")].map((p) => p.textContent).join(" "));
 console.log(`taking Bob's name and address with a short password: ${taken}`);
 
+// Di makes an account and never follows the link that would confirm it.
+// Her right password is answered by a request to confirm first, and the
+// link is sent again.
+const di = await (await browser.newContext()).newPage();
+await di.goto(at("/accounts/new"));
+await di.fill("input[name=name]", "Di");
+await di.fill("input[name=email]", "di@guestbook.test");
+await di.fill("input[name=password]", "dis password");
+await di.click("form button");
+await di.waitForSelector("p.flash, p.problem");
+const sentToDi = mails().length;
+await di.goto(at("/session/new"));
+await di.fill("input[name=name]", "Di");
+await di.fill("input[name=password]", "dis password");
+await di.click("form button");
+await di.waitForSelector("p.problem");
+const unconfirmed = await di.evaluate(() => document.querySelector("p.problem").textContent);
+console.log(`Di, not yet confirmed: ${unconfirmed}; mail sent: ${mails().length - sentToDi}`);
+
 // Cy has lost her password. She asks for a link from the sign-in page, and
 // the guestbook answers the same whether or not the address has an account.
 // The link in the mail lets her choose a new password, which she signs in
@@ -92,7 +131,7 @@ await cy.fill("input[name=name]", "Cy");
 await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.fill("input[name=password]", "cys first password");
 await cy.click("form button");
-await cy.waitForSelector("form.out, p.problem");
+await cy.waitForSelector("p.flash, p.problem");
 await cy.goto(at("/session/new"));
 await cy.click("a[href='/resets/new']");
 const sentBefore = mails().length;
@@ -131,14 +170,15 @@ function mails() {
 
 // Each page the script fetches after the first comes as data, which the
 // guestbook's views compiled for the browser render, once the module has
-// loaded.
+// loaded. They are counted once Ada has signed in, since how she got there
+// depends on whether an earlier run made her account.
+await joined(page, "Ada", "adas password");
 const fetched = [];
 page.on("response", (r) => {
   const asked = r.request();
   if (asked.resourceType() !== "fetch" || new URL(r.url()).pathname !== "/") return;
   fetched.push(r.headers()["senro-view"] ? "data" : "html");
 });
-await joined(page, "Ada", "adas password");
 await page.waitForSelector("html.senro-ready", { state: "attached" });
 await page.evaluate(() => { window.senroMark = "kept"; });
 
