@@ -83,9 +83,10 @@ pub fn column name kind
 pub fn tables p
   schema = schema_of p p.files["schema.sql"]
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
+  asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
   given = list/fold p.modules [] (acc m -> list/concat acc (readers m schema))
   declared = [(derive/declare "schema" "schema" schema)]
-  list/concat (list/concat declared refused) given
+  list/concat (list/concat (list/concat declared refused) asked) given
 
 fn schema_of p none
   list/fold (migrations_of p) {} applied
@@ -94,8 +95,8 @@ fn schema_of _ sql
   dumped sql
 
 fn migrations_of p
-  found = list/select p.modules (m -> m.name == "migrations")
-  list/fold found [] (acc m -> list/concat acc (listed m))
+  kept = list/select p.modules (m -> m.name == "migrations")
+  list/fold kept [] (acc m -> list/concat acc (listed m))
 
 fn listed m
   changes_in m.constants["all"]
@@ -147,6 +148,37 @@ fn models m schema
 fn refusals m r schema
   table = plural r.name
   checked "{m.name}/{r.name}" table r.fields schema[table]
+
+# A `models/where` whose model is named for its record, as `comment_model`,
+# and whose field is written out is checked here: the field is one of the
+# table's columns, or the call is refused.
+fn wheres m schema
+  calls = list/select m.calls (c -> c.callee == "models/where")
+  list/fold calls [] (acc c -> list/concat acc (where_checked c schema))
+
+fn where_checked c schema
+  t = record_named (last_part (blank_if_none c.arguments[3]))
+  field = blank_if_none c.strings[4]
+  return [] if t == "" or field == ""
+  table = plural t
+  columns = list/to_list (list/map (present schema[table]) name_of)
+  return [] if list/any? columns (n -> n == field)
+  has = text/join columns ", "
+  said = "`{field}` is not a column of `{table}`: it has {has}"
+  [(derive/refuse_call c said)]
+
+fn last_part name
+  blank_if_none (list/last (text/split name "/"))
+
+fn record_named name
+  return "" if not text/ends_with? name "_model"
+  blank_if_none (text/slice name 1 (length name - 6))
+
+fn blank_if_none none
+  ""
+
+fn blank_if_none s
+  s
 
 fn checked origin table _ none
   [(missing origin table)]
@@ -243,6 +275,33 @@ fn seen? none _ _
 fn seen? policy viewer was
   policy viewer was
 
+# A record by its id, read through its model, or none when no row has that
+# id or the viewer may not see it, as Rails' `find_by(id:)` answers nil.
+pub fn found viewer db model id
+  read model db id .> (row -> effect (seen_one viewer model row))
+
+fn seen_one _ _ none
+  none
+
+fn seen_one viewer model row
+  was = row_read model["read"] row
+  return none if not seen? model["visible"] viewer was
+  was
+
+# The records whose `field` holds `value`, oldest first, that the viewer may
+# see: a post's comments are `models/where viewer db comment_model "post_id"
+# id`, as Rails' `where` reads. The field is one of the model's columns, which
+# the derivation checks where the call writes it out; one that is not is an
+# error here, so a field never reaches the SQL unread.
+pub fn where viewer db model field value
+  cols = column_list model["columns"]
+  odd = "`{field}` is not a column of `{table_of model["table"]}`"
+  return err odd if not list/any? cols (c -> c == field)
+  names = text/join cols ", "
+  from = "from {table_of model["table"]} where {field} = $1 order by id"
+  pg/query db "select {names} {from}" ["{value}"]
+    .> (r -> effect (shown viewer model r.rows))
+
 # A rule of a model's `problems`: the field it is about, whether the record
 # breaks it, and what to tell the visitor when it does.
 pub fn rule field broken message
@@ -271,8 +330,8 @@ fn noted acc r
   put acc r.field r.message
 
 # Whether a record has any problem.
-pub fn problems? found
-  length found > 0
+pub fn problems? said
+  length said > 0
 
 # Whether a value, such as a form's field, is one an `integer` column takes:
 # a whole number, written in digits with a sign or without, inside the
@@ -303,8 +362,8 @@ pub fn created viewer db model fields
   given = delete fields "id"
   was = row_read model["read"] given
   return effect web/denied if not allowed? model["create"] viewer was
-  found = checked_by model["problems"] was
-  return effect (invalid found was) if problems? found
+  broken = checked_by model["problems"] was
+  return effect (invalid broken was) if problems? broken
   cols = column_list model["columns"]
   pg/insert db (table_of model["table"]) cols given
     .> (r -> stored model r.rows[1])
@@ -350,8 +409,8 @@ fn update_found viewer db model changes row
   return effect web/denied if not allowed? model["update"] viewer was
   now = list/fold (keys changes) row (acc k -> put acc k changes[k])
   changed = row_read model["read"] now
-  found = checked_by model["problems"] changed
-  return effect (invalid found changed) if problems? found
+  broken = checked_by model["problems"] changed
+  return effect (invalid broken changed) if problems? broken
   cols = column_list model["columns"]
   pg/update_by_id db (table_of model["table"]) cols "{id_of row}" changes
     .> (_ -> effect changed)
@@ -535,8 +594,8 @@ fn statement_of c:added_column
 fn statement_of c:renamed_column
   t = c.table
   here = "table_schema = current_schema() and table_name = '{t}'"
-  found = "select from information_schema.columns where {here}"
-  named = "{found} and column_name = '{c.from}'"
+  asked = "select from information_schema.columns where {here}"
+  named = "{asked} and column_name = '{c.from}'"
   renaming = "alter table {t} rename column {c.from} to {c.to}"
   "do $$ begin if exists ({named}) then {renaming}; end if; end $$"
 

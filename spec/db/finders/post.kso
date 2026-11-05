@@ -1,0 +1,4 @@
+# A post, which a comment names by its id.
+pub type post
+  id
+  title

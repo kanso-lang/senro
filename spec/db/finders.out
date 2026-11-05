@@ -1,0 +1,5 @@
+post: first
+no post
+as []: ["hello" "again"]
+as [eve]: ["hello" "hush" "again"]
+refused: `author_id` is not a column of `comments`
