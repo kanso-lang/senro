@@ -194,9 +194,10 @@ when they are given that path. The specs write it again and compare the two.
   so `/notes?page=2` is `models/page_number (web/value (web/query req)
   "page")`, and anything but a whole number of at least 1 is page 1. A field
   written out is checked
-  against the model's columns while the app compiles. A model with too many
-  columns to list on the value's line has them in a constant of their own,
-  `signature_columns`, one to a line. A model's module may declare
+  against the model's columns while the app compiles. A model's column names are a
+  constant of its module, `signature_columns`, which the model value and the
+  module's own SQL both read, so a column a migration adds reaches every
+  query with no edit. A model's module may declare
   `visible?` too, and `models/shown viewer model rows` keeps the records a
   query answered that the viewer may see. Without a `visible?` every row
   shows: a missing read policy can show a row but never change one, so reads
