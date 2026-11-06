@@ -159,6 +159,10 @@ pub fn peer req
   req.headers["senro-peer"]
 
 fn heard c s req
+  probe_at = blank_if_none req.headers["senro-at"]
+  print "PROBE {req.method} {req.path} {probe_at}" .> (_ -> heard_now c s req)
+
+fn heard_now c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
   return crossed c if forged? method req

@@ -20,6 +20,14 @@ const browser = await playwright[kind].launch();
 const page = await browser.newPage();
 const said = [];
 page.on("pageerror", (e) => said.push(`page error: ${e.message}`));
+// Probe for kanso#2363: what the page asked for and heard, with times.
+const t0 = Date.now();
+const heard = [];
+const ms = () => `${Date.now() - t0}ms`;
+page.on("request", (q) => heard.push(`${ms()} -> ${q.method()} ${new URL(q.url()).pathname} ${q.postData() ?? ""}`.slice(0, 200)));
+page.on("response", (r) => heard.push(`${ms()} <- ${r.status()} ${new URL(r.url()).pathname} ${r.headers()["location"] ?? ""}`));
+page.on("requestfailed", (q) => heard.push(`${ms()} xx ${q.method()} ${new URL(q.url()).pathname} ${q.failure()?.errorText}`));
+page.on("console", (m) => heard.push(`${ms()} console ${m.type()}: ${m.text()}`.slice(0, 300)));
 
 const at = (path) => `http://127.0.0.1:${port}${path}`;
 
@@ -379,7 +387,20 @@ console.log(`Ada asking to remove Bob's entry: ${asked}`);
 
 // Signing out leaves the door where the form was.
 await page.click("form.out button");
-await page.waitForSelector("nav.door");
+try {
+  await page.waitForSelector("nav.door");
+} catch (e) {
+  console.log("PROBE: the last things the page asked for and heard");
+  for (const h of heard.slice(-25)) console.log(`PROBE ${h}`);
+  const state = await page.evaluate(() => ({
+    nav: document.querySelector("nav")?.outerHTML?.slice(0, 300),
+    out: document.querySelector("form.out")?.outerHTML?.slice(0, 300),
+    flash: document.querySelector("p.flash")?.textContent,
+    ready: document.documentElement.className,
+  }));
+  console.log(`PROBE state ${JSON.stringify(state)}`);
+  throw e;
+}
 const out = await page.evaluate(() => document.querySelector("p.flash").textContent);
 console.log(`after signing out: ${out}`);
 console.log(`and her cookie: ${await cookieLife(page)}`);
