@@ -671,11 +671,13 @@ fn account_cell v
   v
 # in account, by models/tables
 pub account_model = {
-  "columns":["id" "name" "digest" "email" "confirmed"]
+  "columns":account_columns
   "create":create?
   "read":account_from
   "table":"accounts"
 }
+# in account, by models/tables
+pub account_columns = ["id" "name" "digest" "email" "confirmed"]
 # in signatures, by models/tables
 pub fn signature_from row
   id = signature_cell row["id"]
@@ -691,11 +693,13 @@ fn signature_cell v
   v
 # in signatures, by models/tables
 pub signature_model = {
-  "columns":["id" "name" "message" "photo"]
+  "columns":signature_columns
   "create":create?
   "destroy":destroy?
   "problems":problems
   "read":signature_from
   "table":"signatures"
 }
+# in signatures, by models/tables
+pub signature_columns = ["id" "name" "message" "photo"]
 routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /account/edit":{ "action":account/edit "id":"" } "GET /account/new":{ "action":account/new "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /account":{ "action":account/update "id":"" "limit":{ "count":10 "key":"account/update" "over":account/over_limit "within":180000 } } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /account":{ "action":account/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest

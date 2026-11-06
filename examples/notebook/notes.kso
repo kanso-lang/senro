@@ -36,9 +36,7 @@ pub fn index req db
 # How many rows a page of the list shows.
 per_page = 25
 
-column_names = ["id" "title" "pages" "cover"]
-
-columns = text/join column_names ", "
+columns = text/join note_columns ", "
 
 listed = "select {columns} from notes order by id"
 

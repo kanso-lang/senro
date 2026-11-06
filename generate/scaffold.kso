@@ -365,8 +365,6 @@ fn helpers_of singular plural fields parent
   nested_helpers singular plural fields parent
 
 fn actions plural fields
-  names = list/concat ["id"] (names_of fields)
-  quoted = list/to_list (list/map names (n -> "\"{n}\""))
   shown_then = ".> (r -> effect (shown req (list/first r.rows)))"
   changed_then = ".> (w -> effect (changed req id w))"
   lines = [
@@ -378,9 +376,7 @@ fn actions plural fields
     (comment per_page_about)
     "per_page = 25"
     ""
-    (list_line "column_names =" "" quoted)
-    ""
-    "columns = text/join column_names \", \""
+    "columns = text/join {models/singular plural}_columns \", \""
     ""
     "listed = \"select \{columns} from {plural} order by id\""
     ""
@@ -485,8 +481,6 @@ fn nested_actions plural fields parent
   k = parent.name
   name = parent_name parent
   parents = models/plural name
-  names = list/concat ["id"] (names_of fields)
-  quoted = list/to_list (list/map names (n -> "\"{n}\""))
   about = [
     "A row of `{plural}` belongs to a {name}, so each action takes the"
     "{name}'s id and the routes nest under it: `index` answers"
@@ -504,9 +498,7 @@ fn nested_actions plural fields parent
     (comment per_page_about)
     "per_page = 25"
     ""
-    (list_line "column_names =" "" quoted)
-    ""
-    "columns = text/join column_names \", \""
+    "columns = text/join {models/singular plural}_columns \", \""
     ""
     "listed = \"\"\""
     "  select \{columns} from {plural}"
