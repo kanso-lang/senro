@@ -178,7 +178,15 @@ when they are given that path. The specs write it again and compare the two.
   the viewer may not see it, and `models/where viewer db model field value`
   answers the records whose field holds the value, oldest first, that the
   viewer may see: a post's comments are `models/where viewer db
-  comment/comment_model "post_id" id`. `models/paged db sql params number
+  comment/comment_model "post_id" id`. A foreign key the migrations add
+  writes that call for the app, once in each direction, as Rails'
+  `has_many` and `belongs_to` do. `pages.note_id` holding a row of `notes`
+  gives `pages/of_note viewer db note`, the pages of a note the viewer may
+  see, and `notes/of_page viewer db page`, the note a page belongs to. Each
+  reads the other record's field by name, so neither module imports the
+  other. A module that declares a function of the same name keeps its own,
+  as does one that declares a pub function or record named as the parameter
+  (`note`, `page`), and a schema read from `schema.sql` gives none. `models/paged db sql params number
   per` reads one page of a query, as Pagy does: its rows, its number, and
   whether another follows, which it learns by asking for one row more than
   the page shows. `models/page_number` reads the page a query string names,

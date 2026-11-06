@@ -111,8 +111,12 @@ pub fn tables p
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
   given = list/fold p.modules [] (acc m -> list/concat acc (readers m schema))
+  fks = keys_of p p.files["schema.sql"]
+  each = (acc m -> list/concat acc (linked m schema fks))
+  joined = list/fold p.modules [] each
   declared = list/concat [(derive/declare "schema" "schema" schema)] kinds
-  list/concat (list/concat (list/concat declared refused) asked) given
+  parts = [declared refused asked given joined]
+  list/fold parts [] list/concat
 
 # A module named for a table, as `notes` is for `notes`, holds the table's
 # model, as a Rails model is named for its table. When the module declares
@@ -279,6 +283,67 @@ fn written m r _
   blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
   given = [(derive/define m.name reads) (derive/define m.name blank)]
   list/concat given (guarded m r)
+
+# The foreign keys the migrations add. A schema read from a dump has none
+# here, so an app that keeps `schema.sql` writes its readers by hand.
+fn keys_of p none
+  list/fold (migrations_of p) [] key
+
+fn keys_of _ _
+  []
+
+fn key acc c:foreign_key
+  list/concat acc [c]
+
+fn key acc _
+  acc
+
+# Each foreign key reads both ways, as Rails' `has_many` and `belongs_to`
+# do. The child's module gets `of_<parent>`, the rows of its table that hold
+# a given parent, which the viewer may see: `pages/of_note viewer db note`.
+# The parent's module gets `of_<child>`, the row a given child holds:
+# `notes/of_page viewer db page`. Each reads the other record's field by
+# name, so neither module imports the other, and an app may import either
+# into the other without a cycle. A module that declares a function of the
+# same name keeps its own, and so does one that declares the name its
+# parameter takes.
+fn linked m schema fks
+  each = records_of m schema
+  list/fold each [] (acc r -> list/concat acc (associated m r fks))
+
+fn associated m r fks
+  return [] if not list/any? r.fields (f -> f == "id")
+  table = plural r.name
+  owned = list/select fks (k -> k.table == table)
+  owners = list/select fks (k -> k.parent == table)
+  rows = list/fold owned [] (acc k -> list/concat acc (rows_of m r k))
+  list/fold owners rows (acc k -> list/concat acc (owner_of m r k))
+
+fn rows_of m r k
+  name = "of_{singular k.parent}"
+  given = singular k.parent
+  return [] if given == "" or declares? m name or named? m given
+  args = ["viewer" "db" "{r.name}_model" "\"{k.column}\"" "{given}.id"]
+  call = wrapped "  models/where" args
+  [(derive/define m.name (association name given call))]
+
+fn owner_of m r k
+  name = "of_{singular k.table}"
+  given = singular k.table
+  return [] if given == "" or declares? m name or named? m given
+  args = ["viewer" "db" "{r.name}_model" "{given}.{k.column}"]
+  call = wrapped "  models/found" args
+  [(derive/define m.name (association name given call))]
+
+# Whether the module declares a function or a record of this name, which
+# a parameter of that name could not shadow.
+fn named? m name
+  declares? m name or list/any? m.records (r -> r.name == name)
+
+# `../models` is this module, written from here, as a definition's imports
+# are; kanso rewrites it from the module the reader joins.
+fn association name given call
+  "import \"../models\"\n\npub fn {name} viewer db {given}\n{call}\n"
 
 # A call as the formatter writes it: on one line when it fits in 80 columns,
 # and one argument to a line, two spaces in, when it does not. `head` holds

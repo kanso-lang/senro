@@ -1,0 +1,17 @@
+import "../../../models"
+
+pub all = [notes pages pages_to_notes]
+
+notes = models/create_table "notes" [id title]
+
+pages = models/create_table "pages" [id note_id body]
+
+pages_to_notes = models/add_foreign_key "pages" "note_id" "notes"
+
+id = models/column "id" "serial primary key"
+
+title = models/column "title" "text not null"
+
+note_id = models/column "note_id" "integer not null"
+
+body = models/column "body" "text not null"
