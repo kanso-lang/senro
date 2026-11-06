@@ -663,6 +663,22 @@ fn at_least_one n
 pub fn whole_number field v
   rule field (not integer? v) "Give a whole number."
 
+# The rule that a field is filled in, as Rails' `presence: true` reads
+# one: a value of nothing but spaces is as blank as none at all.
+pub fn present field v
+  rule field (text/trim "{v}" == "") "Fill this in."
+
+# The rule that a field holds at most `n` characters, as Rails'
+# `length: { maximum: n }`. Characters are counted, not bytes, so a name in
+# any script is held to the same length.
+pub fn at_most field n v
+  rule field (length (text/chars "{v}") > n) "Use at most {n} characters."
+
+# The rule that a field holds at least `n` characters, as Rails'
+# `length: { minimum: n }`.
+pub fn at_least field n v
+  rule field (length (text/chars "{v}") < n) "Use at least {n} characters."
+
 # A record made through its model. The values, such as a form's fields, are
 # read into a record by the model's reader, with any `id` left out, since
 # Postgres numbers a new row. The model's `create?` policy is asked about the

@@ -234,7 +234,11 @@ when they are given that path. The specs write it again and compare the two.
   `models/rule field broken message`. `models/whole_number field value` is
   the rule that a value is one an `integer` column takes, which
   `models/integer? value` answers: digits with or without a sign, inside the
-  column's range. A record that breaks a rule comes back as
+  column's range. `models/present field value` is the rule that a value is
+  filled in, as Rails' `presence: true` reads one, and spaces alone are
+  blank; `models/at_most field n value` and `models/at_least field n value`
+  bound its length in characters, as `length: { maximum:, minimum: }` does.
+  A record that breaks a rule comes back as
   `models/invalid`, holding each broken field's message and the record as
   given, so the action can show the form again with both.
 - `pg`: a Postgres client written in kanso, speaking the wire protocol over a
