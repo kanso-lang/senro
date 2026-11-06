@@ -1,0 +1,18 @@
+import "../../../models"
+import "std/list"
+
+# The rules a model writes for a field that must be filled in and for one
+# whose length is bounded. Spaces alone are blank. Length counts
+# characters, so the four of "café" fit in four though they take five
+# bytes.
+filled = ["Ada" " Ada " "   " ""]
+
+both = [(models/present "title" "") (models/at_least "title" 4 "")]
+named = (v -> models/problems [(models/present "name" v)])
+
+print (list/to_list (list/map filled named))
+print (models/problems [(models/at_most "title" 4 "café")])
+print (models/problems [(models/at_most "title" 4 "cafés")])
+print (models/problems [(models/at_least "password" 4 "abcd")])
+print (models/problems [(models/at_least "password" 4 "abc")])
+print (models/problems both)
