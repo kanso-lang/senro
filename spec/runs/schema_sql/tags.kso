@@ -1,0 +1,4 @@
+# The `tags` table's model. The dump's foreign key from `tags.note_id` to
+# `notes` gives it `of_note` and gives `notes` `of_tag`.
+pub fn labelled t
+  t.label
