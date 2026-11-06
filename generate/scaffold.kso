@@ -139,10 +139,12 @@ fn column_kind _
 
 # The migration that makes the table, as the lines a migrations module
 # gains: the change, then a column for each field, named after the table so
-# two tables' columns never share a name.
+# two tables' columns never share a name. The table ends with the timestamps,
+# as Rails' scaffold ends its table with `t.timestamps`.
 pub fn migration plural fields
   cols = list/to_list (list/map fields (f -> "{plural}_{f.name}"))
-  named = list/concat ["{plural}_id"] cols
+  stamps = ["models/created_at" "models/updated_at"]
+  named = list/concat (list/concat ["{plural}_id"] cols) stamps
   made = list_line "{plural}_made = models/create_table \"{plural}\"" "" named
   each = list/to_list (list/map fields (f -> column_line plural f))
   id = "{plural}_id = models/column \"id\" \"serial primary key\""
