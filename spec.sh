@@ -241,6 +241,7 @@ made=$({
   "$KANSO" run generate -- scaffold "$gen" book title:words
   "$KANSO" run generate -- scaffold "$gen" book Title:text
   "$KANSO" run generate -- scaffold "$gen" book id:int
+  "$KANSO" run generate -- scaffold "$gen" book title:text:loud
   "$KANSO" run generate -- scaffold "$gen" Book title:text
   "$KANSO" run generate -- scaffold "$gen" chapter body:text volume:references
   "$KANSO" run generate -- scaffold "$gen" book note:references page:references

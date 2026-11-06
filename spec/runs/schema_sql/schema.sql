@@ -136,6 +136,28 @@ ALTER TABLE ONLY public.tags
 
 
 --
+-- Name: tags tags_label_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.tags
+    ADD CONSTRAINT tags_label_key UNIQUE (label);
+
+
+--
+-- Name: notes_title_unique; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX notes_title_unique ON public.notes USING btree (title);
+
+
+--
+-- Name: tags_pair; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX tags_pair ON public.tags USING btree (id, label);
+
+
+--
 -- Name: notes notes_touch; Type: TRIGGER; Schema: public; Owner: postgres
 --
 

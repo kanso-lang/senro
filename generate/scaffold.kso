@@ -13,10 +13,12 @@ import "std/text"
 # `references`: `note:references` is a column `note_id` holding a row of
 # `notes`, and the resource is nested under them, as Rails' generator reads
 # it; or `attachment`: `cover:attachment` is a file chosen in the form, kept
-# by senro under a key, and the column holds the key.
+# by senro under a key, and the column holds the key. `name:kind:uniq`
+# gives the column a unique index, as Rails' generator reads `uniq`.
 pub type field
   name
   kind
+  unique
 
 # The fields a command line names, or the first that cannot be read, and
 # why it cannot.
@@ -70,12 +72,22 @@ fn spread xs f
 
 fn field_of word
   parts = text/split word ":"
-  return unreadable word kinds if length parts != 2
+  return unreadable word kinds if length parts < 2 or length parts > 3
   kind = column_kind parts[2]
   return unreadable word kinds if kind == ""
-  referred word (checked_name word parts[1] kind)
+  return unreadable word uniq if length parts == 3 and parts[3] != "uniq"
+  named = referred word (checked_name word parts[1] kind)
+  indexed_if named (length parts == 3)
 
 kinds = "a field is name:text, name:int, name:references or name:attachment"
+
+uniq = "a field ends `:uniq` or has two parts"
+
+fn indexed_if f:unreadable _
+  f
+
+fn indexed_if f unique
+  field f.name f.kind unique
 
 # A reference's field is the parent's id. Its name is kept short, since the
 # nested actions write the id's name twice on some lines.
@@ -86,7 +98,7 @@ fn referred word f
   return f if f.kind != "references"
   long = "a reference's name is at most 12 characters"
   return unreadable word long if length f.name > 12
-  field "{f.name}_id" f.kind
+  field "{f.name}_id" f.kind f.unique
 
 # A name the scaffold can write: a lowercase letter, then lowercase letters,
 # digits and underscores; short enough that every line written with it fits
@@ -96,7 +108,7 @@ fn checked_name word name kind
   return unreadable word spelling if not spelled_well? name
   long = "a field's name is at most 24 characters"
   return unreadable word long if length name > 24
-  field name kind
+  field name kind false
 
 spelling = "a field's name is a lowercase letter, then letters, digits and _"
 
@@ -148,7 +160,8 @@ pub fn migration plural fields
   made = list_line "{plural}_made = models/create_table \"{plural}\"" "" named
   each = list/to_list (list/map fields (f -> column_line plural f))
   id = "{plural}_id = models/column \"id\" \"serial primary key\""
-  head = list/concat [made] (keyed plural (parent_of fields))
+  added = list/concat (keyed plural (parent_of fields)) (indexes plural fields)
+  head = list/concat [made] added
   lines = list/concat (list/concat head ["" id]) (spread each (l -> ["" l]))
   text/join lines "\n"
 
@@ -175,9 +188,25 @@ fn keyed plural f
   args = ["\"{plural}\"" "\"{f.name}\"" "\"{parents}\""]
   ["" (call_line "{plural}_to_{parents} = models/add_foreign_key" args)]
 
-# The changes a resource adds to `all`: its table, and its key when nested.
+# The changes a resource adds to `all`: its table, its key when nested, and
+# an index for each unique field.
 fn changes plural fields
-  list/concat ["{plural}_made"] (key_named plural (parent_of fields))
+  made = list/concat ["{plural}_made"] (key_named plural (parent_of fields))
+  list/concat made (index_names plural fields)
+
+# A unique field's index, as `scaffold` writes it and as `all` names it.
+fn indexes plural fields
+  spread (uniques fields) (f -> ["" (index_line plural f)])
+
+fn index_line plural f
+  head = "{plural}_{f.name}_unique = models/add_unique_index"
+  call_line head ["\"{plural}\"" "\"{f.name}\""]
+
+fn index_names plural fields
+  list/to_list (list/map (uniques fields) (f -> "{plural}_{f.name}_unique"))
+
+fn uniques fields
+  list/to_list (list/select fields (f -> f.unique))
 
 fn key_named _ none
   []
@@ -755,7 +784,7 @@ fn index_of singular fields parent
   "{text/join lines "\n"}\n"
 
 fn said_field none
-  field "id" ""
+  field "id" "" false
 
 fn said_field f
   f

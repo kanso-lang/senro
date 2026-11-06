@@ -35,7 +35,7 @@ pub fn secret_of bytes
   web/hexed bytes
 
 # The fields of the `users` table, as `scaffold` reads them.
-pub fields = ["email:text" "digest:text"]
+pub fields = ["email:text:uniq" "digest:text"]
 
 serve_line = "  .> (_ -> web/serve 3000 routes connected)"
 

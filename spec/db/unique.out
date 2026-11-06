@@ -1,0 +1,6 @@
+ada: ada
+a second ada: { "handle":"That is taken." }
+bob: bob
+bob as ada: { "handle":"That is taken." }
+bob as bob: bob
+[{ "accounts":"2" }]

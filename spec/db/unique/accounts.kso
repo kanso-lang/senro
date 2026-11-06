@@ -1,0 +1,6 @@
+# The `accounts` table's model. Anyone may make and change an account.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
