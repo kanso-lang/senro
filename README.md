@@ -277,7 +277,10 @@ when they are given that path. The specs write it again and compare the two.
   (`web/wants_json? req`): one whose path ends `.json`, matched as the path
   without it, or whose Accept header names `application/json`. It keeps a
   session in a signed cookie
-  (`web/session` and `web/kept`). The server stamps each request with the time
+  (`web/session` and `web/kept`). An answer that would set the session the
+  request already carries sets none, so a page answered from a session read
+  before a sign-out cannot put the sign-in back. The server stamps each
+  request with the time
   it arrived, and a sign-in (`web/signed_in`) lasts `web/session_days`,
   fourteen, from the request that made it; after that the session reads without
   its viewer. The cookie lasts until the browser closes, and a session made
