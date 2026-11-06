@@ -165,7 +165,7 @@ fn heard c s req
   action = matched s.routes method req.path
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
-  answering = pool/with s.dbs (db -> responded c db method by (answer db))
+  answering = pool/with s.dbs (db -> responded c db req method by (answer db))
   turned = turned_away action req
   allowed s.calls action req
     .> (fine -> let_in fine c answering turned)
@@ -327,11 +327,23 @@ fn tallied recent true t
 fn tallied recent false _
   recent
 
-fn responded c db method by answer
+fn responded c db req method by answer
   answer
     .> (r -> told db method by r)
     .> (r -> versioned by r)
-    .> (r -> sent c r)
+    .> (r -> sent c (unchanged req r))
+
+# An answer that would set the session the request already carries sets
+# nothing. A page answered from a session read before a sign-out must not
+# put that session back: the browser keeps whichever cookie it is sent last,
+# and two answers can arrive in either order. A session the action changed
+# is still sent.
+fn unchanged req r
+  had = "set-cookie: senro={cookie req.headers["cookie"] "senro"};"
+  same = (h -> text/starts_with? h had)
+  return r if not list/any? r.headers same
+  kept_lines = list/to_list (list/reject r.headers same)
+  http/respond r.status kept_lines r.body
 
 # An answer to senro's page script carries the version of the app's browser
 # modules, so a page that loaded an older deploy's modules learns of the new

@@ -1,0 +1,25 @@
+import "../../../web"
+import "./session"
+import "std/net/http"
+
+# The list, which shows a notice once and clears it, as the guestbook's
+# does: its answer keeps the session it read, with the notice emptied.
+pub fn index req _
+  s = web/session req session/secret
+  page = http/text_page "the notes, noting {shown s["flash"]}"
+  effect (web/kept page session/secret (put s "flash" ""))
+
+# A page that leaves a notice for the list.
+pub fn new req _
+  s = web/session req session/secret
+  page = http/text_page "a blank note"
+  effect (web/kept page session/secret (put s "flash" "a new note"))
+
+fn shown none
+  "nothing"
+
+fn shown ""
+  "nothing"
+
+fn shown said
+  said
