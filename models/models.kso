@@ -321,7 +321,23 @@ fn written m r _ uniq
   reads = "pub fn {t}_from row\n{text/join lines "\n"}\n"
   blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
   given = [(derive/define m.name reads) (derive/define m.name blank)]
-  list/concat given (guarded m r uniq)
+  read_and_mapped = list/concat given (attributes_of m r)
+  list/concat read_and_mapped (guarded m r uniq)
+
+# A model's record as a map from each field's name to its value, as Rails'
+# `attributes` gives one: `note_attributes n`, which `web/json` encodes as an
+# object. A module that declares a function of the name keeps its own, and
+# so may leave a field out of what it answers.
+fn attributes_of m r
+  name = "{r.name}_attributes"
+  return [] if declares? m name
+  pairs = list/to_list (list/sort (list/map r.fields (f -> "\"{f}\":v.{f}")))
+  one = "\{ {text/join pairs " "} }"
+  body = if (length one <= 78) "  {one}" (spread_map pairs)
+  [(derive/define m.name "pub fn {name} v\n{body}\n")]
+
+fn spread_map pairs
+  "  \{\n    {text/join pairs "\n    "}\n  }"
 
 # The foreign keys the migrations add, or the ones a `schema.sql` dump
 # declares when the app keeps one.

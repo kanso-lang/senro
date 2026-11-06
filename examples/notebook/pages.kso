@@ -111,6 +111,8 @@ fn shown_path note_id id
 
 fn listing req note_id p
   every = list/to_list (list/map p.rows page_from)
+  mapped = list/to_list (list/map every page_attributes)
+  return web/json 200 mapped if web/wants_json? req
   page = views/pages_index_view note_id every p.number p.more
   views/answer_as req 200 (views/layout_view "Pages" page)
 
@@ -118,7 +120,10 @@ fn shown _ none
   http/not_found
 
 fn shown req row
-  page = views/page_shown_view (page_from row)
+  record = page_from row
+  attributes = page_attributes record
+  return web/json 200 attributes if web/wants_json? req
+  page = views/page_shown_view record
   views/answer_as req 200 (views/layout_view "Page" page)
 
 fn editing _ _ _ none

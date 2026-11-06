@@ -65,6 +65,8 @@ pub fn destroy _ db id:int
 
 fn listing req p
   every = list/to_list (list/map p.rows note_from)
+  mapped = list/to_list (list/map every note_attributes)
+  return web/json 200 mapped if web/wants_json? req
   page = views/notes_index_view every p.number p.more
   views/answer_as req 200 (views/layout_view "Notes" page)
 
@@ -72,7 +74,10 @@ fn shown _ none
   http/not_found
 
 fn shown req row
-  page = views/note_shown_view (note_from row)
+  record = note_from row
+  attributes = note_attributes record
+  return web/json 200 attributes if web/wants_json? req
+  page = views/note_shown_view record
   views/answer_as req 200 (views/layout_view "Note" page)
 
 fn editing _ _ none

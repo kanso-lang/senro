@@ -1,18 +1,19 @@
 # Uses an app `generate` made, over HTTP, as a visitor would. A visitor who
 # has not signed in is sent to sign in; one makes an account, which signs
 # them in. Then the notes: lists them, gives a page count that is no number,
-# makes one, shows it, opens its form, changes it, asks for the list's second
-# page, which is empty and links back to the first, removes it, and asks for
-# it again. Then a note with a cover: the file is sent as a browser sends
-# it, comes back as it was sent, and stays when the note is changed without
-# choosing another. Then the pages nested under a note: makes one, asks for it under
-# another note and under one that is not there, changes it, and removes its
-# note, which removes it. Last, signing out, a wrong password, and a lost
-# one: a link is mailed to <outbox>, followed, and the new password signs
-# in. Prints each answer's status and where it sends the browser, or the
-# page's text with its tags taken out. Postgres numbers a row by what was
-# made before, so an id reads as N, and each run makes an account of its
-# own, never printed. Run as:
+# makes one, shows it as a page and as JSON, opens its form, changes it,
+# asks for the list as JSON and for its second page, which is empty and
+# links back to the first, removes it, and asks for it again. Then a note
+# with a cover: the file is sent as a browser sends it, comes back as it was
+# sent, and stays when the note is changed without choosing another. Then
+# the pages nested under a note: makes one, asks for it under another note
+# and under one that is not there, changes it, and removes its note, which
+# removes it. Last, signing out, a wrong password, and a lost one: a link is
+# mailed to <outbox>, followed, and the new password signs in. Prints each
+# answer's status and where it sends the browser, or the page's text with
+# its tags taken out. Postgres numbers a row by what was made before, so an
+# id reads as N, as a time in JSON reads as T, and each run makes an account
+# of its own, never printed. Run as:
 #
 #   sh spec/generate/drive.sh <port> <outbox>
 at="http://127.0.0.1:$1"
@@ -25,6 +26,7 @@ ids() {
 }
 c() { curl -s -b "$jar" -c "$jar" "$@"; }
 page() { c "$at$1" | sed 's/<[^>]*>/ /g' | tr -s ' \n' ' ' | ids; echo; }
+jsonned() { sed -E 's/"(id|note_id)":[0-9]+/"\1":N/g; s/"(created|updated)_at":"[^"]*"/"\1_at":"T"/g'; }
 sent() { c -o /dev/null -w "%{http_code} to %{redirect_url}\n" -d "$2" "$at$1" | sed "s|$at||" | ids; }
 echo "not signed in: $(curl -s -o /dev/null -w "%{http_code} to %{redirect_url}" "$at/notes" | sed "s|$at||")"
 echo "a short password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=short" "$at/registration")"
@@ -36,9 +38,11 @@ echo "pages of twelve: $(echo "$refused" | tail -1) $(echo "$refused" | grep -o 
 made=$(c -o /dev/null -w "%{redirect_url}" -d "title=First&pages=12" "$at/notes" | sed "s|$at||")
 echo "making one: sent to $(echo "$made" | ids)"
 echo "it shows: $(page "$made")"
+echo "it as json: $(c "$at$made.json" | jsonned)"
 echo "its form: $(c "$at$made/edit" | grep -o 'value="[^"]*"' | tr '\n' ' ')"
 echo "changing it: $(sent "$made" "_method=PATCH&title=Renamed&pages=13")"
 echo "the list then: $(page /notes)"
+echo "the list as json: $(c -H "Accept: application/json" "$at/notes" | jsonned)"
 echo "its second page: $(page "/notes?page=2")"
 echo "removing it: $(sent "$made" "_method=DELETE")"
 echo "asked for again: $(c -o /dev/null -w "%{http_code}" "$at$made")"

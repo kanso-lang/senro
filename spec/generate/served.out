@@ -6,9 +6,11 @@ the list:  Notes Notes New note
 pages of twelve: 422 Give a whole number.
 making one: sent to /notes/N
 it shows:  Note Note N All notes title First pages 12 cover Edit Delete 
+it as json: {"cover":"","created_at":"T","id":N,"pages":12,"title":"First","updated_at":"T"}
 its form: value="PATCH" value="First" value="12" 
 changing it: 303 to /notes/N
 the list then:  Notes Notes New note Renamed 
+the list as json: [{"cover":"","created_at":"T","id":N,"pages":13,"title":"Renamed","updated_at":"T"}]
 its second page:  Notes Notes New note Previous page 
 removing it: 303 to /notes
 asked for again: 404
