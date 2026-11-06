@@ -65,9 +65,8 @@ jobs:
         run: |
           npm install --prefix /tmp/pw playwright@1.56.1
           /tmp/pw/node_modules/.bin/playwright install --with-deps chromium firefox
-      - name: specs (checks, derived table, kata's views, runs, database, browsers, errors)
+      - name: the guestbook in Firefox on the interpreter, sixty times
         env:
           NODE_PATH: /tmp/pw/node_modules
-          SENRO_BROWSERS: chromium firefox
           KANSO_RUNTIME_WASM: /tmp/kanso-runtime.wasm
-        run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh
+        run: KANSO=/tmp/kanso/target/release/kanso sh spec/browser/loop.sh firefox interp 60
