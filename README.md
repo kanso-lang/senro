@@ -51,8 +51,11 @@ is spelled the same way, at most 16. It writes a module whose seven actions
 list, show, make, change and remove rows through the model, and the three views
 they render. The list shows 25 rows a page (`per_page` in the module), read
 with `models/paged`, and links the pages before and after it as
-`?page=2`. Each `int` field gets a rule that the value is a whole number,
-so a form that says otherwise is shown again with the problem rather than
+`?page=2`. The list and the page for one row answer JSON when it is asked
+for, as a Rails scaffold's do: `/notes.json` is the page's rows, each as
+`note_attributes` gives it, and `/notes/3.json` is one. Each `int` field
+gets a rule that the value is a whole number, so a form that says otherwise
+is shown again with the problem rather than
 refused by Postgres. It adds the migration that makes the table, whose last
 columns are `models/created_at` and `models/updated_at`, to the end of
 `migrations/all`, and the module's import to the entry. The policies it
@@ -152,7 +155,10 @@ when they are given that path. The specs write it again and compare the two.
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a
   `signature` from a row a query answered, taking each field from the column
-  of the same name, or "" when the row has none. A table made with
+  of the same name, or "" when the row has none. It gets
+  `signature_attributes s` too, the record as a map from each field's name to
+  its value, as Rails' `attributes` gives one, which `web/json` writes as an
+  object; a module that declares the function keeps its own. A table made with
   `models/timestamps` among its columns, or `models/created_at` and
   `models/updated_at` one at a time, has `created_at` and `updated_at`, as
   Rails' `t.timestamps` gives: Postgres sets both when a row is made,
@@ -266,7 +272,11 @@ when they are given that path. The specs write it again and compare the two.
   this is the check Rails' `protect_from_forgery` makes. A request with neither
   header comes from a program, and is let through. A failure the app expects
   should be a value its action answers. It serves files under the app's
-  `public/`, answers `web/redirect`, and keeps a session in a signed cookie
+  `public/`, answers `web/redirect`, and answers `web/json status value`,
+  as Rails' `render json:` does, for a request that asks for JSON
+  (`web/wants_json? req`): one whose path ends `.json`, matched as the path
+  without it, or whose Accept header names `application/json`. It keeps a
+  session in a signed cookie
   (`web/session` and `web/kept`). The server stamps each request with the time
   it arrived, and a sign-in (`web/signed_in`) lasts `web/session_days`,
   fourteen, from the request that made it; after that the session reads without

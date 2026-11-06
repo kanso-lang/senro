@@ -162,7 +162,7 @@ fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
   return crossed c if forged? method req
-  action = matched s.routes method req.path
+  action = matched s.routes method (unformatted req.path)
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
   answering = pool/with s.dbs (db -> responded c db method by (answer db))
@@ -755,6 +755,26 @@ plain = "content-type: text/plain; charset=utf-8"
 # post ends without leaving a page that posts again when reloaded.
 pub fn redirect path
   http/respond 303 ["location: {path}"] ""
+
+# `answer` as JSON with `status`, as Rails' `render json:` answers: a map or
+# a list of maps, such as a model's `note_attributes` gives.
+pub fn json status answer
+  http/respond status [json_type] "{json/encode answer}\n"
+
+json_type = "content-type: application/json; charset=utf-8"
+
+# Whether the request asks for JSON, as Rails' `respond_to` reads `format`:
+# its path ends `.json`, or its Accept header names `application/json`. The
+# route is matched without the `.json`, so `/notes.json` and `/notes/3.json`
+# reach the actions `/notes` and `/notes/3` do.
+pub fn wants_json? req
+  accepted = blank_if_none req.headers["accept"]
+  ends = text/ends_with? req.path ".json"
+  ends or length (text/split accepted "application/json") > 1
+
+fn unformatted path
+  return path if not text/ends_with? path ".json"
+  text/slice path 1 (length path - 5)
 
 # Every action in `routes` asks for a visitor who has signed in, except the
 # ones their module lists in `without_sign_in`, as Rails 8's generated

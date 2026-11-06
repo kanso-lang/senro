@@ -670,6 +670,15 @@ fn account_cell none
 fn account_cell v
   v
 # in account, by models/tables
+pub fn account_attributes v
+  {
+    "confirmed":v.confirmed
+    "digest":v.digest
+    "email":v.email
+    "id":v.id
+    "name":v.name
+  }
+# in account, by models/tables
 pub account_model = {
   "columns":account_columns
   "create":create?
@@ -691,6 +700,9 @@ fn signature_cell none
 
 fn signature_cell v
   v
+# in signatures, by models/tables
+pub fn signature_attributes v
+  { "id":v.id "message":v.message "name":v.name "photo":v.photo }
 # in signatures, by models/tables
 pub signature_model = {
   "columns":signature_columns
