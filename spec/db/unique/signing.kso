@@ -1,0 +1,31 @@
+import "../../../models"
+import "../../../pg"
+import "./accounts"
+
+# What a write through the model answered: the problems of a record it
+# refused, or the record it wrote.
+pub fn made db label handle
+  models/created "" db accounts/account_model { "handle":handle }
+    .> (w -> told label w)
+    .> (_ -> effect db)
+
+# The account holding `from` is changed to hold `to`.
+pub fn renamed db label from to
+  pg/query db held [from]
+    .> (r -> changed db r.rows[1]["id"] to)
+    .> (w -> told label w)
+    .> (_ -> effect db)
+
+held = "select id from accounts where handle = $1"
+
+fn changed _ none _
+  err "no account holds that handle"
+
+fn changed db id handle
+  models/updated "" db accounts/account_model id { "handle":handle }
+
+fn told label w:models/invalid
+  print "{label}: {w.problems}"
+
+fn told label w
+  print "{label}: {w.handle}"

@@ -43,7 +43,9 @@ changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 serves on port 3000.
 
 `scaffold` takes a singular name and its fields, each `name:text`,
-`name:int`, `name:references` or `name:attachment`. A field's name is a lowercase letter and
+`name:int`, `name:references` or `name:attachment`, and `:uniq` after the
+kind gives the column a unique index, as Rails' generator reads it
+(`email:text:uniq`). A field's name is a lowercase letter and
 then letters, digits and underscores, at most 24 in all; a resource's name
 is spelled the same way, at most 16. It writes a module whose seven actions
 list, show, make, change and remove rows through the model, and the three views
@@ -72,7 +74,8 @@ the note without choosing a file keeps the one it has.
 
 `authentication` adds accounts, as Rails 8's authentication generator does,
 with a sign-up page as Devise's registerable adds. It writes a `users` table
-of addresses and password digests, `registration` (/registration/new),
+of addresses, each held by one account, and password digests,
+`registration` (/registration/new),
 `session` (signing in at /session/new and out with DELETE /session) and
 `resets` (a lost password, by a link mailed through `password_mailer`),
 with their views. The entry then serves every route behind
@@ -168,7 +171,16 @@ when they are given that path. The specs write it again and compare the two.
   is missing. Defaults and constraints are not compared, so a key added with
   `models/add_foreign_key table column parent` leaves the schema as it was; it
   makes the column hold a row of `parent` and removes the row with its parent,
-  as Rails' `add_foreign_key` with `on_delete: :cascade` does. An app whose
+  as Rails' `add_foreign_key` with `on_delete: :cascade` does.
+  `models/add_unique_index table column` gives the column a unique index, as
+  Rails' `add_index` with `unique: true` does. The model then names the
+  column as unique, and `models/created` inserts with `on conflict do
+  nothing`, so of two requests racing for one value the one that loses
+  answers `invalid` with "That is taken." on the field rather than an error.
+  `models/updated` asks before it writes, and a change that races another
+  for the value meets the index. A column whose kind says `unique`, and a
+  unique index or constraint over one column in `schema.sql`, count the same
+  way. An app whose
   migrations need SQL the fold cannot read, such as a trigger, checks in
   `pg_dump --schema-only` output as `schema.sql` beside its entry, and the
   schema is read from its `CREATE TABLE` blocks instead of the migrations.

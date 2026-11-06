@@ -33,6 +33,10 @@ type foreign_key
   column
   parent
 
+type unique_index
+  table
+  column
+
 type column_def
   name
   kind
@@ -68,6 +72,12 @@ type keying
   keys
   table
 
+# How far `unique_read` has read a dump: the unique columns so far, and the
+# table the last `ALTER TABLE ONLY` named.
+type unique_reading
+  indexes
+  table
+
 # A page of a query's rows: the rows on it, its number, counted from 1, and
 # whether another page follows it.
 pub type page
@@ -93,6 +103,13 @@ pub fn drop_column table name
 # has no constraints, so the fold leaves it as it was.
 pub fn add_foreign_key table name parent
   foreign_key table name parent
+
+# No two rows of `table` hold the same `name`, as Rails' `add_index` with
+# `unique: true` makes it. `models/created` and `models/updated` answer a
+# record that would break the index as `invalid`, with the problem on its
+# field, where Postgres would refuse the write.
+pub fn add_unique_index table name
+  unique_index table name
 
 # A row's value for `name`, or "" when the row has no such column: what a
 # model's reader passes to its constructor for each field.
@@ -126,7 +143,9 @@ pub fn tables p
   kinds = list/fold p.modules [] (acc m -> list/concat acc (typed_in m schema))
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
-  given = list/fold p.modules [] (acc m -> list/concat acc (readers m schema))
+  uniq = uniques_of p p.files["schema.sql"]
+  each_read = (acc m -> list/concat acc (readers m schema uniq))
+  given = list/fold p.modules [] each_read
   fks = keys_of p p.files["schema.sql"]
   each = (acc m -> list/concat acc (linked m schema fks))
   joined = list/fold p.modules [] each
@@ -206,6 +225,9 @@ fn applied schema c:dropped_column
 fn applied schema _:foreign_key
   schema
 
+fn applied schema _:unique_index
+  schema
+
 fn held schema table
   present schema[table]
 
@@ -280,17 +302,18 @@ fn checked origin table fields columns
 # taking each field from the column of that name, or "" when the row has no
 # such column. A module can pass the reader to `list/map` like any function
 # it wrote (kanso#2265).
-fn readers m schema
+fn readers m schema uniq
   each = records_of m schema
-  list/fold each [] (acc r -> list/concat acc (reader m r schema))
+  list/fold each [] (acc r -> list/concat acc (reader m r schema uniq))
 
-fn reader m r schema
-  written m r schema[plural r.name]
+fn reader m r schema uniq
+  table = plural r.name
+  written m r schema[table] (present uniq[table])
 
-fn written _ _ none
+fn written _ _ none _
   []
 
-fn written m r _
+fn written m r _ uniq
   t = r.name
   cells = list/map r.fields (f -> wrapped "  {f} = {t}_cell" ["row[\"{f}\"]"])
   built = wrapped "  {t}" r.fields
@@ -298,7 +321,7 @@ fn written m r _
   reads = "pub fn {t}_from row\n{text/join lines "\n"}\n"
   blank = "fn {t}_cell none\n  \"\"\n\nfn {t}_cell v\n  v\n"
   given = [(derive/define m.name reads) (derive/define m.name blank)]
-  list/concat given (guarded m r)
+  list/concat given (guarded m r uniq)
 
 # The foreign keys the migrations add, or the ones a `schema.sql` dump
 # declares when the app keeps one.
@@ -345,6 +368,61 @@ fn key acc c:foreign_key
 
 fn key acc _
   acc
+
+# The columns a unique index covers, a list for each table: those the
+# migrations index with `add_unique_index` or declare with a kind that says
+# `unique`, or the single-column unique indexes and constraints a
+# `schema.sql` dump declares. An index over several columns is left out,
+# since no one field breaks it.
+fn uniques_of p none
+  list/fold (migrations_of p) {} unique_of
+
+fn uniques_of _ sql
+  start = unique_reading {} ""
+  (list/fold (text/split sql "\n") start unique_read).indexes
+
+fn unique_of acc c:unique_index
+  alone acc c.table c.column
+
+fn unique_of acc c:new_table
+  list/fold c.columns acc (a col -> unique_kind a c.name col)
+
+fn unique_of acc c:added_column
+  unique_kind acc c.table c.column
+
+fn unique_of acc _
+  acc
+
+fn unique_kind acc table col
+  words = text/split (text/lowercase col.kind) " "
+  return acc if not list/any? words (w -> w == "unique")
+  alone acc table col.name
+
+fn alone seen table col
+  return seen if mentions? col ","
+  put seen table (list/concat (present seen[table]) [(text/trim col)])
+
+# pg_dump writes a unique index on one line, `CREATE UNIQUE INDEX
+# notes_slug_unique ON public.notes USING btree (slug);`, and a unique
+# constraint over two, as it writes a foreign key: `ALTER TABLE ONLY
+# public.notes`, then `ADD CONSTRAINT notes_slug_key UNIQUE (slug);`.
+fn unique_read u line
+  return unique_reading (indexed u.indexes line) "" if index_line? line
+  named = unquoted (blank_if_none (text/slice line 18 (length line)))
+  return unique_reading u.indexes named if altered? line
+  return unique_reading u.indexes "" if u.table == "" or not unique? line
+  col = between line " UNIQUE (" ")"
+  unique_reading (alone u.indexes u.table col) ""
+
+fn index_line? line
+  text/starts_with? line "CREATE UNIQUE INDEX "
+
+fn unique? line
+  mentions? line " UNIQUE ("
+
+fn indexed seen line
+  table = unquoted (between line " ON " " USING")
+  alone seen table (between line " (" ")")
 
 # Each foreign key reads both ways, as Rails' `has_many` and `belongs_to`
 # do. The child's module gets `of_<parent>`, the rows of its table that hold
@@ -409,7 +487,9 @@ fn wrapped head args
 # declares. `models/updated` and `models/destroyed` take that value, so a
 # write reads the row, asks the policy and writes only when it says yes, and
 # a model whose module declares no `destroy?` cannot be destroyed this way.
-fn guarded m r
+# A model whose table has unique columns among its fields names them as
+# `unique`, which `models/created` and `models/updated` check.
+fn guarded m r uniq
   return [] if not list/any? r.fields (f -> f == "id")
   t = r.name
   base = [
@@ -420,11 +500,18 @@ fn guarded m r
   owned = ["create?" "update?" "destroy?" "visible?" "problems"]
   policies = list/select owned (p -> declares? m p)
   said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
-  all = list/to_list (list/sort (list/concat base (list/to_list said)))
+  marked = list/concat (list/to_list said) (unique_entry r.fields uniq)
+  all = list/to_list (list/sort (list/concat base marked))
   value = [(derive/define m.name (model_value t all))]
   named = "{t}_columns"
   return value if declares? m named or m.constants[named] != none
   list/concat value [(derive/define m.name (columns_value t r.fields))]
+
+fn unique_entry fields uniq
+  among = list/to_list (list/select uniq (c -> list/any? fields (f -> f == c)))
+  return [] if among == []
+  quoted = list/to_list (list/map among (c -> "\"{c}\""))
+  ["\"unique\":[{text/join quoted " "}]"]
 
 # A model's column names, `signature_columns`, which its module reads where it
 # writes SQL, so a column a migration adds reaches the query with no edit. On
@@ -567,7 +654,10 @@ pub fn whole_number field v
 # way, as with every write. Then `problems` checks it, when the module
 # declares one, and a record with problems answers `invalid` without
 # writing. Otherwise the row is inserted, and the answer is the record as
-# stored, its id among it.
+# stored, its id among it. A model with unique columns is inserted only when
+# no row holds its values, in the one statement, so two requests that race
+# for a value cannot both have it; the one that loses answers `invalid`,
+# with the problem on each field whose value is taken.
 pub fn created viewer db model fields
   given = unstamped (delete fields "id")
   was = row_read model["read"] given
@@ -575,8 +665,40 @@ pub fn created viewer db model fields
   broken = checked_by model["problems"] was
   return effect (invalid broken was) if problems? broken
   cols = column_list model["columns"]
-  pg/insert db (table_of model["table"]) cols given
-    .> (r -> stored model r.rows[1])
+  inserted db model cols given .> (r -> kept db model given was r.rows)
+
+fn inserted db model cols given
+  table = table_of model["table"]
+  return pg/insert db table cols given if model["unique"] == none
+  pg/insert_unless_taken db table cols given
+
+fn kept db model given was rows
+  return stored model rows[1] if length rows > 0
+  taken db model given "" .> (t -> refused_for t was)
+
+fn refused_for t was
+  return err "a unique index refused the row on no one column" if t == {}
+  effect (invalid t was)
+
+# The problems of the unique columns among `fields` whose value another row
+# holds. `id` is the row being changed, which keeps its own values, or "" for
+# a row not yet made.
+fn taken db model fields id
+  named = list/select (present model["unique"]) (c -> fields[c] != none)
+  table = table_of model["table"]
+  taken_among db table (list/to_list named) fields id {}
+
+fn taken_among db table cols fields id seen
+  return effect seen if length cols == 0
+  c = cols[1]
+  others = list/to_list (list/drop cols 1)
+  sql = "select 1 from {table} where {c} = $1 and id::text <> $2 limit 1"
+  pg/query db sql ["{fields[c]}" id]
+    .> (r -> taken_among db table others fields id (noted_taken seen c r.rows))
+
+fn noted_taken seen c rows
+  return seen if length rows == 0
+  put seen c "That is taken."
 
 fn checked_by none _
   {}
@@ -624,6 +746,15 @@ fn update_found viewer db model asked row
   return effect (invalid broken changed) if problems? broken
   cols = column_list model["columns"]
   sent = stamped cols changes
+  taken db model changes "{id_of row}"
+    .> (t -> rewritten db model cols row sent changed t)
+
+# A change that gives a unique column a value another row holds answers
+# `invalid` without writing. The check is a read before the write, so two
+# changes that race for one value can still meet the index, which refuses
+# the second as Postgres refuses any write.
+fn rewritten db model cols row sent changed t
+  return effect (invalid t changed) if t != {}
   pg/update_by_id db (table_of model["table"]) cols "{id_of row}" sent
     .> (_ -> effect changed)
 
@@ -840,6 +971,10 @@ fn statement_of c:foreign_key
   adding = "alter table {c.table} add constraint {named}"
   keyed = "{adding} foreign key ({c.column}) {cascades}"
   "do $$ begin if not exists ({asked}) then {keyed}; end if; end $$"
+
+fn statement_of c:unique_index
+  named = "{c.table}_{c.column}_unique"
+  "create unique index if not exists {named} on {c.table} ({c.column})"
 
 # The comparison an app runs as it starts: the live database's tables against
 # the schema it was compiled with. Each table in `schema` is made again as a

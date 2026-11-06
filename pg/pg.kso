@@ -168,11 +168,19 @@ pub fn update_by_id s table columns id changes
 # as a parameter. The answer's rows hold the row as stored, with the id
 # Postgres gave it.
 pub fn insert s table columns given_row
+  inserted s table columns given_row ""
+
+# As `insert`, but a row that a unique index refuses is not written, and the
+# answer has no rows, where `insert` would answer Postgres's refusal.
+pub fn insert_unless_taken s table columns given_row
+  inserted s table columns given_row "on conflict do nothing "
+
+fn inserted s table columns given_row conflict
   named = list/select (keys given_row) (k -> list/any? columns (c -> c == k))
   cols = list/to_list named
   holes = list/fold cols [] (acc _ -> push acc "${length acc + 1}")
   given = list/to_list (list/map cols (c -> "{given_row[c]}"))
-  back = "returning {text/join columns ", "}"
+  back = "{conflict}returning {text/join columns ", "}"
   return query s "insert into {table} default values {back}" [] if cols == []
   into = "{table} ({text/join cols ", "})"
   sql = "insert into {into} values ({text/join holes ", "}) {back}"

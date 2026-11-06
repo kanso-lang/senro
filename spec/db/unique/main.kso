@@ -1,0 +1,29 @@
+import "../../../models"
+import "../../../pg"
+import "./accounts"
+import "./migrations"
+import "./signing"
+
+derive models/tables
+
+# A handle is unique: the migrations give `accounts.handle` a unique index.
+# A second account with a taken handle, and a change to one, come back as
+# problems on the field instead of rows, and an account keeps its own handle
+# when it is changed to it.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+counted = "select count(*)::text as accounts from accounts"
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "unique" migrations/all)
+  .> (db -> signing/made db "ada" "ada")
+  .> (db -> signing/made db "a second ada" "ada")
+  .> (db -> signing/made db "bob" "bob")
+  .> (db -> signing/renamed db "bob as ada" "bob" "ada")
+  .> (db -> signing/renamed db "bob as bob" "bob" "bob")
+  .> (db -> pg/query db counted [] .> (r -> print r.rows))
