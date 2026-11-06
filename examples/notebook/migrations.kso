@@ -8,6 +8,8 @@ notes_made = models/create_table "notes" [
   notes_title
   notes_pages
   notes_cover
+  models/created_at
+  models/updated_at
 ]
 
 notes_id = models/column "id" "serial primary key"
@@ -18,7 +20,13 @@ notes_pages = models/column "pages" "integer"
 
 notes_cover = models/column "cover" "text not null default ''"
 
-pages_made = models/create_table "pages" [pages_id pages_body pages_note_id]
+pages_made = models/create_table "pages" [
+  pages_id
+  pages_body
+  pages_note_id
+  models/created_at
+  models/updated_at
+]
 
 pages_to_notes = models/add_foreign_key "pages" "note_id" "notes"
 
@@ -28,7 +36,13 @@ pages_body = models/column "body" "text"
 
 pages_note_id = models/column "note_id" "integer not null"
 
-users_made = models/create_table "users" [users_id users_email users_digest]
+users_made = models/create_table "users" [
+  users_id
+  users_email
+  users_digest
+  models/created_at
+  models/updated_at
+]
 
 users_id = models/column "id" "serial primary key"
 

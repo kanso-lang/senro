@@ -51,8 +51,9 @@ they render. The list shows 25 rows a page (`per_page` in the module), read
 with `models/paged`, and links the pages before and after it as
 `?page=2`. Each `int` field gets a rule that the value is a whole number,
 so a form that says otherwise is shown again with the problem rather than
-refused by Postgres. It adds the migration that makes the table to the end
-of `migrations/all`, and the module's import to the entry. The policies it
+refused by Postgres. It adds the migration that makes the table, whose last
+columns are `models/created_at` and `models/updated_at`, to the end of
+`migrations/all`, and the module's import to the entry. The policies it
 writes let anyone write; narrow them before the app is public.
 
 A `references` field nests the resource under another, as Rails' generator
@@ -149,7 +150,8 @@ when they are given that path. The specs write it again and compare the two.
   model gets a reader in its own module, `signature_from row`, which builds a
   `signature` from a row a query answered, taking each field from the column
   of the same name, or "" when the row has none. A table made with
-  `models/timestamps` among its columns has `created_at` and `updated_at`, as
+  `models/timestamps` among its columns, or `models/created_at` and
+  `models/updated_at` one at a time, has `created_at` and `updated_at`, as
   Rails' `t.timestamps` gives: Postgres sets both when a row is made,
   `models/updated` sets `updated_at` on every change, and a form's value for
   either is ignored. As the app starts,

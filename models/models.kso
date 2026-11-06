@@ -110,11 +110,13 @@ pub fn column name kind
 
 # The two columns Rails' `t.timestamps` adds: when a row was made and when it
 # last changed. Postgres sets both as a row is inserted, `models/updated` sets
-# `updated_at` on every change, and neither is taken from a form.
-pub timestamps = [
-  (column_def "created_at" "timestamptz not null default now()")
-  (column_def "updated_at" "timestamptz not null default now()")
-]
+# `updated_at` on every change, and neither is taken from a form. A table
+# lists them as `models/timestamps`, or one at a time beside its own columns.
+pub timestamps = [created_at updated_at]
+
+pub created_at = column_def "created_at" "timestamptz not null default now()"
+
+pub updated_at = column_def "updated_at" "timestamptz not null default now()"
 
 # An app whose migrations need SQL the fold cannot read, such as a trigger,
 # checks in `pg_dump --schema-only` output as `schema.sql` beside its entry,
