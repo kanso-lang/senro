@@ -186,7 +186,8 @@ when they are given that path. The specs write it again and compare the two.
   reads the other record's field by name, so neither module imports the
   other. A module that declares a function of the same name keeps its own,
   as does one that declares a pub function or record named as the parameter
-  (`note`, `page`), and a schema read from `schema.sql` gives none. `models/paged db sql params number
+  (`note`, `page`). A schema read from `schema.sql` takes its keys from the
+  dump's `FOREIGN KEY ... REFERENCES` constraints. `models/paged db sql params number
   per` reads one page of a query, as Pagy does: its rows, its number, and
   whether another follows, which it learns by asking for one row more than
   the page shows. `models/page_number` reads the page a query string names,

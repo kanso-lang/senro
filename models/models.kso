@@ -62,6 +62,12 @@ type ruled
   broken
   message
 
+# How far `key_read` has read a dump: the keys so far, and the table the last
+# `ALTER TABLE ONLY` named, whose constraint the next line adds.
+type keying
+  keys
+  table
+
 # A page of a query's rows: the rows on it, its number, counted from 1, and
 # whether another page follows it.
 pub type page
@@ -284,13 +290,45 @@ fn written m r _
   given = [(derive/define m.name reads) (derive/define m.name blank)]
   list/concat given (guarded m r)
 
-# The foreign keys the migrations add. A schema read from a dump has none
-# here, so an app that keeps `schema.sql` writes its readers by hand.
+# The foreign keys the migrations add, or the ones a `schema.sql` dump
+# declares when the app keeps one.
 fn keys_of p none
   list/fold (migrations_of p) [] key
 
-fn keys_of _ _
-  []
+fn keys_of _ sql
+  (list/fold (text/split sql "\n") (keying [] "") key_read).keys
+
+# pg_dump writes a foreign key over two lines, `ALTER TABLE ONLY public.tags`
+# and then `ADD CONSTRAINT tags_note_id_fkey FOREIGN KEY (note_id)
+# REFERENCES public.notes(id);`, indented.
+fn key_read k line
+  named = unquoted (blank_if_none (text/slice line 18 (length line)))
+  return keying k.keys named if altered? line
+  return keying k.keys "" if k.table == "" or not foreign? line
+  child = between line "FOREIGN KEY (" ")"
+  parent = unquoted (between line "REFERENCES " "(")
+  keying (list/concat k.keys [(foreign_key k.table child parent)]) ""
+
+fn foreign? line
+  mentions? line " FOREIGN KEY ("
+
+# Whether `part` appears in `line`.
+fn mentions? line part
+  length (text/split line part) > 1
+
+fn altered? line
+  altering = text/starts_with? line "ALTER TABLE ONLY "
+  altering and not mentions? line " ALTER COLUMN "
+
+# The text after `from` and before the next `upto`.
+fn between line from upto
+  after = (text/split line from)[2]
+  plain (text/split (plain after) upto)[1]
+
+# `public.notes` and `"notes"` name `notes`.
+fn unquoted name
+  parts = text/split (text/trim name) "."
+  text/join (text/split (plain parts[length parts]) "\"") ""
 
 fn key acc c:foreign_key
   list/concat acc [c]

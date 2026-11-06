@@ -1,8 +1,17 @@
 import "../../../models"
 import "./migrations"
 import "./notes"
+import "./tags"
+import "std/list"
 
 derive models/tables
 
+# The dump's foreign key writes a reader each way, so both names resolve.
+tags_of_a_note = &tags/of_note
+
+note_of_a_tag = &notes/of_tag
+
 print "{schema["notes"]}"
 print "{schema["tags"]}"
+
+print (list/to_list (list/map [tags_of_a_note note_of_a_tag] (_ -> "written")))
