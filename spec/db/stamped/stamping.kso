@@ -1,0 +1,19 @@
+import "../../../models"
+import "../../../pg"
+import "./notes"
+
+pub fn made db fields
+  models/created "" db notes/note_model fields .> (_ -> effect db)
+
+pub fn changed db id fields
+  models/updated "" db notes/note_model "{id}" fields .> (_ -> effect db)
+
+stamps = """
+  select (created_at > '2020-01-01')::text as created,
+    (updated_at > '2020-01-01')::text as updated,
+    (updated_at > created_at)::text as moved
+  from notes
+"""
+
+pub fn asked db label
+  pg/query db stamps [] .> (r -> print "{label}: {r.rows}") .> (_ -> effect db)

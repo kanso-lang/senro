@@ -148,7 +148,11 @@ when they are given that path. The specs write it again and compare the two.
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a
   `signature` from a row a query answered, taking each field from the column
-  of the same name, or "" when the row has none. As the app starts,
+  of the same name, or "" when the row has none. A table made with
+  `models/timestamps` among its columns has `created_at` and `updated_at`, as
+  Rails' `t.timestamps` gives: Postgres sets both when a row is made,
+  `models/updated` sets `updated_at` on every change, and a form's value for
+  either is ignored. As the app starts,
   `models/migrated db app migrations/all` runs the migrations the database has
   not yet run, in order, and records each in `senro_migrations` under the app's
   name and its place in the list, beside the SQL it ran, as Rails records them
