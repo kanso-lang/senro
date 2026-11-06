@@ -1,0 +1,31 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+import "./notes"
+import "./stamping"
+
+derive models/tables
+
+# A table made with `models/timestamps` has `created_at` and `updated_at`.
+# Postgres sets both when a note is made, a form that names either is not
+# believed, and a change through the model moves `updated_at` alone.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+made = models/made schema
+
+old = "2001-01-01"
+
+backdated = { "body":"first" "created_at":old "updated_at":old }
+
+edited = { "body":"edited" "updated_at":old }
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> stamping/made db backdated)
+  .> (db -> stamping/asked db "made now, not as the form said")
+  .> (db -> stamping/changed db 1 edited)
+  .> (db -> stamping/asked db "after the change")

@@ -108,6 +108,14 @@ fn present_cell v
 pub fn column name kind
   column_def name kind
 
+# The two columns Rails' `t.timestamps` adds: when a row was made and when it
+# last changed. Postgres sets both as a row is inserted, `models/updated` sets
+# `updated_at` on every change, and neither is taken from a form.
+pub timestamps = [
+  (column_def "created_at" "timestamptz not null default now()")
+  (column_def "updated_at" "timestamptz not null default now()")
+]
+
 # An app whose migrations need SQL the fold cannot read, such as a trigger,
 # checks in `pg_dump --schema-only` output as `schema.sql` beside its entry,
 # and the schema is read from that instead.
@@ -559,7 +567,7 @@ pub fn whole_number field v
 # writing. Otherwise the row is inserted, and the answer is the record as
 # stored, its id among it.
 pub fn created viewer db model fields
-  given = delete fields "id"
+  given = unstamped (delete fields "id")
   was = row_read model["read"] given
   return effect web/denied if not allowed? model["create"] viewer was
   broken = checked_by model["problems"] was
@@ -604,16 +612,28 @@ pub fn updated viewer db model id changes
 fn update_found _ _ _ _ none
   effect web/absent
 
-fn update_found viewer db model changes row
+fn update_found viewer db model asked row
   was = row_read model["read"] row
   return effect web/denied if not allowed? model["update"] viewer was
+  changes = unstamped asked
   now = list/fold (keys changes) row (acc k -> put acc k changes[k])
   changed = row_read model["read"] now
   broken = checked_by model["problems"] changed
   return effect (invalid broken changed) if problems? broken
   cols = column_list model["columns"]
-  pg/update_by_id db (table_of model["table"]) cols "{id_of row}" changes
+  sent = stamped cols changes
+  pg/update_by_id db (table_of model["table"]) cols "{id_of row}" sent
     .> (_ -> effect changed)
+
+# A form's fields without the timestamps, which only the database writes.
+fn unstamped fields
+  delete (delete fields "created_at") "updated_at"
+
+# A change to a table with `updated_at` sets it to the time of the write:
+# Postgres reads the text `now` as the current time for a timestamp column.
+fn stamped cols changes
+  return changes if not list/any? cols (c -> c == "updated_at")
+  put changes "updated_at" "now"
 
 pub fn destroyed _ _ _ none
   effect web/absent

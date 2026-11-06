@@ -1,0 +1,6 @@
+# The `notes` table's model. Anyone may make and change a note.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
