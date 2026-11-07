@@ -1,0 +1,11 @@
+import "../../../models"
+import "std/list"
+
+# The rule a model writes for a field that holds one of a few values, as a
+# select posts it. A value is compared whole, so a choice's prefix or its
+# spelling in other letters is not the choice.
+statuses = ["draft" "published"]
+posted = ["draft" "published" "Draft" "pub" ""]
+checked = (v -> models/problems [(models/one_of "status" statuses v)])
+
+print (list/to_list (list/map posted checked))

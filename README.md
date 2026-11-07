@@ -238,6 +238,8 @@ when they are given that path. The specs write it again and compare the two.
   filled in, as Rails' `presence: true` reads one, and spaces alone are
   blank; `models/at_most field n value` and `models/at_least field n value`
   bound its length in characters, as `length: { maximum:, minimum: }` does.
+  `models/one_of field choices value` is the rule that a value is one of a
+  list, as `inclusion: { in: }` reads one, compared whole.
   A record that breaks a rule comes back as
   `models/invalid`, holding each broken field's message and the record as
   given, so the action can show the form again with both.
