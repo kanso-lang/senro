@@ -1,0 +1,20 @@
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# The server is sent a line that is not a request, with no method and no
+# path, and the answer's status line is shown. A server that fails on it
+# leaves the connection open, and this read waits until the spec gives up.
+pub fn index _ _
+  net/dial "127.0.0.1" 24414
+    .> (c -> net/write c "nonsense\r\n\r\n" .> (_ -> net/read c))
+    .> (raw -> effect (http/text_page (first_line raw)))
+
+fn first_line raw
+  said (text/split raw "\r\n")[1]
+
+fn said none
+  "nothing"
+
+fn said line
+  line
