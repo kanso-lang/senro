@@ -55,8 +55,8 @@ fn addressed? email
 
 # A new account is signed in at once.
 fn made req kept:user
-  s = put (web/session req session/secret) "flash" "Welcome."
-  home = web/redirect "/"
+  s = web/session req session/secret
+  home = web/noticed (web/redirect "/") "Welcome."
   effect (web/signed_in req home session/secret s kept.email kept.digest)
 
 fn made _ _

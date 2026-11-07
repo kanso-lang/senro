@@ -66,9 +66,8 @@ fn entered req email a password
   return effect (refused req email) if not right
   s = web/session req secret
   back = web/return_to req secret "/"
-  welcomed = put (delete s "return_to") "flash" "Signed in."
-  home = web/redirect back
-  effect (web/signed_in req home secret welcomed a.email a.digest)
+  home = web/noticed (web/redirect back) "Signed in."
+  effect (web/signed_in req home secret (delete s "return_to") a.email a.digest)
 
 fn refused req email
   wrong = { "password":"That address and password do not match." }
@@ -81,20 +80,12 @@ pub fn over_limit req
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
   s = web/signed_out (web/session req secret)
-  r = web/redirect "/session/new"
-  effect (web/kept r secret (put s "flash" "Signed out."))
+  r = web/noticed (web/redirect "/session/new") "Signed out."
+  effect (web/kept r secret s)
 
-# The sign-in form shows the address as typed, the problem if any, and a
-# notice the session holds, which it then forgets.
+# The sign-in form shows the address as typed, the problem if any, and the
+# notice the request carries.
 fn opened req email problems code
-  s = web/session req secret
-  flash = said s["flash"]
-  page = views/door_view "Sign in" "/session" email problems flash true
-  r = views/answer_as req code (views/layout_view "Sign in" page)
-  web/kept r secret (put s "flash" "")
-
-fn said none
-  ""
-
-fn said v
-  v
+  notice = web/notice req
+  page = views/door_view "Sign in" "/session" email problems notice true
+  views/answer_as req code (views/layout_view "Sign in" page)

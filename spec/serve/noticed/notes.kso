@@ -1,0 +1,16 @@
+import "../../../web"
+import "std/net/http"
+
+# The list, which shows the notice the request carries.
+pub fn index req _
+  effect (http/text_page "the notes, noting {shown (web/notice req)}")
+
+# A note made, which sends the browser to the list with a notice for it.
+pub fn create _ _
+  effect (web/noticed (web/redirect "/notes") "Noted; thank you.")
+
+fn shown ""
+  "nothing"
+
+fn shown said
+  said

@@ -153,9 +153,8 @@ fn locking req db name a row
 fn signed req name a remember
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
-  welcomed = put (delete s "return_to") "flash" "Signed in as {name}."
-  signing = kept_if welcomed remember
-  home = web/redirect back
+  signing = kept_if (delete s "return_to") remember
+  home = web/noticed (web/redirect back) "Signed in as {name}."
   effect (web/signed_in req home entries/secret signing name a.digest)
 
 # A visitor who ticked "Keep me signed in" keeps the sign-in after the
@@ -186,8 +185,8 @@ pub fn over_limit req
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
   s = web/signed_out (web/session req entries/secret)
-  r = web/redirect "/"
-  effect (web/kept r entries/secret (put s "flash" "Signed out."))
+  r = web/noticed (web/redirect "/") "Signed out."
+  effect (web/kept r entries/secret s)
 
 fn opened req name problems code
   to = "/session"

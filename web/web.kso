@@ -331,7 +331,7 @@ fn responded c db req method by answer
   answer
     .> (r -> told db method by r)
     .> (r -> versioned by r)
-    .> (r -> sent c (unchanged req r))
+    .> (r -> sent c (notice_shown req (unchanged req r)))
 
 # An answer that would set the session the request already carries sets
 # nothing. A page answered from a session read before a sign-out must not
@@ -344,6 +344,38 @@ fn unchanged req r
   return r if not list/any? r.headers same
   kept_lines = list/to_list (list/reject r.headers same)
   http/respond r.status kept_lines r.body
+
+# A notice is shown by the request after the one that left it, and then it
+# is gone, as Rails' flash is: an answer to a request that carried a notice,
+# and leaves none of its own, tells the browser to forget it. The notice has
+# a cookie of its own, so forgetting it never sets the session, and a page
+# read before a sign-out cannot put the sign-in back by clearing one.
+fn notice_shown req r
+  return r if cookie req.headers["cookie"] notice_cookie == ""
+  return r if list/any? r.headers leaves_notice?
+  headed r "set-cookie: {notice_cookie}=; Path=/; Max-Age=0"
+
+notice_cookie = "senro_notice"
+
+fn leaves_notice? h
+  text/starts_with? h "set-cookie: {notice_cookie}="
+
+# The answer `r`, leaving `message` for the request after it to show, as
+# Rails' `redirect_to path, notice: message` does:
+#
+#   web/noticed (web/redirect "/") "Thank you for signing."
+#
+# The next request reads it with `notice`, and the server forgets it once
+# that request is answered.
+pub fn noticed r message
+  kept_lines = list/to_list (list/reject r.headers leaves_notice?)
+  line = "set-cookie: {notice_cookie}={escaped message}; Path=/; HttpOnly"
+  http/respond r.status (push kept_lines "{line}; SameSite=Lax") r.body
+
+# The notice the request carries, which the answer before it left with
+# `noticed`, or "" when it carries none.
+pub fn notice req
+  percent_decoded (cookie req.headers["cookie"] notice_cookie)
 
 # An answer to senro's page script carries the version of the app's browser
 # modules, so a page that loaded an older deploy's modules learns of the new

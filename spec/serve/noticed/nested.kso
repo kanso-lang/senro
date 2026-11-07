@@ -1,0 +1,80 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# A note is made, and the list it redirects to shows the notice once. The
+# list read again shows nothing, and its answer sets no cookie. A note made
+# while a notice is still held leaves only the new one.
+pub fn index _ _
+  asked "POST" "/notes" ""
+    .> (a -> asked "GET" "/notes" (cookie_of a) .> (b -> listed a b))
+
+fn listed a b
+  asked "GET" "/notes" (jar (cookie_of a) b) .> (c -> made a b c)
+
+fn made a b c
+  asked "POST" "/notes" (cookie_of a) .> (d -> said [a b c d])
+
+fn asked method path cookie
+  net/dial "127.0.0.1" 24415 .> (c -> sent c method path cookie)
+
+fn sent c method path cookie
+  head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"
+  net/write c "{head}\r\ncontent-length: 0\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn carried ""
+  ""
+
+fn carried cookie
+  "\r\ncookie: {cookie}"
+
+# The cookie a browser sends after the answer `raw`: the one it set, or the
+# one it held before when the answer sets none.
+fn jar held raw
+  return held if length (set_lines raw) == 0
+  cookie_of raw
+
+# The cookie the answer set, as the browser sends it back: its name and
+# value, without the attributes after them.
+fn cookie_of raw
+  set = set_lines raw
+  return "" if length set == 0
+  line = or_empty set[1]
+  value = or_empty (text/slice line 13 (length line))
+  or_empty (text/split value ";")[1]
+
+fn set_lines raw
+  list/to_list (list/select (lines raw) (l -> starts? l "set-cookie: "))
+
+fn said answers
+  told = text/join (list/to_list (list/map answers heard)) "\n"
+  effect (http/text_page told)
+
+fn heard raw
+  status = (lines raw)[1]
+  sets = list/to_list (list/map (set_lines raw) (l -> "\n  {l}"))
+  moved = list/to_list (list/select (lines raw) (l -> starts? l "location: "))
+  setting = text/join sets ""
+  return "{status}: {body raw}{setting}" if length moved == 0
+  where = or_empty moved[1]
+  "{status} to {text/slice where 11 (length where)}{setting}"
+
+fn lines raw
+  text/split (or_empty (text/split raw "\r\n\r\n")[1]) "\r\n"
+
+fn or_empty none
+  ""
+
+fn or_empty s
+  s
+
+fn starts? l prefix
+  text/starts_with? (text/lowercase l) prefix
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]
