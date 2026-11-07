@@ -80,13 +80,12 @@ fn addressed? email
 # through the link the mail carries, as Devise's `confirmable` asks. A mail
 # that cannot be queued is logged, as the worker logs one it cannot send,
 # and the account can ask again by signing in.
-fn made req db kept:account
-  s = web/session req entries/secret
+fn made _ db kept:account
   told = "Welcome, {kept.name}. Confirm your address with the link we sent."
-  welcomed = put s "flash" told
+  welcomed = web/noticed (web/redirect "/") told
   account_mailer/confirmation db kept.id kept.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
-    .> (_ -> effect (web/kept (web/redirect "/") entries/secret welcomed))
+    .> (_ -> effect welcomed)
 
 fn made _ _ _
   effect web/denied
@@ -153,9 +152,8 @@ set_digest = "update accounts set digest = $1 where name = $2"
 
 fn kept_on req name digest
   s = web/session req entries/secret
-  noticed = put s "flash" "Your password is changed."
-  home = web/redirect "/"
-  effect (web/signed_in req home entries/secret noticed name digest)
+  home = web/noticed (web/redirect "/") "Your password is changed."
+  effect (web/signed_in req home entries/secret s name digest)
 
 pub fn over_limit req
   wait = { "current":"Too many tries. Try again in a few minutes." }

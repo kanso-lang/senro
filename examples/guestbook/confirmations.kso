@@ -3,7 +3,6 @@ import "../../pg"
 import "../../tokens"
 import "../../web"
 import "./account_mailer"
-import "./entries"
 import "./views"
 import "std/list"
 import "std/time"
@@ -22,8 +21,8 @@ pub without_sign_in = ["edit" "update"]
 pub fn edit req db id
   held db id .> (a -> offered req id a)
 
-fn offered req _ none
-  effect (told req stale)
+fn offered _ _ none
+  effect (told stale)
 
 fn offered req id a
   effect (shown req id a.email)
@@ -35,13 +34,13 @@ stale = "That link has expired or was used. Sign in to have it sent again."
 pub fn update req db id
   held db id .> (a -> confirmed req db a)
 
-fn confirmed req _ none
-  effect (told req stale)
+fn confirmed _ _ none
+  effect (told stale)
 
-fn confirmed req db a
+fn confirmed _ db a
   time/now
     .> (t -> pg/query db stamped ["{t}" a.id])
-    .> (_ -> effect (told req "Your address is confirmed. Sign in with it."))
+    .> (_ -> effect (told "Your address is confirmed. Sign in with it."))
 
 stamped = "update accounts set confirmed = $1 where id = $2"
 
@@ -69,9 +68,8 @@ fn id_text none
 fn id_text n
   "{n}"
 
-fn told req notice
-  s = web/session req entries/secret
-  web/kept (web/redirect "/") entries/secret (put s "flash" notice)
+fn told notice
+  web/noticed (web/redirect "/") notice
 
 fn shown req id email
   page = views/confirm_offered_view "/confirmations/{id}" email

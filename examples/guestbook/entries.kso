@@ -47,9 +47,8 @@ fn signed req db w:models/invalid
 
 # A signature kept. The answer sends the browser back to the list, so
 # reloading it does not sign the book again.
-fn signed req _ _
-  thanked = put (web/session req secret) "flash" "Thank you for signing."
-  effect (web/kept (web/redirect "/") secret thanked)
+fn signed _ _ _
+  effect (web/noticed (web/redirect "/") "Thank you for signing.")
 
 newest = "select id, name, message, photo from signatures order by id desc"
 
@@ -60,10 +59,8 @@ fn shown req rows s form code
   book = list/to_list (list/map rows signatures/signature_from)
   who = said s["viewer"]
   removals = list/fold book {} (m e -> put m "{e.id}" (removal_of e who))
-  flash = said s["flash"]
-  page = views/signed_view book form flash removals who
-  r = views/answer_as req code (views/layout_view "Guestbook" page)
-  effect (web/kept r secret (put s "flash" ""))
+  page = views/signed_view book form (web/notice req) removals who
+  effect (views/answer_as req code (views/layout_view "Guestbook" page))
 
 # Each entry's remove button, drawn only for the person who signed it. The
 # policy is what stops anyone else; the button is a convenience.

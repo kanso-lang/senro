@@ -292,7 +292,12 @@ when they are given that path. The specs write it again and compare the two.
   its viewer. The cookie lasts until the browser closes, and a session made
   `web/lasting` keeps it for those fourteen days instead, through every later
   write, as Devise's "remember me" does; the guestbook's sign-in form offers
-  it. `web/signed_out` forgets the sign-in and keeps the rest. It also serves
+  it. `web/signed_out` forgets the sign-in and keeps the rest. An answer can
+  leave a notice for the next page, as Rails' flash does:
+  `web/noticed (web/redirect "/") "Thank you for signing."` sends the browser
+  on with one, the page it lands on reads it with `web/notice req`, and the
+  server forgets it once that page is answered. A notice has a cookie of its
+  own, so forgetting one never sets the session. It also serves
   senro's page script at `/senro.js`. A layout that loads it gets pages that
   update in place: a link followed or a form sent on the app's own origin is
   fetched, and the page the server answers is morphed into the live one, so the

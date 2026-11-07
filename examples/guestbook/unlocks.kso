@@ -3,7 +3,6 @@ import "../../pg"
 import "../../tokens"
 import "../../web"
 import "./account_mailer"
-import "./entries"
 import "./views"
 import "std/list"
 import "std/time"
@@ -21,8 +20,8 @@ pub fn edit req db id
 fn offered req id true
   effect (shown req id)
 
-fn offered req _ false
-  effect (told req stale)
+fn offered _ _ false
+  effect (told stale)
 
 stale = "That link has expired or was used."
 
@@ -31,13 +30,13 @@ stale = "That link has expired or was used."
 pub fn update req db id
   held db id .> (good -> opened req db id good)
 
-fn opened req _ _ false
-  effect (told req stale)
+fn opened _ _ _ false
+  effect (told stale)
 
-fn opened req db token true
+fn opened _ db token true
   id = id_text (tokens/id_of token)
   pg/query db cleared [id]
-    .> (_ -> effect (told req "Your account is unlocked. Sign in."))
+    .> (_ -> effect (told "Your account is unlocked. Sign in."))
 
 cleared = "update accounts set failures = 0, locked = '' where id = $1"
 
@@ -61,9 +60,8 @@ fn id_text none
 fn id_text n
   "{n}"
 
-fn told req notice
-  s = web/session req entries/secret
-  web/kept (web/redirect "/") entries/secret (put s "flash" notice)
+fn told notice
+  web/noticed (web/redirect "/") notice
 
 fn shown req id
   page = views/unlock_offered_view "/unlocks/{id}"

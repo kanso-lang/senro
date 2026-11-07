@@ -22,8 +22,7 @@ pub without_sign_in = ["create" "edit" "new" "update"]
 pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub fn new req _
-  s = web/session req session/secret
-  effect (asked req s 200)
+  effect (asked req 200)
 
 # The answer is the same whether or not the address has an account, and
 # whether or not the mail could be queued, so the form says nothing about
@@ -35,7 +34,7 @@ pub fn create req db
   pg/query db holder [email]
     .> (r -> sent db (list/first r.rows) email)
     .? (u -> io/write_err "no reset mail: {u.reason}\n")
-    .> (_ -> effect (told req "/session/new" on_its_way))
+    .> (_ -> effect (told "/session/new" on_its_way))
 
 holder = "select id, digest from users where email = $1"
 
@@ -55,8 +54,8 @@ pub fn edit req db id
 fn offered req token true
   effect (chosen req token {} 200)
 
-fn offered req _ false
-  effect (told req "/resets/new" expired)
+fn offered _ _ false
+  effect (told "/resets/new" expired)
 
 expired = "That link has expired or was used. Ask for another."
 
@@ -67,8 +66,8 @@ pub fn update req db id
   password = web/value (web/form req.body) "password"
   checked db id .> (good -> chose req db id password good)
 
-fn chose req _ _ _ false
-  effect (told req "/resets/new" expired)
+fn chose _ _ _ _ false
+  effect (told "/resets/new" expired)
 
 fn chose req db token password true
   short = { "password":"Use eight characters or more." }
@@ -76,7 +75,7 @@ fn chose req db token password true
   id = id_of (passwords/reset_id token)
   passwords/digested password
     .> (d -> pg/query db reset [d id])
-    .> (_ -> effect (told req "/session/new" changed))
+    .> (_ -> effect (told "/session/new" changed))
 
 reset = "update users set digest = $1 where id = $2"
 
@@ -104,23 +103,14 @@ fn id_of n
   "{n}"
 
 # A redirect carrying a notice for the page it lands on.
-fn told req to notice
-  s = web/session req session/secret
-  web/kept (web/redirect to) session/secret (put s "flash" notice)
+fn told to notice
+  web/noticed (web/redirect to) notice
 
-fn asked req s code
-  flash = said s["flash"]
-  page = views/reset_asked_view flash {}
+fn asked req code
+  page = views/reset_asked_view (web/notice req) {}
   framed = views/layout_view "Forgot your password" page
-  r = views/answer_as req code framed
-  web/kept r session/secret (put s "flash" "")
+  views/answer_as req code framed
 
 fn chosen req token problems code
   page = views/reset_chosen_view "/resets/{token}" problems
   views/answer_as req code (views/layout_view "A new password" page)
-
-fn said none
-  ""
-
-fn said v
-  v
