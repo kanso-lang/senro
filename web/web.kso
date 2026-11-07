@@ -158,6 +158,11 @@ fn arrived raw t from
 pub fn peer req
   req.headers["senro-peer"]
 
+# Bytes that are not a request, such as a line without a method and a path,
+# are answered 400 and the connection closed, as any other answer is.
+fn heard c _ _:http/bad_request
+  sent c bad_request
+
 fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
