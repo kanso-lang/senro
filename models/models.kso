@@ -679,6 +679,13 @@ pub fn at_most field n v
 pub fn at_least field n v
   rule field (length (text/chars "{v}") < n) "Use at least {n} characters."
 
+# The rule that a field holds one of `choices`, as Rails'
+# `inclusion: { in: choices }` does, so a form that posts a status or a kind
+# from a select cannot post one the app does not know.
+pub fn one_of field choices v
+  known = list/any? choices (c -> c == "{v}")
+  rule field (not known) "Choose one of {text/join choices ", "}."
+
 # A record made through its model. The values, such as a form's fields, are
 # read into a record by the model's reader, with any `id` left out, since
 # Postgres numbers a new row. The model's `create?` policy is asked about the
