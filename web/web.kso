@@ -633,9 +633,9 @@ fn limited (hit action kind id _) l
   hit action kind id l
 
 # A GET no route answers is senro's page script at /senro.js, or else it is
-# looked for under `public/`, beside the app, the way a stylesheet or an
-# image is served. A path that climbs out of it, or a file that is not there,
-# is a 404.
+# looked for under `public/` in the directory the server started in, the way
+# a stylesheet or an image is served. A path that climbs out of it, or a file
+# that is not there, is a 404.
 fn routed none req _
   return effect http/not_found if req.method != "GET"
   return page_script if req.path == "/senro.js"

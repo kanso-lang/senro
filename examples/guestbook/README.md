@@ -5,10 +5,15 @@ The first application senro is built for (kanso#2178). It uses `net/dial` and
 sha256's HMAC and PBKDF2 with base64, and a view kata wrote.
 
 ```
-kanso run examples/guestbook      # Postgres on 127.0.0.1:54329, trust login
-kanso derived examples/guestbook  # the schema and route table derived
 KANSO=kanso sh browser/build.sh examples/guestbook <runtime.wasm>
+cd examples/guestbook
+kanso run .        # Postgres on 127.0.0.1:54329, trust login
+kanso derived .    # the schema and route table derived
 ```
+
+The server reads its static files, the stylesheet and the browser module
+among them, from `public/` under the directory it starts in, so it runs from
+the app's own directory.
 
 `kanso run` builds at kanso's development tier, where a password takes
 seconds to stretch at the default rounds; `SENRO_PASSWORD_ROUNDS=1000` in
