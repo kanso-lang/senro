@@ -9,8 +9,13 @@ module renders it.
 
 ```
 KANSO=kanso sh browser/build.sh examples/pantry <runtime.wasm>
-kanso run examples/pantry
+cd examples/pantry && kanso run .
 ```
+
+The server reads `public/` under the directory it starts in, which holds the
+stylesheet and the browser module, so it runs from the pantry's own
+directory. Started from senro's root, the page arrives unstyled and the
+planner does nothing.
 
 It serves on port 3001 against the Postgres the guestbook uses, at
 127.0.0.1:54329, and makes its `items` table on first run.
