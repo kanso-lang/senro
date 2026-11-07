@@ -686,6 +686,15 @@ pub fn one_of field choices v
   known = list/any? choices (c -> c == "{v}")
   rule field (not known) "Choose one of {text/join choices ", "}."
 
+# The rule that a field holds an email address: one @, with something
+# before it and something after it, and no spaces. Whether the address
+# reaches anyone only a mail sent to it can tell.
+pub fn email_address field v
+  halves = text/split "{v}" "@"
+  shaped = length halves == 2 and not list/any? halves (h -> h == "")
+  spaced = length (text/split "{v}" " ") > 1
+  rule field (not shaped or spaced) "Give an email address."
+
 # A record made through its model. The values, such as a form's fields, are
 # read into a record by the model's reader, with any `id` left out, since
 # Postgres numbers a new row. The model's `create?` policy is asked about the

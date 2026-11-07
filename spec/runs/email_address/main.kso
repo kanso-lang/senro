@@ -1,0 +1,11 @@
+import "../../../models"
+import "std/list"
+
+# The rule a model writes for a field that holds an email address. It asks
+# for one @ with something on each side and no spaces, and nothing more.
+posted = ["ada@guestbook.test" "a@b" "ada" "@guestbook.test" "ada@" "a@b@c" ""]
+spaced = "ada lovelace@guestbook.test"
+checked = (v -> models/problems [(models/email_address "email" v)])
+
+print (list/to_list (list/map posted checked))
+print (checked spaced)

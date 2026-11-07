@@ -38,7 +38,7 @@ addressed = "select id from users where email = $1"
 fn joined req db email password taken
   short = "Use eight characters or more."
   found = models/problems [
-    (models/rule "email" (not addressed? email) "Give an email address.")
+    (models/email_address "email" email)
     (models/rule "email" taken "That address has an account.")
     (models/rule "password" (length password < 8) short)
   ]
@@ -49,9 +49,6 @@ fn joined req db email password taken
 
 fn fields_of email digest
   { "digest":digest "email":email }
-
-fn addressed? email
-  length (text/split email "@") == 2
 
 # A new account is signed in at once.
 fn made req kept:user

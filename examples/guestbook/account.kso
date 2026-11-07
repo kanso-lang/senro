@@ -63,7 +63,7 @@ fn joined req db asked by_name by_email
   found = models/problems [
     (models/rule "name" (name == "") "Choose a name.")
     (models/rule "name" (length by_name.rows > 0) "That name is taken.")
-    (models/rule "email" (not addressed? email) "Give an email address.")
+    (models/email_address "email" email)
     (models/rule "email" (length by_email.rows > 0) taken)
     (models/rule "password" (length password < 8) short)
   ]
@@ -72,9 +72,6 @@ fn joined req db asked by_name by_email
   passwords/digested password
     .> (d -> models/created "" db account_model (put fields "digest" d))
     .> (w -> made req db w)
-
-fn addressed? email
-  length (text/split email "@") == 2
 
 # A new account is not signed in: its holder confirms the address first,
 # through the link the mail carries, as Devise's `confirmable` asks. A mail
