@@ -158,6 +158,9 @@ fn arrived raw t from
 pub fn peer req
   req.headers["senro-peer"]
 
+fn heard c _ _:http/bad_request
+  sent c bad_request
+
 fn heard c s req
   probe_at = blank_if_none req.headers["senro-at"]
   print "PROBE {req.method} {req.path} {probe_at}" .> (_ -> heard_now c s req)
