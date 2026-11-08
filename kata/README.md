@@ -171,11 +171,11 @@ A program that names `rendered` but not `answer`, as this one does, holds
 none of the records the pages read. kata writes a page's own function and
 its `_view` there only when the program names them.
 
-A template cannot yet read a record held inside a record: `p.author.name`
-is refused where the template is compiled, because kanso does not know the
-type of `p.author`. A loop that walks something other than a value the template
-takes, or one of its fields, leaves the fields read in its body out of the
-data.
+A template reads through a record held inside a record, as
+`p.author.name`, and the page's data keeps the fields of the inner record
+the template reads (`spec/runs/nested_reads`). A loop that walks something
+other than a value the template takes, or one of its fields, leaves the
+fields read in its body out of the data.
 
 ## What it does not do yet
 
