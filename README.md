@@ -387,6 +387,28 @@ when they are given that path. The specs write it again and compare the two.
   `data-while-loading` shows and one marked `data-when-loaded` is hidden;
   afterwards it is the other way round. senro shows nothing of its own
   while loading.
+- `data`: what an action running in the browser reads from the server.
+  `data/ask "stock/low" [3]` asks the provider the app named `stock/low`,
+  `data/all [a b]` asks for several in one request, and `data/then a f`
+  goes on with what came back:
+
+  ```
+  pub fn opened s
+    asks = [(data/ask "stock/low" [3]) (data/ask "orders/recent" [2])]
+    data/then (data/all asks) (xs -> put (put s "low" xs[1]) "recent" xs[2])
+  ```
+
+  An action that asks answers what it asks for instead of its next state.
+  The page sends every call one round holds to `POST /senro/data` in one
+  request, then runs the action again with the answers; the action is a
+  function of its state and those answers alone, so it comes to the same
+  question and goes on past it. A call that needs another's answer, inside
+  `data/then`, waits a round; calls that need none share one. The server
+  names its providers with `web/providers routes secret { "stock/low":
+  stock/low }`, each a function of the viewer, a database session and the
+  arguments, answering an effect. Anyone signed in can call a provider
+  with arguments of their choosing, so it checks what the viewer may read,
+  as a model's policy does (`spec/runs/provided`).
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 

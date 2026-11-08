@@ -1,0 +1,7 @@
+# Providers as the server answers them. These read no database, so the spec
+# runs without one; a real provider reads through a model.
+pub fn low who _ args
+  effect "{args[1]} jars, asked by {who}"
+
+pub fn recent _ _ args
+  effect "{args[1]} orders"

@@ -28,7 +28,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata mail jobs passwords tokens generate examples/guestbook examples/notebook examples/pantry examples/pg; do
+for d in routes models web pg kata data mail jobs passwords tokens generate examples/guestbook examples/notebook examples/pantry examples/pg; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else

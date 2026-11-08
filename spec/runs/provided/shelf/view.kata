@@ -1,0 +1,4 @@
+takes s
+p.low Low: {s["low"]}
+p.recent Recent: {s["recent"]}
+button on-click=opened Open

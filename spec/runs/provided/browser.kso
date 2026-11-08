@@ -1,0 +1,9 @@
+import "../../../browser"
+import "../../../kata"
+import "./shelf"
+
+derive kata/views
+
+wired = browser/component shelf/act shelf/view
+
+browser/answer { "shelf":wired }

@@ -1,3 +1,4 @@
+import "../data"
 import "std/json"
 import "std/os"
 import "std/text"
@@ -55,14 +56,31 @@ fn decoded _ _ none
   ""
 
 fn decoded components parts state
-  found components[part parts 1] (part parts 2) state
+  rounds = given_rounds (json/decode (part parts 4))
+  found components[part parts 1] (part parts 2) state rounds
 
-fn found none _ _
+fn found none _ _ _
   ""
 
-fn found c action state
-  next = c.act action state
+# An action that reads what only the server holds answers what it asks for
+# instead of its next state (`data/ask`). The event's fourth line is the
+# answers the page has had so far, one list for each round it sent, and the
+# action is run through them. While it still asks, the module prints `?` and
+# the calls, which the page sends to the server in one request; `?` is not
+# JSON, so it cannot be read as a state.
+fn found c action state rounds
+  next = data/settled (c.act action state) rounds
+  return "?\n{json/encode (data/calls_in next)}" if data/asking? next
   "{json/encode next}\n{c.view next}"
+
+fn given_rounds none
+  []
+
+fn given_rounds rounds:[]some
+  rounds
+
+fn given_rounds _
+  []
 
 fn part parts at
   given parts[at]
