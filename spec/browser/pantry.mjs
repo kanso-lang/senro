@@ -169,6 +169,27 @@ const stars = await page.evaluate(() =>
     .map((b) => b.textContent).join(" "));
 console.log(`staples after starring the first: ${stars}`);
 
+// The planner's check reads the shelf, which only the server holds. The click
+// runs `checked` in the browser, which calls the provider `stock/short`; the
+// page sends the call to /senro/data, runs the action again with the answer,
+// and renders the plan it comes to. Rice, at 4, is the one staple.
+const calls = [];
+const sent = (r) => {
+  if (new URL(r.url()).pathname === "/senro/data") calls.push(r.postData().trim());
+};
+page.on("request", sent);
+const note = () => page.textContent(".planner .note");
+await page.click(".planner button.check");
+await settled(`document.querySelector(".planner .note")`);
+console.log(`checked at ${await planned()} meals: ${await note()}`);
+await page.click(".planner button.plus");
+await settled(`!document.querySelector(".planner .note")`);
+await page.click(".planner button.check");
+await settled(`document.querySelector(".planner .note")`);
+console.log(`checked at ${await planned()} meals: ${await note()}`);
+page.off("request", sent);
+console.log(`calls the page sent: ${calls.join(" ")}`);
+
 // What a page may ask the server to do: only an action a template binds, on
 // a component the app serves, from senro's own script.
 const act = async (component, body, headers) => {
@@ -184,6 +205,17 @@ console.log(`act without the page's header: ${await act("staple", `toggled\n${fi
 console.log(`act naming an action no template binds: ${await act("staple", `staple?\n${first}`, ours)}`);
 console.log(`act with a state that is not JSON: ${await act("staple", "toggled\n{", ours)}`);
 console.log(`act on a component the app does not serve: ${await act("planner", `more\n3`, ours)}`);
+
+// And what it may ask a provider: only from senro's script, and only a
+// provider the app's own code calls from the browser.
+const ask = async (body, headers) => {
+  const r = await fetch(`http://127.0.0.1:${port}/senro/data`, {
+    method: "POST", headers, body,
+  });
+  return r.status;
+};
+console.log(`data without the page's header: ${await ask(`[["stock/short",[1]]]`, {})}`);
+console.log(`data naming no provider: ${await ask(`[["stock/update?",[1]]]`, ours)}`);
 
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.

@@ -1,8 +1,36 @@
-# The week's meal plan, counted in the browser. These are the component's
-# actions: each takes the count and answers the next one, and the planner's
-# template binds them to its buttons.
-pub fn more meals
-  meals + 1
+import "../../../data"
+import "../stock"
+import "std/text"
 
-pub fn fewer meals
-  if (meals > 0) (meals - 1) 0
+# The week's meal plan, counted in the browser, and the staples it would run
+# short of. These are the component's actions: each takes the plan and
+# answers the next one, and the planner's template binds them to its buttons.
+# `more` and `fewer` count in the browser alone and clear the last check;
+# `checked` asks the server.
+pub fn more plan
+  planned (meals_of plan + 1)
+
+pub fn fewer plan
+  n = meals_of plan
+  planned (if (n > 0) (n - 1) 0)
+
+pub fn checked plan
+  asked = stock/short (meals_of plan)
+  data/then asked (names -> put plan "note" (noted names))
+
+fn meals_of plan
+  counted plan["meals"]
+
+fn counted none
+  0
+
+fn counted n
+  n
+
+fn noted names
+  return "Every staple covers the week." if length names == 0
+  "Short for the week: {text/join names ", "}."
+
+# A plan of `meals` meals, not yet checked against the shelf.
+pub fn planned meals
+  { "meals":meals }

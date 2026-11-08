@@ -1,6 +1,11 @@
-takes meals
+takes plan
 div.planner
   span.label Meals planned this week
   button.minus on-click=fewer aria-label="one fewer" −
-  span.count = meals
+  span.count = plan["meals"]
   button.plus on-click=more aria-label="one more" +
+  button.check on-click=checked Check the staples
+  case plan["note"]
+    when none
+    else
+      p.note = plan["note"]

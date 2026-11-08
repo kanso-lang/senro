@@ -1,3 +1,4 @@
+import "../../data"
 import "../../kata"
 import "../../models"
 import "../../pg"
@@ -11,6 +12,7 @@ import "./staple"
 import "./stock"
 import "./views"
 
+derive data/providers
 derive kata/views
 derive models/tables
 derive routes/rest
@@ -23,10 +25,15 @@ secret = "the pantry's development secret"
 # browser, from browser.kso.
 served = { "staple":(web/component staple/act staple/view) }
 
+# The planner asks the server for the staples the week runs short of, through
+# the provider in stock.kso.
+answering = web/components routes secret served
+served_with_data = web/providers answering secret stock/provided
+
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
 connected
   .> (db -> models/migrated db "pantry" migrations/all)
   .> (db -> models/compared db schema)
   .> (db -> pg/close db)
-  .> (_ -> web/serve 3001 (web/components routes secret served) connected)
+  .> (_ -> web/serve 3001 served_with_data connected)

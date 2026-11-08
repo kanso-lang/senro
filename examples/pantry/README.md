@@ -31,5 +31,10 @@ It serves on port 3001 against the Postgres the guestbook uses, at
   page script focuses it when the morph brings it in. `items.kso` describes
   the page with `views/shelf_view` and answers with `views/answer`.
 - `browser.kso` is what the browser runs: the planner, a component whose
-  clicks never reach the server, and the pages, rendered from the data the
-  server sends.
+  counting never reaches the server, and the pages, rendered from the data
+  the server sends.
+- The planner's check button asks the server which staples the week would
+  run short of. Its action calls `stock/short meals`, a provider in
+  `stock.kso` that reads the starred items through the item's model. The
+  page sends that call to `/senro/data`, gets the names back, and runs the
+  action again with them; one click is one request.

@@ -1,3 +1,4 @@
+import "../data"
 import "../models"
 import "std/derive"
 import "std/list"
@@ -84,7 +85,8 @@ pub fn rest p
   rows = list/fold placed {} (acc r -> put acc (spelled r) (row r limited open))
   turned = list/concat limited.refused open.refused
   given = list/concat aliased.refused turned
-  odd = list/fold apps given (acc m -> list/concat acc (strays m))
+  calls = data/calls_of_program p
+  odd = list/fold apps given (acc m -> list/concat acc (strays m calls))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
   arms = list/fold apps [] (acc m -> list/concat acc (arms_of m))
@@ -503,9 +505,11 @@ fn path_of _ _
   none
 
 # A policy or a model's `problems` sits in its model's module beside the
-# actions, and is no route.
-fn strays m
-  acting = list/reject m.functions (f -> policy? f.name)
+# actions, and is no route. Nor is a provider the app calls from the browser,
+# which the server answers at `/senro/data` (data/providers).
+fn strays m calls
+  unrouted = (f -> policy? f.name or data/provided? m f calls)
+  acting = list/reject m.functions unrouted
   unplaced = list/select acting (f -> path_of m.name f.name == none)
   odd = list/to_list (list/map unplaced (f -> refused m f))
   formed = list/concat (list/concat odd (indexed m)) (mixed m)
