@@ -1,4 +1,6 @@
+import "std/derive"
 import "std/list"
+import "std/text"
 
 # What an action asks the server for before it can answer: the calls, each
 # a provider's name and its arguments, and what to do with their answers.
@@ -80,3 +82,80 @@ pub fn asking? _
 # The calls `v` asks for, each its provider's name and its arguments.
 pub fn calls_in v
   calls_of v
+
+# The derivation that lets an action call a provider as it calls any
+# function:
+#
+#   derive data/providers
+#
+# A provider is a function whose first two parameters are the viewer and a
+# database session, `viewer db` or `_` for either. Wherever the app calls
+# one with two arguments fewer, as an action in the browser does with
+# `stock/low 3`, the provider's module gets a function of that many, which
+# asks the server for the provider's answer, and the provider's own body runs
+# only on the server. The module also gets `provided`, the table the server
+# answers those calls from (`web/providers routes secret stock/provided`), so
+# a page can reach a provider only when the app's own code calls it that way.
+# A server action, which takes the state after the viewer and the session and
+# is never called short, is not reachable as a provider.
+pub fn providers p
+  calls = list/fold p.modules [] (acc m -> list/concat acc m.calls)
+  list/fold p.modules [] (acc m -> list/concat acc (written m calls))
+
+fn written m calls
+  found = list/to_list (list/select m.functions (f -> provider? f.params))
+  called = list/to_list (list/select found (f -> asked_short? m f calls))
+  return [] if length called == 0
+  pieces = list/to_list (list/map called (f -> pieces_of m f))
+  table = text/join (list/to_list (list/map called (f -> row m f))) " "
+  source = "{imported}{text/join pieces "\n"}\npub provided = \{ {table} }\n"
+  [(derive/define m.name source)]
+
+imported = "import \"../data\"\n\n"
+
+fn provider? params
+  length params >= 2 and viewer? params[1].name and session? params[2].name
+
+fn viewer? n
+  n == "viewer" or n == "_"
+
+fn session? n
+  n == "db" or n == "_"
+
+fn asked_short? m f calls
+  wanted = length f.params - 2
+  named = "{m.name}/{f.name}"
+  list/any? calls (c -> c.callee == named and length c.arguments == wanted)
+
+fn rest_names f
+  rest = list/to_list (list/drop f.params 2)
+  list/fold rest [] (acc _ -> push acc "arg_{length acc + 1}")
+
+# The function an action calls, which asks, and the one the server calls
+# with the arguments the page sent, which answers.
+fn pieces_of m f
+  names = rest_names f
+  head = if (length names == 0) "_" (text/join names " ")
+  question = "data/ask \"{m.name}/{f.name}\" [{text/join names " "}]"
+  taken = (acc _ -> push acc "(data/nth args {length acc + 1})")
+  each = list/fold names [] taken
+  given = text/join (list/concat ["viewer" "db"] each) " "
+  asking = "pub fn {f.name} {head}\n  {question}\n"
+  answer = "pub fn {f.name}_from_page viewer db args\n  {f.name} {given}\n"
+  "{asking}\n{answer}"
+
+fn row m f
+  "\"{m.name}/{f.name}\":{f.name}_from_page"
+
+# The `i`th argument a page sent a provider, or "" when it sent fewer.
+pub fn nth args:[]some i
+  sent args[i]
+
+pub fn nth _ _
+  ""
+
+fn sent none
+  ""
+
+fn sent v
+  v
