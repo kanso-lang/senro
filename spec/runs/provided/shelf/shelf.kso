@@ -1,7 +1,9 @@
 import "../../../../data"
+import "../stock"
 
 # A shelf that shows what is running low and what was ordered lately, both
-# of which only the server holds. Opening it asks for both in one request.
+# of which only the server holds. Opening it calls both providers, as any
+# function is called, and the page asks for both in one request.
 pub fn opened s
-  asks = [(data/ask "stock/low" [3]) (data/ask "orders/recent" [2])]
+  asks = [(stock/low 3) (stock/recent 2)]
   data/then (data/all asks) (xs -> put (put s "low" xs[1]) "recent" xs[2])

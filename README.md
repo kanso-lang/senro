@@ -398,15 +398,26 @@ when they are given that path. The specs write it again and compare the two.
     data/then (data/all asks) (xs -> put (put s "low" xs[1]) "recent" xs[2])
   ```
 
+  With `derive data/providers` an action calls a provider as it calls any
+  function. A provider is a function whose first two parameters are the
+  viewer and a database session (`low viewer db n`); where the app calls it
+  with two arguments fewer, as `stock/low 3`, the derivation writes that
+  function into the provider's module, which asks the server, and writes
+  `provided`, the table `web/providers` answers from. A provider no code
+  calls that way is not reachable from a page, so a server action, which takes
+  the state after the viewer and the session, stays closed. The entry imports
+  each provider's module, as an app imports `./views` for kata.
+
   An action that asks answers what it asks for instead of its next state.
   The page sends every call one round holds to `POST /senro/data` in one
   request, then runs the action again with the answers; the action is a
   function of its state and those answers alone, so it comes to the same
   question and goes on past it. A call that needs another's answer, inside
   `data/then`, waits a round; calls that need none share one. The server
-  names its providers with `web/providers routes secret { "stock/low":
-  stock/low }`, each a function of the viewer, a database session and the
-  arguments, answering an effect. Anyone signed in can call a provider
+  names its providers with `web/providers routes secret stock/provided`, or
+  with a table of its own, `{ "stock/low": low_from_page }`, each a function
+  of the viewer, a database session and the arguments as a list, answering
+  an effect. Anyone signed in can call a provider
   with arguments of their choosing, so it checks what the viewer may read,
   as a model's policy does (`spec/runs/provided`).
 - `kata`: `.kata` templates, compiled to kanso functions while the app

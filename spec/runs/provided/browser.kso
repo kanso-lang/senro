@@ -1,7 +1,10 @@
 import "../../../browser"
+import "../../../data"
 import "../../../kata"
 import "./shelf"
+import "./stock"
 
+derive data/providers
 derive kata/views
 
 wired = browser/component shelf/act shelf/view

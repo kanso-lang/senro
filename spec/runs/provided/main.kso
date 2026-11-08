@@ -1,11 +1,16 @@
+import "../../../data"
 import "../../../web"
+import "./shelf"
 import "./stock"
 import "std/json"
 
+derive data/providers
+
 # The server answers every call of a round in one reply, in the order asked,
-# and none when a call names a provider the app does not have.
-table = { "orders/recent":stock/recent "stock/low":stock/low }
-calls = [["stock/low" [3]] ["orders/recent" [2]]]
-web/answers table calls "ada" "no database" .> (a -> print (json/encode a))
-  .> (_ -> web/answers table [["nowhere" []]] "ada" "no database")
+# from the table the derivation wrote for the providers the shelf calls, and
+# none when a call names a provider that table lacks.
+calls = [["stock/low" [3]] ["stock/recent" [2]]]
+web/answers stock/provided calls "ada" "no database"
+  .> (a -> print (json/encode a))
+  .> (_ -> web/answers stock/provided [["nowhere" []]] "ada" "no database")
   .> (a -> print "an unknown provider answers {a}")

@@ -1,7 +1,8 @@
-# Providers as the server answers them. These read no database, so the spec
-# runs without one; a real provider reads through a model.
-pub fn low who _ args
-  effect "{args[1]} jars, asked by {who}"
+# Providers as the server answers them: functions of the viewer, a database
+# session and their arguments. These read no database, so the spec runs
+# without one; a real provider reads through a model.
+pub fn low viewer _ n
+  effect "{n} jars, asked by {viewer}"
 
-pub fn recent _ _ args
-  effect "{args[1]} orders"
+pub fn recent _ _ n
+  effect "{n} orders"
