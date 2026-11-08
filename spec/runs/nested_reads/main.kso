@@ -1,0 +1,14 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+import "std/json"
+
+derive kata/views
+
+# A template reads a field of the record a post holds: `p.author.name`. The
+# page as data keeps that field of the author and leaves out the email no
+# page reads, and the page rendered from that data is the same bytes.
+page = views/list_view posts/all
+print (views/list posts/all)
+print (json/encode page)
+print (views/rendered page)

@@ -1,0 +1,6 @@
+takes posts
+ul
+  for p in posts
+    li
+      h2 = p.title
+      p.by by {p.author.name}

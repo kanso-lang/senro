@@ -98,7 +98,9 @@ fn written kind head o src
   from = if (length declared == 0) 1 2
   w = walk rows from (length rows + 1) declared o (woven [] [])
   main = emitted "{kind} {head} {params_of declared}" w.units o
-  "{text/join (push w.helpers main) "\n\n"}\n"
+  # The parameters come from the `takes` line, the template's first.
+  headed = if (length declared == 0) main "# from {o.file}:1\n{main}"
+  "{text/join (push w.helpers headed) "\n\n"}\n"
 
 fn rows_of src
   numbered (text/split src "\n") 1 []
@@ -475,12 +477,13 @@ fn element c o indent
 fn literal chunk
   "\"{text/join (list/to_list (list/map chunk (u -> u.text))) ""}\""
 
+# The template line a literal's holes came from, in the form kanso reads
+# back when it reports a mistake in one (kanso#2380). A literal holds the
+# holes of one line, because packing breaks between lines.
 fn cited chunk o indent
   holes = list/to_list (list/select chunk (u -> u.hole))
-  lines = distinct (list/to_list (list/map holes (u -> u.line))) []
-  return "" if length lines == 0
-  shown = list/to_list (list/map lines (n -> "{n}"))
-  "{indent}# {o.file}:{text/join shown ", "}\n"
+  return "" if length holes == 0
+  "{indent}# from {o.file}:{holes[1].line}\n"
 
 fn distinct ns acc
   list/fold ns acc (a n -> if (list/any? a (m -> m == n)) a (push a n))
@@ -490,15 +493,21 @@ fn packed units
   if (length p.current == 0) p.chunks (push p.chunks p.current)
 
 # A full chunk breaks after its last tag, space or hole, so a word is not cut
-# in two; a chunk with none of those breaks where it is.
+# in two; a chunk with none of those breaks where it is. A hole from another
+# template line than a hole already in the chunk starts a chunk of its own,
+# so each literal is cited to one line.
 fn packed_one p u
   w = length u.text
+  return packing (push p.chunks p.current) [u] w if crossed? p.current u
   return packing p.chunks (push p.current u) (p.width + w) if p.width + w <= 72
   return packing p.chunks [u] w if length p.current == 0
   k = break_at p.current (length p.current)
   kept = list/to_list (list/take p.current k)
   carried = push (list/to_list (list/drop p.current k)) u
   packing (push p.chunks kept) carried (width_of carried)
+
+fn crossed? cs u
+  u.hole and list/any? cs (c -> c.hole and c.line != u.line)
 
 fn break_at cs i
   return length cs if i < 1 or length cs < i

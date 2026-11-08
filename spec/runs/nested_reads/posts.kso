@@ -1,0 +1,13 @@
+# Posts whose author is a record of its own.
+pub type person
+  name
+  email
+
+pub type post
+  title
+  author
+
+pub all = [
+  post "On tags" (person "Ada" "ada@example.com")
+  post "Second" (person "Bob" "bob@example.com")
+]

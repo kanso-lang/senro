@@ -63,8 +63,11 @@ The template becomes a `pub fn` named after the file. Each `if` branch and
 each `for` body becomes a helper function of exactly the names in scope it
 mentions, because kanso refuses an unused parameter; a body that mentions none
 becomes a constant. Markup and holes are packed into string literals that fit
-kanso's 80 columns, and a comment above each literal names the template lines
-its holes came from.
+kanso's 80 columns. A literal holds the holes of one template line, and a
+`# from list.kata:6` comment above it names that line; one above the function
+names the `takes` line. kanso reads these comments back, so a mistake in a
+template is reported with the template line under the derived one
+(`spec/errors/a_template_typo`).
 
 Partials and layouts need nothing of their own, because every template in a
 directory is a function of one module. A layout is a template that takes the
@@ -171,14 +174,12 @@ A program that names `rendered` but not `answer`, as this one does, holds
 none of the records the pages read. kata writes a page's own function and
 its `_view` there only when the program names them.
 
-A template cannot yet read a record held inside a record: `p.author.name`
-is refused where the template is compiled, because kanso does not know the
-type of `p.author`. A loop that walks something other than a value the template
-takes, or one of its fields, leaves the fields read in its body out of the
-data.
+A template reads through a record held inside a record, as
+`p.author.name`, and the page's data keeps the fields of the inner record
+the template reads (`spec/runs/nested_reads`). A loop that walks something
+other than a value the template takes, or one of its fields, leaves the
+fields read in its body out of the data.
 
 ## What it does not do yet
 
-- A diagnostic in a template points at the module's derived source. The
-  comments there name the template's lines, but the message itself should.
 - No `case` and no whitespace control.
