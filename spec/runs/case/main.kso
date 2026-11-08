@@ -1,0 +1,15 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+import "std/json"
+
+derive kata/views
+
+# A template chooses by value: a post's state picks one of three lines, and
+# the number of posts picks a line or none. The page as data reads each
+# post's title and state, and the page rendered from it is the same bytes.
+page = views/list_view posts/all "Ada"
+print (views/list posts/all "Ada")
+print (views/list [] "Ada")
+print (json/encode page)
+print (views/rendered page)

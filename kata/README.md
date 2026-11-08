@@ -54,6 +54,10 @@ ol.entries
   that may be none, such as a map's entry, writes nothing under `=`.
 - `if expr`, any number of `else if expr`, an optional `else`, and
   `for x in xs`.
+- `case expr` with `when value` rows under it and an optional `else` last.
+  A value is matched as a function's argument is: a string, a number,
+  `true`, `false` or `none`. A value no `when` names writes the `else` rows,
+  or nothing (`spec/runs/case`).
 - `# comment` drops the line and the rows under it. `doctype html` writes the
   doctype.
 
@@ -62,7 +66,8 @@ ol.entries
 The template becomes a `pub fn` named after the file. Each `if` branch and
 each `for` body becomes a helper function of exactly the names in scope it
 mentions, because kanso refuses an unused parameter; a body that mentions none
-becomes a constant. Markup and holes are packed into string literals that fit
+becomes a constant. A `case` becomes a function with an arm for each `when`,
+each binding only the names its own rows read. Markup and holes are packed into string literals that fit
 kanso's 80 columns. A literal holds the holes of one template line, and a
 `# from list.kata:6` comment above it names that line; one above the function
 names the `takes` line. kanso reads these comments back, so a mistake in a
@@ -182,4 +187,4 @@ fields read in its body out of the data.
 
 ## What it does not do yet
 
-- No `case` and no whitespace control.
+- No whitespace control.

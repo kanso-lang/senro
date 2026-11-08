@@ -1,0 +1,5 @@
+takes mood
+case mood
+  when "glad"
+    p Good to see you.
+  p How are you?

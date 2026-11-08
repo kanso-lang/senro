@@ -1,0 +1,10 @@
+# Posts in three states, one of them a state no `when` names.
+pub type post
+  title
+  state
+
+pub all = [
+  (post "On tags" "draft")
+  (post "Moss in the gutters" "live")
+  (post "Rain" "gone")
+]

@@ -1,0 +1,16 @@
+takes posts who
+case length posts
+  when 0
+    p Nothing yet.
+  when 1
+    p One post.
+ul
+  for p in posts
+    li
+      case p.state
+        when "draft"
+          | {p.title} is a draft
+        when "live"
+          | {p.title} by {who}
+        else
+          | {p.title} is {p.state}
