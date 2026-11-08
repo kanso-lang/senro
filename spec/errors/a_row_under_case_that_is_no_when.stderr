@@ -1,0 +1,10 @@
+error[unused]: unused binding `a_row_under_case_is_when_or_else`
+  --> ./views.derived.kso:30:17
+  30 | fn greet_2_case a_row_under_case_is_when_or_else
+                       ^
+  = written from ./views/greet.kata:5
+error[dispatch]: overlapping overloads of `greet_2_case` are illegal
+  --> ./views.derived.kso:34:4
+  34 | fn greet_2_case _
+          ^
+  = written from ./views/greet.kata:2

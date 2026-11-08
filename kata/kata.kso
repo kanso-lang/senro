@@ -49,6 +49,14 @@ type arm
   asked
   shown
 
+# A `when` under a `case`: the value it matches, the call its rows became,
+# the helpers they asked for, and its template line.
+type chosen
+  pattern
+  call
+  helpers
+  line
+
 type packing
   chunks
   current
@@ -169,6 +177,8 @@ fn step rows r i last stop scope o acc
   return stepped doctype last if b == "doctype html"
   if_line = text/starts_with? b "if "
   return branched rows r i last stop scope o acc if if_line
+  case_line = text/starts_with? b "case "
+  return stepped (cased rows r i last scope o acc) last if case_line
   for_line = text/starts_with? b "for "
   return stepped (looped rows r i last scope o acc) last if for_line
   raw_line = text/starts_with? b "== "
@@ -245,6 +255,69 @@ fn follower rows j r
 fn rows_line rows j
   return 0 if j < 1 or length rows < j
   rows[j].line
+
+# `case expr` takes `when value` rows indented under it, each with the rows
+# under it, and an `else` that takes any other value. A value is matched as
+# a function's argument is: a string, a number, true, false or none. A value
+# no `when` names writes the `else` rows, or nothing when there is none. The
+# case compiles to a function with an arm for each `when`, which binds only
+# the names that arm's rows read.
+fn cased rows r i last scope o acc
+  arms = whens rows (i + 1) last scope o []
+  called = "{o.name}_{r.line}_case"
+  calls = list/map arms (a -> unit "\{{a.call}}" r.line true)
+  args = free_in (list/to_list calls) scope
+  open = list/any? arms (a -> a.pattern == "_")
+  closing = if open [] [(chosen "_" "\"\"" [] r.line)]
+  every = list/concat arms closing
+  arm_lines = list/to_list (list/map every (a -> case_arm called args a o))
+  source = text/join arm_lines "\n\n"
+  helpers = list/fold arms acc.helpers (h a -> list/concat h a.helpers)
+  subject = wrapped (after r.body 5)
+  given = list/fold args "{called} {subject}" (c n -> "{c} {n}")
+  hole = unit "\{{given}}" r.line true
+  fits = length hole.text <= 74
+  return woven (push acc.units hole) (push helpers source) if fits
+  apart = case_apart called subject args o r.line
+  units = push acc.units (unit "\{{apart.call}}" r.line true)
+  woven units (list/concat helpers [source apart.helpers])
+
+# A case whose call is too long for its line, as a function of the names it
+# reads, with the value it matches bound on a line of its own.
+fn case_apart called subject args o line
+  outer = "{o.name}_{line}_on"
+  given = if (length args == 0) "none" (text/join args " ")
+  inner = list/fold args "{called} kata_on" (c n -> "{c} {n}")
+  held = "  kata_on = {subject}"
+  lines = ["fn {outer} {params_of args}" held "  {inner}"]
+  helped "{outer} {given}" (text/join lines "\n")
+
+fn whens rows j last scope o acc
+  return acc if last <= j or j < 1 or length rows < j
+  w = rows[j]
+  past = block_end rows (j + 1) last w.depth
+  body = helper rows (j + 1) past scope o w.line
+  this = chosen (matched_by w.body) body.call body.helpers w.line
+  next = push acc this
+  whens rows past last scope o next
+
+fn matched_by "else"
+  "_"
+
+# A row under a `case` is a `when` or the `else`. Any other is written as a
+# name its arm never reads, which kanso refuses at that row's template line.
+fn matched_by b
+  return after b 5 if text/starts_with? b "when "
+  "a_row_under_case_is_when_or_else"
+
+# One arm, under the template line of its `when`: the value, then each name
+# the case reads, bound when this arm's rows read it and left unbound when
+# they do not.
+fn case_arm called args a o
+  read = text/split a.call " "
+  bound = list/map args (n -> if (list/any? read (w -> w == n)) n "_")
+  head = text/join (list/concat [called a.pattern] (list/to_list bound)) " "
+  "# from {o.file}:{a.line}\nfn {head}\n  {a.call}"
 
 # `for x in xs` writes the rows under it once for each element of `xs`,
 # with `x` in scope.
