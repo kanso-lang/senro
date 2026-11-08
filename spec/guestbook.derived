@@ -633,13 +633,25 @@ pub fn reset_chosen_view path problems
   { "locals":kata_locals "view":"reset_chosen" }
 # in views, by kata/views
 fn signed_view_signatures_each x
-  { "id":x.id "message":x.message "name":x.name "photo":x.photo }
+  # from signed.kata:31
+  kata_photo = x.photo
+  # from signed.kata:31
+  kata_name = x.name
+  # from signed.kata:29
+  kata_message = x.message
+  # from signed.kata:33
+  kata_id = x.id
+  { "id":kata_id "message":kata_message "name":kata_name "photo":kata_photo }
 
 fn signed_view_signatures xs
   list/to_list (list/map xs signed_view_signatures_each)
 
 fn signed_view_form x
-  { "message":x.message "problems":x.problems }
+  # from signed.kata:21
+  kata_problems = x.problems
+  # from signed.kata:19
+  kata_message = x.message
+  { "message":kata_message "problems":kata_problems }
 
 pub fn signed_view signatures form flash removals viewer
   kata_locals = {

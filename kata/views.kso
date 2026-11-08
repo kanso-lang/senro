@@ -258,7 +258,7 @@ fn viewed_of m f none
   derive/refuse m.name "`{f}` could not be read"
 
 fn viewed_of m f src
-  derive/define m.name (viewed (page_name f) src)
+  derive/define m.name (viewed (page_name f) f src)
 
 fn shown_arm _ none
   ""

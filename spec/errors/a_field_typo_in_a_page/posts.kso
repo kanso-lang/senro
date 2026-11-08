@@ -1,0 +1,5 @@
+pub type post
+  title
+  body
+
+pub all = [(post "On tags" "...")]

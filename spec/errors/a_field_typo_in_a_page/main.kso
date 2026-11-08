@@ -1,0 +1,9 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+
+derive kata/views
+
+# The page as data reads the misspelled field too, and both refusals name
+# the template line.
+print (views/rendered (views/list_view posts/all))
