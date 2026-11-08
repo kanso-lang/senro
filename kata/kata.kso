@@ -77,6 +77,17 @@ type reading
   text
   chains
 
+# The template line each path is first read on, while the compiled source is
+# scanned: the paths so far and the line the last `# from` comment named.
+type sited
+  lines
+  at
+
+# Those first lines, and the template file they are lines of.
+type lined
+  lines
+  file
+
 # The kanso source for template `name`, read from `file`, whose text is
 # `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
@@ -701,6 +712,46 @@ pub fn reads src
 fn commented? l
   text/starts_with? (text/trim l) "#"
 
+# The template line each path in `reads` is first read on. The compiled
+# source cites its lines in `# from` comments (kanso#2380), so each line of
+# code is scanned under the last line such a comment named.
+fn read_lines src
+  rows = rows_of src
+  declared = takes_of rows
+  loops = list/fold rows {} looped_over
+  code = text/split (compiled "kata" "" src) "\n"
+  (list/fold code (sited {} 1) (s l -> sited_on s l loops declared)).lines
+
+fn sited_on s l loops declared
+  t = text/trim l
+  return sited s.lines (cited_line t) if text/starts_with? t "# from "
+  return s if commented? l
+  found = (scanned_reads l).chains
+  paths = list/map found (c -> resolved c loops declared 0)
+  sited (list/fold paths s.lines (m p -> first_at m p s.at)) s.at
+
+fn first_at m "" _
+  m
+
+fn first_at m p at
+  if (m[p] == none) (put m p at) m
+
+fn cited_line t
+  ws = text/split t ":"
+  number_of ws[length ws]
+
+fn number_of none
+  1
+
+fn number_of s
+  or_one (text/to_int s)
+
+fn or_one none
+  1
+
+fn or_one n
+  n
+
 fn looped_over acc r
   return acc if not text/starts_with? r.body "for "
   ws = words (after r.body 4)
@@ -730,10 +781,11 @@ fn looped_from over rest loops declared depth
 # the template's name and its values, each record cut down to a map of the
 # fields the template reads, so the page can travel as JSON. Reading those
 # fields here, from the records the action built, is what checks them.
-pub fn viewed name src
+pub fn viewed name file src
   declared = takes src
   paths = reads src
-  each = list/to_list (list/map declared (d -> local_of name d paths))
+  at = lined (read_lines src) file
+  each = list/to_list (list/map declared (d -> local_of name d paths at))
   helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
   pairs = list/to_list (list/sort (list/map each (e -> e.call)))
   locals = map_literal pairs "  kata_locals = " "  "
@@ -742,8 +794,8 @@ pub fn viewed name src
   main = "{head}\n{locals}\n{node}\n"
   text/join (push helpers main) "\n"
 
-fn local_of name d paths
-  v = encoding name d d (under paths d)
+fn local_of name d paths at
+  v = encoding name d d (under paths d) at d
   helped "\"{d}\":{wrapped v.call}" v.helpers
 
 # The paths under `name`, with `name.` taken off.
@@ -761,42 +813,56 @@ fn rest_of p
 # What the encoder writes for a value read by `expr`, given the paths read
 # beneath it: the value itself when nothing is read from it, each element
 # mapped when it is a list, and its fields picked when it is a record.
-fn encoding name slug expr subs
+fn encoding name slug expr subs at path
   return helped expr [] if length subs == 0
   each = list/to_list (list/select subs (s -> first_step s == "[]"))
-  return as_list name slug expr each if length each > 0
-  r = picked name slug subs
+  return as_list name slug expr each at path if length each > 0
+  r = picked name slug subs at path
   helped "{r.call} {wrapped expr}" r.helpers
 
-fn as_list name slug expr each
+fn as_list name slug expr each at path
   inner = list/to_list (list/reject (list/map each rest_of) (s -> s == ""))
   return helped expr [] if length inner == 0
-  e = each_one name "{slug}_each" inner
+  e = each_one name "{slug}_each" inner at "{path}.[]"
   h = "{name}_view_{slug}"
   mapped = "fn {h} xs\n  list/to_list (list/map xs {e.call})\n"
   helped "{h} {wrapped expr}" (push e.helpers mapped)
 
-fn each_one name slug subs
+fn each_one name slug subs at path
   lists = list/any? subs (s -> first_step s == "[]")
-  return picked name slug subs if not lists
+  return picked name slug subs at path if not lists
   h = "{name}_view_{slug}"
-  s = encoding name slug "x" subs
+  s = encoding name slug "x" subs at path
   helped h (push s.helpers "fn {h} x\n  {s.call}\n")
 
 # A record cut down to the fields read from it, as a function of the record.
-fn picked name slug subs
+# Each field is read into a binding of its own, under the template line that
+# first reads it, so a field the record lacks is reported at that line.
+fn picked name slug subs at path
   fields = distinct (list/to_list (list/map subs first_step)) []
-  each = list/to_list (list/map fields (f -> field_of name slug subs f))
+  each = list/to_list (list/map fields (f -> field_of name slug subs f at path))
   helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
-  pairs = list/to_list (list/sort (list/map each (e -> e.call)))
+  binds = text/join (list/to_list (list/map each (e -> e.call))) ""
+  pairs = list/to_list (list/sort (list/map fields (f -> "\"{f}\":kata_{f}")))
   h = "{name}_view_{slug}"
-  helped h (push helpers "fn {h} x\n{map_literal pairs "  " "  "}\n")
+  body = "{binds}{map_literal pairs "  " "  "}"
+  helped h (push helpers "fn {h} x\n{body}\n")
 
-fn field_of name slug subs f
+fn field_of name slug subs f at path
   below = list/select subs (s -> first_step s == f and s != f)
   rests = list/to_list (list/map below rest_of)
-  v = encoding name "{slug}_{f}" "x.{f}" rests
-  helped "\"{f}\":{wrapped v.call}" v.helpers
+  v = encoding name "{slug}_{f}" "x.{f}" rests at "{path}.{f}"
+  from = first_cited subs f at path
+  helped "{from}  kata_{f} = {v.call}\n" v.helpers
+
+# The `# from` line above a field's binding: the first template line that
+# reads the field or anything beneath it.
+fn first_cited subs f at path
+  mine = list/select subs (s -> first_step s == f)
+  found = list/map mine (s -> at.lines["{path}.{s}"])
+  ns = list/to_list (list/reject found (n -> n == none))
+  return "" if length ns == 0
+  "  # from {at.file}:{list/fold ns ns[1] (a n -> if (n < a) n a)}\n"
 
 # A map literal on one line when it fits in 80 columns, and an entry to a
 # line when it does not, as the formatter asks.
