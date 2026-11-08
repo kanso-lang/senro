@@ -1,10 +1,9 @@
 import "../../../kata"
 import "./posts"
 import "./views"
-import "std/json"
 
 derive kata/views
 
 # The page as data reads the misspelled field too, and both refusals name
 # the template line.
-print (json/encode (views/list_view posts/all))
+print (views/rendered (views/list_view posts/all))

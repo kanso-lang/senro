@@ -1,0 +1,5 @@
+error[name]: no record type has a field `titel`
+  --> ./views.derived.kso:73:17
+  73 |   kata_titel = x.titel
+                       ^
+  = written from ./views/list.kata:5
