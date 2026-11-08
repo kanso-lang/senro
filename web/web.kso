@@ -497,9 +497,34 @@ fn wrote c r body
   head_of c r (length body) .> (_ -> net/write c body)
 
 fn head_of c r size
-  lines = list/concat r.headers ["content-length: {size}" "connection: close"]
+  own = list/concat (guarded r.headers) r.headers
+  lines = list/concat own ["content-length: {size}" "connection: close"]
   status = "HTTP/1.1 {r.status} {r.reason}"
   net/write c "{status}\r\n{text/join lines "\r\n"}\r\n\r\n"
+
+# The headers Rails sends with every answer, which an answer that sets one of
+# them itself goes without: another site may not show a page in a frame, a
+# browser takes a body as the type it is sent as rather than guessing, a link
+# to another site does not tell it the path it was followed from, and the
+# browser's old cross-site scripting filter, which itself leaked what a page
+# held, stays off.
+guards = [
+  "x-frame-options: SAMEORIGIN"
+  "x-xss-protection: 0"
+  "x-content-type-options: nosniff"
+  "x-permitted-cross-domain-policies: none"
+  "referrer-policy: strict-origin-when-cross-origin"
+]
+
+fn guarded headers
+  set = (g -> list/any? headers (h -> named_alike? g h))
+  list/to_list (list/reject guards set)
+
+fn named_alike? a b
+  header_name a == header_name b
+
+fn header_name line
+  text/lowercase (list/first (text/split line ":"))
 
 # A request's route: its own path first, then the path with the segment after
 # the module's name read as `:id`, so /entries/3 and /entries/3/edit find
