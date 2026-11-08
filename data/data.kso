@@ -99,12 +99,20 @@ pub fn calls_in v
 # A server action, which takes the state after the viewer and the session and
 # is never called short, is not reachable as a provider.
 pub fn providers p
-  calls = list/fold p.modules [] (acc m -> list/concat acc m.calls)
+  calls = calls_of_program p
   list/fold p.modules [] (acc m -> list/concat acc (written m calls))
 
+# Every call the program's modules make, which `provided?` reads.
+pub fn calls_of_program p
+  list/fold p.modules [] (acc m -> list/concat acc m.calls)
+
+# Whether `f` in `m` is a provider the app calls short, so that the server
+# answers it at `/senro/data` and `providers` writes its asking half.
+pub fn provided? m f calls
+  provider? f.params and asked_short? m f calls
+
 fn written m calls
-  found = list/to_list (list/select m.functions (f -> provider? f.params))
-  called = list/to_list (list/select found (f -> asked_short? m f calls))
+  called = list/to_list (list/select m.functions (f -> provided? m f calls))
   return [] if length called == 0
   pieces = list/to_list (list/map called (f -> pieces_of m f))
   table = text/join (list/to_list (list/map called (f -> row m f))) " "

@@ -12,9 +12,14 @@ planner after the shelf changed: 4
 the browser module asked for again with its ETag: 304
 a module that is not there: 404
 staples after starring the first: ★ ☆
+checked at 4 meals: Every staple covers the week.
+checked at 5 meals: Short for the week: Rice.
+calls the page sent: [["stock/short",[4]]] [["stock/short",[5]]]
 act without the page's header: 403
 act naming an action no template binds: 404
 act with a state that is not JSON: 400
 act on a component the app does not serve: 404
+data without the page's header: 403
+data naming no provider: 404
 the other visitor sees green tea at 1, mark kept
 every page the shelf fetched came as data: true

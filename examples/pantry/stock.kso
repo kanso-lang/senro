@@ -1,3 +1,6 @@
+import "../../models"
+import "std/list"
+
 # A thing on the shelf, as the `items` table stores it. senro/models checks
 # each field against the table's columns and writes `item_from` and
 # `item_model`.
@@ -12,3 +15,13 @@ pub type item
 # model is refused.
 pub fn update? _ _
   true
+
+# The staples the shelf holds fewer of than `meals`, by name. The planner asks
+# for them as `stock/short meals`, and this body runs only on the server.
+pub fn short viewer db meals
+  models/where viewer db item_model "staple" "t"
+    .> (items -> effect (under items meals))
+
+fn under items meals
+  low = list/select items (i -> i.quantity < meals)
+  list/to_list (list/map low (i -> i.name))

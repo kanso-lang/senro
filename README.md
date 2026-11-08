@@ -406,7 +406,12 @@ when they are given that path. The specs write it again and compare the two.
   `provided`, the table `web/providers` answers from. A provider no code
   calls that way is not reachable from a page, so a server action, which takes
   the state after the viewer and the session, stays closed. The entry imports
-  each provider's module, as an app imports `./views` for kata.
+  each provider's module, as an app imports `./views` for kata. A provider
+  may sit in a resource's module beside its actions; `routes/rest` gives it
+  no route. The browser's entry compiles the provider's body without running
+  it, so a provider that reads through a model needs the browser's entry to
+  `derive models/tables` and import the migrations, as the server's does
+  (`examples/pantry`).
 
   An action that asks answers what it asks for instead of its next state.
   The page sends every call one round holds to `POST /senro/data` in one

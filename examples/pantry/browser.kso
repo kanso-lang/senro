@@ -1,9 +1,15 @@
 import "../../browser"
+import "../../data"
 import "../../kata"
+import "../../models"
+import "./migrations"
 import "./planner"
+import "./stock"
 import "./views"
 
+derive data/providers
 derive kata/views
+derive models/tables
 
 # The pantry's planner and its pages, compiled for the browser with
 # `kanso build browser.kso --wasm`.

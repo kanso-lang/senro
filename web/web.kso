@@ -793,9 +793,10 @@ fn act_row c secret
 # The app's providers: what an action running in the browser asks the server
 # for with `data/ask`, by the name the table gives it. Each is a function of
 # the viewer, a database session and the arguments the action sent, and
-# answers an effect, as any read of the database does:
+# answers an effect, as any read of the database does. `derive
+# data/providers` writes the table into each module that holds providers:
 #
-#   web/providers routes secret { "stock/low": stock/low }
+#   web/providers routes secret stock/provided
 #
 # The page sends every call one round of an action asks for in one request,
 # POST /senro/data, and gets their answers back in one, in the order asked.

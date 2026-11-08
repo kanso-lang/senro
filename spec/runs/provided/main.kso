@@ -1,11 +1,16 @@
 import "../../../data"
+import "../../../routes"
 import "../../../web"
 import "./shelf"
 import "./stock"
 import "std/json"
 
 derive data/providers
+derive routes/rest
 
+# stock.kso is routed as a resource would be, and its providers are no routes:
+# the server answers them at /senro/data instead.
+#
 # The server answers every call of a round in one reply, in the order asked,
 # from the table the derivation wrote for the providers the shelf calls, and
 # none when a call names a provider that table lacks.
