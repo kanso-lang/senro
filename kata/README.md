@@ -63,8 +63,11 @@ The template becomes a `pub fn` named after the file. Each `if` branch and
 each `for` body becomes a helper function of exactly the names in scope it
 mentions, because kanso refuses an unused parameter; a body that mentions none
 becomes a constant. Markup and holes are packed into string literals that fit
-kanso's 80 columns, and a comment above each literal names the template lines
-its holes came from.
+kanso's 80 columns. A literal holds the holes of one template line, and a
+`# from list.kata:6` comment above it names that line; one above the function
+names the `takes` line. kanso reads these comments back, so a mistake in a
+template is reported with the template line under the derived one
+(`spec/errors/a_template_typo`).
 
 Partials and layouts need nothing of their own, because every template in a
 directory is a function of one module. A layout is a template that takes the
@@ -179,6 +182,4 @@ fields read in its body out of the data.
 
 ## What it does not do yet
 
-- A diagnostic in a template points at the module's derived source. The
-  comments there name the template's lines, but the message itself should.
 - No `case` and no whitespace control.

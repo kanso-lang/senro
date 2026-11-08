@@ -1,0 +1,6 @@
+import "../../../kata"
+import "./views"
+
+derive kata/views
+
+print (views/greet "Ada")
