@@ -1,0 +1,8 @@
+import "std/net/http"
+
+# A page that says nothing of how a browser should treat it.
+pub fn index _ _
+  effect (http/text_page "a door")
+
+pub fn create _ _
+  effect (http/text_page "let in")

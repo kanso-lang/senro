@@ -278,7 +278,13 @@ when they are given that path. The specs write it again and compare the two.
   old for that header, an `Origin` other than the app's own. The session cookie
   is SameSite=Lax, so a browser should not carry it on such a request anyway;
   this is the check Rails' `protect_from_forgery` makes. A request with neither
-  header comes from a program, and is let through. A failure the app expects
+  header comes from a program, and is let through. Every answer carries the
+  headers Rails sends by default: `x-frame-options: SAMEORIGIN`, so another
+  site cannot show a page in a frame; `x-content-type-options: nosniff`;
+  `referrer-policy: strict-origin-when-cross-origin`;
+  `x-permitted-cross-domain-policies: none`; and `x-xss-protection: 0`. An
+  answer that sets one of them itself keeps its own (`spec/serve/guarded`).
+  A failure the app expects
   should be a value its action answers. It serves files under the app's
   `public/`, answers `web/redirect`, and answers `web/json status value`,
   as Rails' `render json:` does, for a request that asks for JSON

@@ -1,0 +1,50 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Asks for a page, a page that sets its own frame policy, a path no route
+# answers, and a change sent from another site, and shows the headers each
+# answer carries that tell a browser how to treat it.
+asks = [
+  "GET /door|"
+  "GET /framed|"
+  "GET /nowhere|"
+  "POST /door|sec-fetch-site: cross-site"
+]
+
+guards = [
+  "x-frame-options"
+  "x-xss-protection"
+  "x-content-type-options"
+  "x-permitted-cross-domain-policies"
+  "referrer-policy"
+]
+
+pub fn index _ _
+  list/fold asks (effect []) (acc k -> acc .> (got -> more got k))
+    .> (got -> effect (http/text_page (text/join got "\n")))
+
+fn more got k
+  line = list/first (text/split k "|")
+  asked k .> (raw -> effect (push got (heard line raw)))
+
+fn asked k
+  net/dial "127.0.0.1" 24416 .> (c -> asking c k)
+
+fn asking c k
+  parts = text/split k "|"
+  extra = text/join (list/to_list (list/drop parts 1)) ""
+  more_head = if (extra == "") "" "{extra}\r\n"
+  head = "{list/first parts} HTTP/1.1\r\nhost: localhost:24416\r\n{more_head}"
+  net/write c "{head}content-length: 0\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn heard line raw
+  lines = text/split (list/first (text/split raw "\r\n\r\n")) "\r\n"
+  kept = list/to_list (list/select lines guard?)
+  "{line}: {list/first lines}\n  {text/join kept "\n  "}"
+
+fn guard? l
+  list/any? guards (g -> text/starts_with? (text/lowercase l) "{g}:")

@@ -1,0 +1,24 @@
+GET /door: HTTP/1.1 200 OK
+  x-frame-options: SAMEORIGIN
+  x-xss-protection: 0
+  x-content-type-options: nosniff
+  x-permitted-cross-domain-policies: none
+  referrer-policy: strict-origin-when-cross-origin
+GET /framed: HTTP/1.1 200 OK
+  x-xss-protection: 0
+  x-content-type-options: nosniff
+  x-permitted-cross-domain-policies: none
+  referrer-policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+GET /nowhere: HTTP/1.1 404 Not Found
+  x-frame-options: SAMEORIGIN
+  x-xss-protection: 0
+  x-content-type-options: nosniff
+  x-permitted-cross-domain-policies: none
+  referrer-policy: strict-origin-when-cross-origin
+POST /door: HTTP/1.1 403 Forbidden
+  x-frame-options: SAMEORIGIN
+  x-xss-protection: 0
+  x-content-type-options: nosniff
+  x-permitted-cross-domain-policies: none
+  referrer-policy: strict-origin-when-cross-origin

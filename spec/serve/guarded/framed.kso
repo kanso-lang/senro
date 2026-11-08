@@ -1,0 +1,6 @@
+import "std/net/http"
+
+# A page that names its own frame policy, which the server keeps.
+pub fn index _ _
+  page = ["content-type: text/plain; charset=utf-8" "X-Frame-Options: DENY"]
+  effect (http/respond 200 page "framed")
