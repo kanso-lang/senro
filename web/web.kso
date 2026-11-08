@@ -790,6 +790,68 @@ fn act_row c secret
   acting = (req db -> acted c req db (viewer req secret))
   { "action":acting "id":"" "open":true }
 
+# The app's providers: what an action running in the browser asks the server
+# for with `data/ask`, by the name the table gives it. Each is a function of
+# the viewer, a database session and the arguments the action sent, and
+# answers an effect, as any read of the database does:
+#
+#   web/providers routes secret { "stock/low": stock/low }
+#
+# The page sends every call one round of an action asks for in one request,
+# POST /senro/data, and gets their answers back in one, in the order asked.
+# A provider is reached from any page by anyone the session names, with
+# arguments a page can choose, so it checks what the viewer may read itself,
+# as a model's policy does.
+pub fn providers routes secret table
+  put routes "POST /senro/data" (provider_row table secret)
+
+fn provider_row table secret
+  asking = (req db -> asked_of table req db (viewer req secret))
+  { "action":asking "id":"" "open":true }
+
+fn asked_of table req db who
+  return effect forbidden if req.headers["senro-page"] == none
+  answers table (json/decode req.body) who db .> (a -> effect (sent_back a))
+
+fn sent_back none
+  http/not_found
+
+fn sent_back a
+  http/page [json_type] (json/encode a)
+
+# The answers to `calls`, each a provider's name and its arguments, in the
+# order they were asked; none when one names a provider the table lacks or
+# the calls are not a list of such pairs.
+pub fn answers _ none _ _
+  effect none
+
+pub fn answers table calls who db
+  return effect none if not well_asked? table calls
+  each = (acc c -> acc .> (got -> one table c who db got))
+  list/fold (listed calls) (effect []) each
+
+fn well_asked? table calls:[]some
+  list/all? calls (c -> known? table c)
+
+fn well_asked? _ _
+  false
+
+fn known? table call:[]some
+  length call == 2 and list/any? (keys table) (k -> k == call[1])
+
+fn known? _ _
+  false
+
+fn listed calls:[]some
+  calls
+
+fn listed _
+  []
+
+fn one table call who db got
+  provider = table[call[1]]
+  provider who db call[2] .> (a -> effect (push got a))
+
 # The body is the action's name and the state as JSON, on two lines. A
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is

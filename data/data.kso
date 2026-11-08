@@ -1,0 +1,82 @@
+import "std/list"
+
+# What an action asks the server for before it can answer: the calls, each
+# a provider's name and its arguments, and what to do with their answers.
+# An action that reads data the browser does not hold answers one of these
+# instead of its next state. The page sends every call in it to the server
+# in one request, then runs the action again with the answers, and the
+# action, which is a function of its state and those answers alone, comes
+# to the same `asked` and goes on past it.
+pub type asked
+  calls
+  rest
+
+# A call to the provider `name` with `args`, whose answer is the value the
+# provider gave.
+pub fn ask name args
+  asked [[name args]] (xs -> xs[1])
+
+# `a`, then `f` of what it answers.
+pub fn then a f
+  later a f
+
+fn later (asked calls rest) f
+  asked calls (xs -> later (rest xs) f)
+
+fn later v f
+  f v
+
+# Every one of `asks` in one request, answering the list of their answers.
+# Calls that wait on no other are sent together, however many there are.
+pub fn all asks
+  list/fold asks (asked [] (_ -> [])) joined
+
+fn joined acc a
+  n = length acc.calls
+  calls = list/concat acc.calls (calls_of a)
+  asked calls (xs -> paired (acc.rest (first xs n)) (rest_of a (after xs n)))
+
+fn calls_of (asked calls _)
+  calls
+
+fn calls_of _
+  []
+
+fn rest_of (asked _ rest) xs
+  rest xs
+
+fn rest_of v _
+  v
+
+fn paired so_far v
+  later so_far (held -> later v (one -> push held one))
+
+fn first xs n
+  list/to_list (list/take xs n)
+
+fn after xs n
+  list/to_list (list/drop xs n)
+
+# The value an action answered, carried through each round of answers the
+# page has. It is an `asked` still when the rounds run out, and the page
+# sends its calls for the next round.
+pub fn settled v rounds
+  through v rounds 1
+
+fn through (asked calls rest) rounds i
+  return asked calls rest if length rounds < i
+  through (rest rounds[i]) rounds (i + 1)
+
+fn through v _ _
+  v
+
+# Whether `v` still asks the server for something.
+pub fn asking? (asked _ _)
+  true
+
+pub fn asking? _
+  false
+
+# The calls `v` asks for, each its provider's name and its arguments.
+pub fn calls_in v
+  calls_of v
