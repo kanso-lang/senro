@@ -1,0 +1,18 @@
+import "../../../pg"
+
+# Stands in for an hour passing. The guestbook keeps the moment an account
+# was locked and reads the clock at each sign-in, so moving that moment
+# sixty-one minutes back is, to the app, the lock having run its hour and a
+# minute.
+earlier = """
+  update accounts
+  set locked = (locked::bigint - 61 * 60 * 1000)::text
+  where name = $1 and locked <> ''
+"""
+
+pub fn moved none
+  effect none
+
+pub fn moved name
+  pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+    .> (db -> pg/query db earlier [name] .> (_ -> pg/close db))
