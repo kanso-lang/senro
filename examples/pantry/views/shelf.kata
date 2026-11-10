@@ -9,7 +9,7 @@ form.add method="post" action="/items"
 if length items == 0
   p.empty The shelf is empty.
 ul.items
-  for i in items
+  each items i ->
     li id="item-{i.id}"
       == stars["{i.id}"]
       if "{i.id}" == editing

@@ -179,8 +179,10 @@ fn step rows r i last stop scope o acc
   return branched rows r i last stop scope o acc if if_line
   case_line = text/starts_with? b "case "
   return stepped (cased rows r i last scope o acc) last if case_line
+  each_line = text/starts_with? b "each "
+  return stepped (looped rows r i last scope o acc) last if each_line
   for_line = text/starts_with? b "for "
-  return stepped (looped rows r i last scope o acc) last if for_line
+  return stepped (no_for rows r i last scope o acc) last if for_line
   raw_line = text/starts_with? b "== "
   return stepped (spliced acc (raw (after b 3) o) at) last if raw_line
   out_line = text/starts_with? b "= "
@@ -319,19 +321,39 @@ fn case_arm called args a o
   head = text/join (list/concat [called a.pattern] (list/to_list bound)) " "
   "# from {o.file}:{a.line}\nfn {head}\n  {a.call}"
 
-# `for x in xs` writes the rows under it once for each element of `xs`,
-# with `x` in scope.
+# `each xs x ->` writes the rows under it once for each element of `xs`,
+# with `x` in scope: kanso's `each xs (x -> ...)`, with the rows as the
+# function's body.
 fn looped rows r i last scope o acc
-  ws = words (after r.body 4)
-  return acc if length ws < 3
-  name = ws[1]
-  over = text/join (list/to_list (list/drop ws 2)) " "
+  ws = words (after r.body 5)
+  n = length ws
+  return acc if n < 3 or ws[n] != "->"
+  over = text/join (list/to_list (list/take ws (n - 2))) " "
+  walked "each" (named ws[n - 1]) over rows r i last scope o acc
+
+fn named none
+  "_"
+
+fn named word
+  word
+
+fn walked by name over rows r i last scope o acc
   body = helper rows (i + 1) last (push scope name) o r.line
   bound = if (list/any? (text/split body.call " ") (w -> w == name)) name "_"
   listed = if o.keyed "(kata_items {wrapped over})" (wrapped over)
-  hole = "\{each {listed} ({bound} -> {body.call})}"
+  hole = "\{{by} {listed} ({bound} -> {body.call})}"
   helpers = list/concat acc.helpers body.helpers
   woven (push acc.units (unit hole r.line true)) helpers
+
+# kanso has no `for`, and neither has kata. A `for x in xs` row is written
+# as a call to a name nothing defines, which kanso refuses at that row's
+# template line.
+fn no_for rows r i last scope o acc
+  ws = words (after r.body 4)
+  return acc if length ws < 3
+  over = text/join (list/to_list (list/drop ws 2)) " "
+  wrong = "kata_has_no_for_write_each_xs_x"
+  walked wrong (named ws[1]) over rows r i last scope o acc
 
 # The rows from `from` up to `to` become a function of the names in scope
 # they mention, so a branch or a loop body reads exactly what it uses. Rows
@@ -770,7 +792,7 @@ fn after_name? cs i
 # The fields a template reads from each value it takes, as paths:
 # `post.title` for a field of a record and `posts.[].title` for a field of
 # each record in a list. A loop's name stands for an element of what it
-# walks, so `for e in signatures` and then `e.name` read
+# walks, so `each signatures e ->` and then `e.name` read
 # `signatures.[].name`. The reads are found in the template compiled, where
 # markup is string text and only expressions are code.
 pub fn reads src
@@ -826,10 +848,10 @@ fn or_one n
   n
 
 fn looped_over acc r
-  return acc if not text/starts_with? r.body "for "
-  ws = words (after r.body 4)
-  return acc if length ws != 3 or ws[2] != "in"
-  put acc ws[1] ws[3]
+  return acc if not text/starts_with? r.body "each "
+  ws = words (after r.body 5)
+  return acc if length ws != 3 or ws[3] != "->"
+  put acc ws[2] ws[1]
 
 # A chain of reads as a path from what the template takes, or "" when it
 # starts from a name the template neither takes nor binds in a loop.

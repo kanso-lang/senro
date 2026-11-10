@@ -24,7 +24,7 @@ if viewer != ""
       input type="file" name="photo" accept="image/*"
     button Sign
 ol.entries
-  for e in signatures
+  each signatures e ->
     li
       p.message = e.message
       if e.photo != ""

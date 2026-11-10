@@ -2,7 +2,7 @@ takes posts flash marks
 if flash != ""
   p.flash = flash
 ul
-  for p in posts
+  each posts p ->
     li id="post-{p.id}"
       h2 = p.title
       if p.author != ""
@@ -11,6 +11,6 @@ ul
       if p.draft
         em draft
       ul.tags
-        for t in p.tags
+        each p.tags t ->
           li = t
 p.count {length posts} posts

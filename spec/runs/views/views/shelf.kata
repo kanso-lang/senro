@@ -10,7 +10,7 @@ section#shelf.books class="wide"
   else
     | Some books, and a brace: \{ kept.
   ul
-    for b in books
+    each books b ->
       li data-title=b
         = b
         if b == "Emma"
