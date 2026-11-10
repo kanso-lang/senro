@@ -38,8 +38,9 @@ print (shown/read [1 2])
 print (shown/pairs [[1 "one"] [2 "two"]])
 
 # Bytes as text and back, for one, two and three bytes left over, and text
-# that is not base64: a group cut short, padding in the middle, and a letter
-# outside the alphabet.
+# that is not base64: a group cut short, a pad in a group's second place,
+# and a letter outside the alphabet. A padded group with another after it
+# is read, as std/base64 reads it.
 print (shown/lettered [])
 print (shown/lettered [0])
 print (shown/lettered [255 254])
