@@ -1,4 +1,3 @@
-<ul><li>On tags is a draft</li><li>Moss in the gutters by Ada</li><li>Rain is gone</li></ul>
-<p>Nothing yet.</p><ul></ul>
-{"locals":{"posts":[{"state":"draft","title":"On tags"},{"state":"live","title":"Moss in the gutters"},{"state":"gone","title":"Rain"}],"who":"Ada"},"view":"list"}
-<ul><li>On tags is a draft</li><li>Moss in the gutters by Ada</li><li>Rain is gone</li></ul>
+error[runtime]: no overload of `json/encode_onto` matches these arguments
+  failed in json/encode at std/json/json.kso:43
+  called from ./main.kso:14

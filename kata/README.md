@@ -110,8 +110,8 @@ pub fn fewer meals
 
 A component takes one value, its state, and an action takes the state and
 answers the next one. kata wraps what the template draws in an element that
-names the component and holds its state as JSON, and writes `act`, which runs
-an action by the name a template bound it under.
+names the component and holds its state as its bytes in base64 (`wire`), and
+writes `act`, which runs an action by the name a template bound it under.
 
 Where an action runs depends on its parameters. One that takes only the
 state runs in the browser: the app builds its browser module (`browser.kso`,
@@ -138,33 +138,44 @@ page = views/signed_view book form flash removals
 views/answer req (views/layout_view "Guestbook" page)
 ```
 
-Once the app names `answer`, `answer_as` or `rendered`, kata writes two
-more functions for each page in the module:
+Once the app names `answer` or `answer_as`, kata writes `signed_view` for
+each page in the module. It takes what `signed` takes and answers the page:
+those values, a function that writes them onto bytes, and a function that
+draws them as markup. A page may hold another page as a value, which is how
+a layout holds its body.
 
-- `signed_view` takes what `signed` takes and answers the page as data: the
-  template's name and its values. A record goes in cut down to a map of the
-  fields the template reads. `each signatures e ->` followed by `e.name`
-  reads `name` from each record in `signatures`, so each record becomes a
-  map of `name` and the other fields read beside it. A value the template
-  reads no field of goes in whole. A page may hold another page as a value,
-  which is how a layout holds its body.
-- `signed_keyed` is the template compiled a second time, with each field
-  read written as a read of a map's key, so it renders from the data.
-
-It also writes `rendered` once for the module, which renders a page from its
-data, choosing the template by name. A program that names `answer` or
-`answer_as` gets those two functions as well. A template named `answer`,
-`answer_as` or `rendered` is refused, since it would take one of these
-names.
-
-`answer` and `answer_as` render the page on the server for a request the
+`answer` and `answer_as` draw the page on the server for a request the
 browser made itself. senro's page script asks with a `senro-view` header
-and gets the page's data as JSON, which the app's browser module renders
-with the same `rendered` before the script morphs it into the page. Because
-the server renders with `rendered` too, the HTML a first request gets and
-the HTML the browser renders come from one compile. `spec/runs/pages`
-prints both beside the template's rendering of the records themselves, and
-the three are the same bytes.
+and gets the page as bytes, which the app's browser module reads and draws
+before the script morphs the result into the page.
+
+The bytes have no field names in them. kata reads a page's shape from its
+template: `each signatures e ->` followed by `e.name` reads `name` from each
+record in `signatures`. So it writes a record as the fields the template
+reads, in a fixed order, and a list of records as a count and the records.
+A value the template reads no field of is written behind a one-byte tag
+that says what it is. `wire/wire.kso` describes the tags.
+
+A program that names `rendered`, as the browser module does, gets the other
+half: a record type for each record a template reads fields from, a reader
+that builds those records from the bytes, and `rendered`, which picks the
+page by its number and draws it with the same `signed` the server draws
+with. The server and the browser were both compiled from the templates, so
+they agree on the order. A page's bytes open with four that mark the
+module's shapes, a hash of what each template takes and reads, and
+`rendered` draws nothing from bytes that open any other way. A browser
+still running an older deploy's module reloads the page.
+
+A server gets the packers and not the readers. That keeps a misspelled field
+a compile error: the packer reads `e.nmae` from the app's records, which
+have no such field. The reader's record types hold every field a template
+names, so a program with them cannot tell.
+
+`spec/runs/pages` draws one page from its records, from its bytes and by
+calling the templates directly, and the three are the same bytes. Its event
+is the page's bytes, and the browser module draws the same page from them
+natively, interpreted and as wasm. A template named `answer`, `answer_as`,
+`rendered` or `packed` is refused, since it would take one of these names.
 
 The browser module hands `rendered` to `browser/answer_pages`, with the
 app's browser components, here none:

@@ -1,0 +1,34 @@
+import "../../../wire"
+import "std/json"
+import "std/list"
+import "std/text"
+
+pub fn path none
+  ""
+
+pub fn path named
+  named
+
+pub fn answers cases
+  lines = list/reject (text/split cases "\n") (l -> l == "")
+  text/join (list/to_list (list/map lines answer)) "\n"
+
+# `read` when the reference's bytes read as the value the JSON says, then
+# this side's bytes for that value, for the reference to read.
+fn answer line
+  parts = text/split line "\t"
+  return "short" if length parts != 2
+  spelt (wire/from_text parts[1]) parts[2]
+
+fn spelt none _
+  "not base64"
+
+fn spelt bytes written
+  judged bytes (json/decode written)
+
+fn judged _ none
+  "not json"
+
+fn judged bytes value
+  read = if (wire/unpacked bytes == value) "read" "misread"
+  "{read}\t{wire/as_text (wire/packed value)}"

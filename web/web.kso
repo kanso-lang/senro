@@ -1,4 +1,5 @@
 import "../pg"
+import "../wire"
 import "std/base64"
 import "std/io"
 import "std/json"
@@ -923,7 +924,9 @@ fn one table call who db got
   provider = table[call[1]]
   provider who db call[2] .> (a -> effect (push got a))
 
-# The body is the action's name and the state as JSON, on two lines. A
+# The body is the action's name and the state as the page holds it, its
+# bytes in base64, on two lines. The answer is an empty line and the
+# component rendered in its next state, as the browser module answers. A
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is
 # what keeps a page elsewhere from acting with this visitor's cookie.
@@ -934,12 +937,17 @@ fn acted c req db who
   return effect forbidden if req.headers["senro-page"] == none
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
-  state = json/decode (text/join (list/to_list (list/drop lines 1)) "\n")
-  stated c lines[1] state req db who
+  stated c lines[1] (state_of (wire/from_text lines[2])) req db who
 
 forbidden = http/respond 403 [] "Forbidden\n"
 
 bad_request = http/respond 400 [] "Bad Request\n"
+
+fn state_of none
+  none
+
+fn state_of bytes
+  wire/unpacked bytes
 
 fn stated _ _ none _ _ _
   effect bad_request
@@ -957,7 +965,7 @@ fn drawn _ absent
   effect http/not_found
 
 fn drawn c next
-  effect (http/page [plain] "{json/encode next}\n{c.view next}")
+  effect (http/page [plain] "\n{c.view next}")
 
 plain = "content-type: text/plain; charset=utf-8"
 

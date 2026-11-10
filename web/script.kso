@@ -83,14 +83,14 @@ script = """
       if (pushed && moved) scrollTo(0, 0);
     };
 
-    // A page sent as data is rendered by the app's module, the same views the
-    // server renders with. A module that cannot render it, say one from an
-    // older deploy that does not know the view, leaves the page to the browser
-    // to load.
+    // A page sent as data is bytes, which the app's module renders with the
+    // same views the server renders with. A module that cannot read them,
+    // say one from an older deploy whose pages take other values, renders
+    // nothing, and the page is left to the browser to load.
     const rendered = async (r) => \{
-      const page = await r.text();
+      const page = new Uint8Array(await r.arrayBuffer());
       try \{
-        const html = await ran("\\n\\n" + page);
+        const html = await ran("\\n\\n", page);
         return html.trim() === "" ? null : html;
       } catch (e) \{
         return null;
@@ -265,10 +265,13 @@ script = """
     class Exit \{}
 
     // One run of the app's module: a fresh runtime, the event in SENRO_EVENT,
-    // and what the module printed.
-    const ran = async (event) => \{
+    // and what the module printed. A page's bytes are the one file the
+    // module can open, /senro/page, since an environment variable cannot
+    // hold them.
+    const ran = async (event, page) => \{
       const out = [];
       let memory = null;
+      let read = 0;
       const bytes = () => new Uint8Array(memory.buffer);
       const view = () => new DataView(memory.buffer);
       const env = [new TextEncoder().encode("SENRO_EVENT=" + event + "\\0")];
@@ -303,7 +306,44 @@ script = """
           bytes().fill(0, stat, stat + 24);
           return 0;
         },
-        fd_prestat_get: () => 8,
+        fd_prestat_get(fd, stat) \{
+          if (fd !== 3 || !page) return 8;
+          view().setUint32(stat, 0, true);
+          view().setUint32(stat + 4, 1, true);
+          return 0;
+        },
+        fd_prestat_dir_name(fd, name) \{
+          bytes()[name] = 47;
+          return 0;
+        },
+        path_open(dir, flags, path, len, o, base, inheriting, f, opened) \{
+          const name = new TextDecoder().decode(bytes().slice(path, path + len));
+          if (!page || name !== "senro/page") return 44;
+          read = 0;
+          view().setUint32(opened, 4, true);
+          return 0;
+        },
+        fd_seek(fd, by, whence, place) \{
+          if (fd !== 4) return 8;
+          const from = whence === 0 ? 0 : whence === 1 ? read : page.length;
+          read = Math.max(0, Math.min(page.length, from + Number(by)));
+          view().setBigUint64(place, BigInt(read), true);
+          return 0;
+        },
+        fd_read(fd, iovs, n, got) \{
+          if (fd !== 4) return 8;
+          let total = 0;
+          for (let k = 0; k < n; k++) \{
+            const at = view().getUint32(iovs + k * 8, true);
+            const len = view().getUint32(iovs + k * 8 + 4, true);
+            const some = page.subarray(read, read + len);
+            bytes().set(some, at);
+            read += some.length;
+            total += some.length;
+          }
+          view().setUint32(got, total, true);
+          return 0;
+        },
         proc_exit() \{ throw new Exit(); },
       };
       const quiet = (t, name) => t[name] || (() => 0);

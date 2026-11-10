@@ -1,0 +1,19 @@
+import "std/list"
+import "std/text"
+
+# A page's bytes as another compile would have marked them, with the first
+# of the four bytes that open them changed, and the same bytes cut short.
+pub fn remarked bytes
+  codes = list/to_list bytes
+  rest = list/to_list (list/drop codes 1)
+  text/to_bytes (list/concat [(other codes[1])] rest)
+
+fn other none
+  0
+
+fn other code
+  (code + 1) % 256
+
+pub fn cut_short bytes
+  codes = list/to_list bytes
+  text/to_bytes (list/to_list (list/take codes (length codes - 3)))

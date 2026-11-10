@@ -1,0 +1,14 @@
+import "../../wire"
+import "std/json"
+
+pub fn spelt none
+  ""
+
+pub fn spelt s
+  packed s (json/decode s)
+
+fn packed s none
+  s
+
+fn packed _ state
+  wire/as_text (wire/packed state)

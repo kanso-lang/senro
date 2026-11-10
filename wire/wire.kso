@@ -1,0 +1,344 @@
+import "std/bits"
+import "std/list"
+import "std/text"
+
+# The bytes senro's pages and component states travel in.
+#
+# A value is written with a tag: one byte that says what follows, and for a
+# small number or a short string says the whole of it.
+#
+#   0 to 127      that number
+#   128 to 191    a string of 0 to 63 bytes, which follow
+#   192 193 194   none, false, true
+#   195           a number of 128 or more, as a count
+#   196           a number below zero: the count of how far below -1
+#   197           a float: a count, then that many bytes of its decimal text
+#   198           a string: a count, then that many bytes
+#   199           a list: a count, then that many values
+#   200           a map: a count, then that many keys and values
+#   201           bytes written elsewhere: a count, then that many bytes
+#
+# A count is seven bits to a byte, low bits first, with the top bit set on
+# every byte but the last. Strings are utf-8, as kanso holds them.
+#
+# Tags are for values whose shape nobody knows ahead of time. kata knows the
+# shape of a page from its template, and writes a record as its fields in
+# order and a list of records as a count and the records, with no tag and no
+# name between them (`add_count`, `listed`). Only the leaves are tagged.
+#
+# A value read from the bytes and the position after it. Reading never
+# fails: bytes that make no sense read as none at position 0, every read at
+# position 0 answers the same, and `whole?` says at the end whether the
+# reading stayed on the rails.
+pub type read
+  value
+  next
+
+# Bytes carried inside a value untouched: a page within a page, which the
+# views that know its shape read when they splice it.
+pub type blob
+  bytes
+
+# A page a server answers with: the values its template takes, the function
+# that writes them onto the bytes, and the function that draws them as
+# markup. kata builds one for each view (`{name}_view`).
+pub type page
+  held
+  pack
+  draw
+
+# Only this module builds its records, so these build them for the code kata
+# writes: a value read and where the next begins, bytes to carry untouched,
+# and a page from its values, how they are written and how they are drawn.
+pub fn got value next
+  read value next
+
+pub fn enclosed bytes
+  blob bytes
+
+pub fn paged taken pack draw
+  page taken pack draw
+
+# A page as its bytes, written after `opening`, and as its markup.
+pub fn written opening p
+  p.pack opening p.held
+
+pub fn drawn p
+  p.draw p.held
+
+pub fn add_count acc n
+  return text/append acc n if n < 128
+  add_count (text/append acc ((n & 127) + 128)) (bits/shr n 7)
+
+pub fn add acc none
+  text/append acc 192
+
+pub fn add acc false
+  text/append acc 193
+
+pub fn add acc true
+  text/append acc 194
+
+pub fn add acc n:int
+  return text/append acc n if n >= 0 and n < 128
+  return add_count (text/append acc 195) n if n > 0
+  add_count (text/append acc 196) (0 - (n + 1))
+
+pub fn add acc x:float64
+  s = "{x}"
+  text/append (add_count (text/append acc 197) (length (text/bytes s))) s
+
+pub fn add acc s:string
+  n = length (text/bytes s)
+  return text/append (text/append acc (128 + n)) s if n < 64
+  text/append (add_count (text/append acc 198) n) s
+
+pub fn add acc xs:[]some
+  list/fold xs (add_count (text/append acc 199) (length xs)) add
+
+pub fn add acc m:map[string some]
+  ks = keys m
+  opened = add_count (text/append acc 200) (length ks)
+  list/fold ks opened (a k -> add (add a k) m[k])
+
+pub fn add acc b:blob
+  text/append (add_count (text/append acc 201) (length b.bytes)) b.bytes
+
+pub fn add acc p:page
+  add acc (blob (written (text/bytes "") p))
+
+# One value as bytes, and the value those bytes hold, or none when they are
+# not one value and nothing else.
+pub fn packed none
+  text/to_bytes [192]
+
+pub fn packed v
+  add (text/bytes "") v
+
+pub fn unpacked bs
+  held bs (at bs 1)
+
+fn held bs r
+  if (whole? bs r) r.value none
+
+pub fn whole? bs r
+  r.next == length bs + 1
+
+lost = read none 0
+
+pub fn count_at bs p
+  counted bs bs[p] p 0 0
+
+fn counted _ none _ _ _
+  lost
+
+fn counted bs b p shift sum
+  v = sum + bits/shl (b & 127) shift
+  return read v (p + 1) if b < 128
+  return lost if shift > 49
+  counted bs bs[p + 1] (p + 1) (shift + 7) v
+
+pub fn at bs p
+  tagged bs[p] bs (p + 1)
+
+fn tagged none _ _
+  lost
+
+fn tagged tag bs p
+  return read tag p if tag < 128
+  return spelled bs p (tag - 128) if tag < 192
+  marked tag bs p
+
+fn marked 192 _ p
+  read none p
+
+fn marked 193 _ p
+  read false p
+
+fn marked 194 _ p
+  read true p
+
+fn marked 195 bs p
+  count_at bs p
+
+fn marked 196 bs p
+  below (count_at bs p)
+
+fn marked 197 bs p
+  floated bs (count_at bs p)
+
+fn marked 198 bs p
+  texted bs (count_at bs p)
+
+fn marked 199 bs p
+  items bs (count_at bs p) at []
+
+fn marked 200 bs p
+  pairs bs (count_at bs p) {}
+
+fn marked 201 bs p
+  carried bs (count_at bs p)
+
+fn marked _ _ _
+  lost
+
+fn below (read n p)
+  return lost if p < 1
+  read (0 - n - 1) p
+
+fn texted bs (read n p)
+  spelled bs p n
+
+# The `n` bytes at `p` as text. A count that reaches past the end, or bytes
+# that are not utf-8, are bytes that make no sense.
+fn spelled bs p n
+  return lost if p < 1
+  return read "" p if n == 0
+  uttered (text/slice bs p (p + n - 1)) (p + n)
+
+fn uttered none _
+  lost
+
+fn uttered run next
+  sound (text/utf8 run) next
+
+fn sound _:<some>effect _
+  lost
+
+fn sound s next
+  read s next
+
+fn floated bs (read n p)
+  numbered (spelled bs p n)
+
+fn numbered (read s p)
+  return lost if p < 1
+  figured (text/to_float s) p
+
+fn figured none _
+  lost
+
+fn figured x p
+  read x p
+
+fn carried bs (read n p)
+  return lost if p < 1
+  return read (blob (text/bytes "")) p if n == 0
+  sliced (text/slice bs p (p + n - 1)) (p + n)
+
+fn sliced none _
+  lost
+
+fn sliced run next
+  read (blob run) next
+
+# A count and that many values, each read by `one`, which takes the bytes
+# and a position as `at` does. kata reads a list of records with the reader
+# it wrote for the record.
+pub fn listed bs p one
+  items bs (count_at bs p) one []
+
+fn items bs (read n p) one acc
+  return lost if p < 1 or n > length bs
+  return read acc p if n == 0
+  item bs (one bs p) (n - 1) one acc
+
+# A list holds no none, so one among its values is bytes that make no sense.
+fn item bs (read v p) n one acc
+  return lost if v == none
+  items bs (read n p) one (push acc v)
+
+fn pairs bs (read n p) acc
+  return lost if p < 1 or n > length bs
+  return read acc p if n == 0
+  keyed bs (at bs p) (n - 1) acc
+
+fn keyed bs (read k p) n acc
+  valued bs (at bs p) k n acc
+
+fn valued bs (read v p) k:string n acc
+  pairs bs (read n p) (put acc k v)
+
+fn valued _ _ _ _ _
+  lost
+
+# Bytes as text a page can hold in an attribute, and back: base64, RFC 4648,
+# which a browser reads and writes natively. std/base64 says the same thing
+# and builds its text a group at a time by joining strings, which costs a
+# component more than its action does, so this writes onto one builder.
+pub fn as_text bs
+  spoken (text/utf8 (grouped bs 1 (length bs) (text/bytes "")))
+
+fn spoken _:<some>effect
+  ""
+
+fn spoken s
+  s
+
+fn grouped bs i n acc
+  left = n - i + 1
+  return acc if left < 1
+  a = byte_at bs[i]
+  b = byte_at bs[i + 1]
+  c = byte_at bs[i + 2]
+  first = text/append acc (letter (bits/shr a 2))
+  two = text/append first (letter ((a & 3) * 16 + bits/shr b 4))
+  return text/append (text/append two 61) 61 if left == 1
+  three = text/append two (letter ((b & 15) * 4 + bits/shr c 6))
+  return text/append three 61 if left == 2
+  grouped bs (i + 3) n (text/append three (letter (c & 63)))
+
+fn byte_at none
+  0
+
+fn byte_at b
+  b
+
+# The letter for six bits: A to Z, a to z, 0 to 9, + and /.
+fn letter v
+  return v + 65 if v < 26
+  return v + 71 if v < 52
+  return v - 4 if v < 62
+  if (v == 62) 43 47
+
+# The bytes `s` spells, or none when it is not whole groups of the alphabet
+# with `=` only at the end.
+pub fn from_text s
+  cs = text/bytes s
+  return none if length cs % 4 != 0
+  spelled_out cs 1 (length cs) (text/bytes "")
+
+fn spelled_out cs i n acc
+  return acc if i > n
+  a = six cs[i]
+  b = six cs[i + 1]
+  c = six cs[i + 2]
+  d = six cs[i + 3]
+  return none if a < 0 or a > 63 or b < 0 or b > 63 or c < 0 or d < 0
+  last = i + 3 == n
+  one = text/append acc (a * 4 + bits/shr b 4)
+  return closing one (last and d == 64) if c == 64
+  two = text/append one ((b & 15) * 16 + bits/shr c 2)
+  return closing two last if d == 64
+  spelled_out cs (i + 4) n (text/append two ((c & 3) * 64 + d))
+
+# Padding ends the text: bytes read up to it stand when it is the last
+# group, and nothing does when more follows.
+fn closing bytes true
+  bytes
+
+fn closing _ false
+  none
+
+# Six bits for a letter of the alphabet, 64 for the `=` that pads, and -1
+# for anything else or for a place past the end.
+fn six none
+  0 - 1
+
+fn six c
+  return c - 65 if c > 64 and c < 91
+  return c - 71 if c > 96 and c < 123
+  return c + 4 if c > 47 and c < 58
+  return 62 if c == 43
+  return 63 if c == 47
+  if (c == 61) 64 (0 - 1)

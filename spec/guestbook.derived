@@ -1,5 +1,5 @@
 # in removal, by kata/views
-import "std/json"
+import "../wire"
 import "std/list"
 import "std/text"
 
@@ -19,6 +19,12 @@ fn each xs f
 
 fn joined parts
   text/join parts ""
+
+fn kata_raw none
+  "<none>"
+
+fn kata_raw x
+  "{x}"
 # in removal, by kata/views
 # from view.kata:1
 pub fn view_body id
@@ -29,7 +35,7 @@ pub fn view_body id
   ]
 
 pub fn view id
-  kata_state = escape (json/encode id)
+  kata_state = wire/as_text (wire/packed id)
   kata_inside = view_body id
   kata_open = "<div data-component=\"removal\" data-runs=\"server\""
   "{kata_open} data-state=\"{kata_state}\">{kata_inside}</div>"
@@ -40,7 +46,48 @@ pub fn act "removed" kata_given state
 pub fn act _ _ _
   none
 # in views, by kata/views
-import "std/json"
+type account_page
+  path
+  problems
+  seen
+# in views, by kata/views
+type confirm_offered_page
+  path
+  email
+# in views, by kata/views
+type door_page
+  heading
+  path
+  button
+  name
+  email
+  problems
+  asks
+  remembers
+# in views, by kata/views
+type layout_page
+  title
+  body
+# in views, by kata/views
+type reset_asked_page
+  flash
+  problems
+# in views, by kata/views
+type reset_chosen_page
+  path
+  problems
+# in views, by kata/views
+type signed_page
+  signatures
+  form
+  flash
+  removals
+  viewer
+# in views, by kata/views
+type unlock_offered_page
+  path
+# in views, by kata/views
+import "../wire"
 import "std/list"
 import "std/net/http"
 import "std/text"
@@ -62,29 +109,11 @@ fn each xs f
 fn joined parts
   text/join parts ""
 
-fn kata_at none _
-  ""
-
-fn kata_at m k
-  kata_present m[k]
-
-fn kata_present none
-  ""
-
-fn kata_present v
-  v
-
-fn kata_items xs:[]some
-  xs
-
-fn kata_items _
-  []
-
 fn kata_raw none
   "<none>"
 
-fn kata_raw node:map[string some]
-  rendered node
+fn kata_raw p:wire/page
+  wire/drawn p
 
 fn kata_raw x
   "{x}"
@@ -196,7 +225,7 @@ pub fn layout title body
     "<title>{escape title}</title><link rel=\"stylesheet\" "
     "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
     # from layout.kata:12
-    "</head><body><main>{body}</main></body></html>"
+    "</head><body><main>{kata_raw body}</main></body></html>"
   ]
 # in views, by kata/views
 fn reset_asked_6 flash
@@ -290,7 +319,7 @@ fn signed_27 removals e
     # from signed.kata:32
     "{escape e.name}</p>"
     # from signed.kata:33
-    "{removals["{e.id}"]}</li>"
+    "{kata_raw removals["{e.id}"]}</li>"
   ]
 
 # from signed.kata:1
@@ -316,374 +345,145 @@ pub fn unlock_offered path
     "value=\"PATCH\"><button>Unlock it</button></form>"
   ]
 # in views, by kata/views
-fn account_k_6 seen
-  # from account.kata:7
-  "<p class=\"seen\">{escape seen}</p>"
-
-fn account_k_11 problems
-  # from account.kata:12
-  "<p class=\"problem\">{escape problems["current"]}</p>"
-
-fn account_k_14 problems
-  # from account.kata:15
-  "<p class=\"problem\">{escape problems["password"]}</p>"
-
-# from account.kata:1
-fn account_keyed path problems seen
-  joined [
-    "<header><h1>Your account</h1><p class=\"lede\"><a href=\"/\">Back to "
-    # from account.kata:6
-    "the book</a></p></header>{if (seen != "") (account_k_6 seen) ""}<form "
-    # from account.kata:8
-    "method=\"post\" action=\"{escape path}\"><input type=\"hidden\" "
-    "name=\"_method\" value=\"PATCH\"><input type=\"password\" "
-    "name=\"current\" placeholder=\"current password\" required=\"required\">"
-    # from account.kata:11
-    "{if (problems["current"] != none) (account_k_11 problems) ""}<input "
-    "type=\"password\" name=\"password\" placeholder=\"new password\" "
-    "required=\"required\">"
-    # from account.kata:14
-    "{if (problems["password"] != none) (account_k_14 problems) ""}<button>"
-    "Change it</button></form>"
-  ]
+kata_marks = [226 164 104 178]
 # in views, by kata/views
-# from confirm_offered.kata:1
-fn confirm_offered_keyed path email
-  joined [
-    "<header><h1>Confirm your address</h1></header><form method=\"post\" "
-    # from confirm_offered.kata:4
-    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
-    # from confirm_offered.kata:6
-    "value=\"PATCH\"><p class=\"lede\">{escape email}</p><button>Confirm "
-    "it</button></form>"
-  ]
-# in views, by kata/views
-fn door_k_8 problems
-  # from door.kata:9
-  "<p class=\"problem\">{escape problems["name"]}</p>"
+fn account_pack acc h
+  a1 = wire/add (wire/add_count acc 1) h.path
+  a2 = wire/add a1 h.problems
+  wire/add a2 h.seen
 
-fn door_k_12 problems
-  # from door.kata:13
-  "<p class=\"problem\">{escape problems["email"]}</p>"
+fn account_drawn h
+  account h.path h.problems h.seen
 
-fn door_k_10 email problems
-  joined [
-    "<input type=\"email\" name=\"email\" placeholder=\"email, for a lost "
-    # from door.kata:11
-    "password\" required=\"required\" value=\"{escape email}\">"
-    # from door.kata:12
-    "{if (problems["email"] != none) (door_k_12 problems) ""}"
-  ]
-
-fn door_k_15 problems
-  # from door.kata:16
-  "<p class=\"problem\">{escape problems["password"]}</p>"
-
-door_k_17 = joined [
-  "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
-  "value=\"yes\">Keep me signed in</label>"
-]
-
-door_k_22 = joined [
-  "<p class=\"forgot\"><a href=\"/resets/new\">Forgot your password?</a>"
-  "</p>"
-]
-
-# from door.kata:1
-fn door_keyed heading path button name email problems asks remembers
-  joined [
-    # from door.kata:3
-    "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
-    # from door.kata:6
-    "to the book</a></p></header><form method=\"post\" action=\"{escape path}"
-    "\"><input name=\"name\" placeholder=\"name\" required=\"required\" "
-    # from door.kata:7
-    "value=\"{escape name}\">"
-    # from door.kata:8
-    "{if (problems["name"] != none) (door_k_8 problems) ""}"
-    # from door.kata:10
-    "{if asks (door_k_10 email problems) ""}<input type=\"password\" "
-    "name=\"password\" placeholder=\"password\" required=\"required\">"
-    # from door.kata:15
-    "{if (problems["password"] != none) (door_k_15 problems) ""}"
-    # from door.kata:17
-    "{if remembers door_k_17 ""}<button>"
-    # from door.kata:21
-    "{escape button}</button></form>"
-    # from door.kata:22
-    "{if remembers door_k_22 ""}"
-  ]
-# in views, by kata/views
-# from layout.kata:1
-fn layout_keyed title body
-  joined [
-    "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta "
-    "name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-    # from layout.kata:7
-    "<title>{escape title}</title><link rel=\"stylesheet\" "
-    "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
-    # from layout.kata:12
-    "</head><body><main>{kata_raw body}</main></body></html>"
-  ]
-# in views, by kata/views
-fn reset_asked_k_6 flash
-  # from reset_asked.kata:7
-  "<p class=\"flash\">{escape flash}</p>"
-
-fn reset_asked_k_10 problems
-  # from reset_asked.kata:11
-  "<p class=\"problem\">{escape problems["email"]}</p>"
-
-# from reset_asked.kata:1
-fn reset_asked_keyed flash problems
-  joined [
-    "<header><h1>Forgot your password?</h1><p class=\"lede\"><a "
-    "href=\"/session/new\">Back to signing in</a></p></header>"
-    # from reset_asked.kata:6
-    "{if (flash != "") (reset_asked_k_6 flash) ""}<form method=\"post\" "
-    "action=\"/resets\"><input type=\"email\" name=\"email\" "
-    "placeholder=\"the address your account has\" required=\"required\">"
-    # from reset_asked.kata:10
-    "{if (problems["email"] != none) (reset_asked_k_10 problems) ""}<button>"
-    "Send me a link</button></form>"
-  ]
-# in views, by kata/views
-fn reset_chosen_k_7 problems
-  # from reset_chosen.kata:8
-  "<p class=\"problem\">{escape problems["password"]}</p>"
-
-# from reset_chosen.kata:1
-fn reset_chosen_keyed path problems
-  joined [
-    "<header><h1>Choose a new password</h1></header><form method=\"post\" "
-    # from reset_chosen.kata:4
-    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
-    "value=\"PATCH\"><input type=\"password\" name=\"password\" "
-    "placeholder=\"new password\" required=\"required\">"
-    # from reset_chosen.kata:7
-    "{if (problems["password"] != none) (reset_chosen_k_7 problems) ""}"
-    "<button>Save it</button></form>"
-  ]
-# in views, by kata/views
-signed_k_5 = joined [
-  "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
-  "href=\"/registration/new\">Make an account</a></nav>"
-]
-
-fn signed_k_9 viewer
-  joined [
-    "<form method=\"post\" action=\"/session\" class=\"out\"><input "
-    "type=\"hidden\" name=\"_method\" value=\"DELETE\"><span>Signed in as "
-    # from signed.kata:12
-    "{escape viewer}.</span><a href=\"/password/edit\">Your account</a>"
-    "<button>Sign out</button></form>"
-  ]
-
-fn signed_k_15 flash
-  # from signed.kata:16
-  "<p class=\"flash\">{escape flash}</p>"
-
-fn signed_k_20 form
-  # from signed.kata:21
-  "<p class=\"problem\">{escape (kata_at form "problems")["message"]}</p>"
-
-fn signed_k_17 form
-  joined [
-    "<form method=\"post\" action=\"/entries\" "
-    "enctype=\"multipart/form-data\" class=\"sign\"><textarea "
-    "name=\"message\" placeholder=\"say something\" required=\"required\">"
-    # from signed.kata:19
-    "{escape (kata_at form "message")}</textarea>"
-    # from signed.kata:20
-    "{if ((kata_at form "problems")["message"] != none) (signed_k_20 form) ""}"
-    "<label><span>A photo, if you like</span><input type=\"file\" "
-    "name=\"photo\" accept=\"image/*\"></label><button>Sign</button></form>"
-  ]
-
-fn signed_k_30 e
-  joined [
-    # from signed.kata:31
-    "<img src=\"/senro/blobs/{escape (kata_at e "photo")}\" alt=\"a photo "
-    # from signed.kata:31
-    "from {escape (kata_at e "name")}\" class=\"photo\">"
-  ]
-
-fn signed_k_27 removals e
-  joined [
-    # from signed.kata:29
-    "<li><p class=\"message\">{escape (kata_at e "message")}</p>"
-    # from signed.kata:30
-    "{if (kata_at e "photo" != "") (signed_k_30 e) ""}<p class=\"who\">"
-    # from signed.kata:32
-    "{escape (kata_at e "name")}</p>"
-    # from signed.kata:33
-    "{kata_raw removals["{kata_at e "id"}"]}</li>"
-  ]
-
-# from signed.kata:1
-fn signed_keyed signatures form flash removals viewer
-  joined [
-    "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
-    "comes next.</p></header>"
-    # from signed.kata:5
-    "{if (viewer == "") signed_k_5 (signed_k_9 viewer)}"
-    # from signed.kata:15
-    "{if (flash != "") (signed_k_15 flash) ""}"
-    # from signed.kata:17
-    "{if (viewer != "") (signed_k_17 form) ""}<ol class=\"entries\">"
-    # from signed.kata:27
-    "{each (kata_items signatures) (e -> signed_k_27 removals e)}</ol>"
-  ]
-# in views, by kata/views
-# from unlock_offered.kata:1
-fn unlock_offered_keyed path
-  joined [
-    "<header><h1>Unlock your account</h1></header><form method=\"post\" "
-    # from unlock_offered.kata:4
-    "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
-    "value=\"PATCH\"><button>Unlock it</button></form>"
-  ]
-# in views, by kata/views
-pub fn rendered node
-  kata_shown (kata_at node "view") (kata_at node "locals")
-
-fn kata_shown "account" kata_l
-  path = kata_at kata_l "path"
-  problems = kata_at kata_l "problems"
-  seen = kata_at kata_l "seen"
-  account_keyed path problems seen
-
-fn kata_shown "confirm_offered" kata_l
-  path = kata_at kata_l "path"
-  email = kata_at kata_l "email"
-  confirm_offered_keyed path email
-
-fn kata_shown "door" kata_l
-  heading = kata_at kata_l "heading"
-  path = kata_at kata_l "path"
-  button = kata_at kata_l "button"
-  name = kata_at kata_l "name"
-  email = kata_at kata_l "email"
-  problems = kata_at kata_l "problems"
-  asks = kata_at kata_l "asks"
-  remembers = kata_at kata_l "remembers"
-  door_keyed heading path button name email problems asks remembers
-
-fn kata_shown "layout" kata_l
-  title = kata_at kata_l "title"
-  body = kata_at kata_l "body"
-  layout_keyed title body
-
-fn kata_shown "reset_asked" kata_l
-  flash = kata_at kata_l "flash"
-  problems = kata_at kata_l "problems"
-  reset_asked_keyed flash problems
-
-fn kata_shown "reset_chosen" kata_l
-  path = kata_at kata_l "path"
-  problems = kata_at kata_l "problems"
-  reset_chosen_keyed path problems
-
-fn kata_shown "signed" kata_l
-  signatures = kata_at kata_l "signatures"
-  form = kata_at kata_l "form"
-  flash = kata_at kata_l "flash"
-  removals = kata_at kata_l "removals"
-  viewer = kata_at kata_l "viewer"
-  signed_keyed signatures form flash removals viewer
-
-fn kata_shown "unlock_offered" kata_l
-  path = kata_at kata_l "path"
-  unlock_offered_keyed path
-
-fn kata_shown _ _
-  ""
-# in views, by kata/views
 pub fn account_view path problems seen
-  kata_locals = { "path":path "problems":problems "seen":seen }
-  { "locals":kata_locals "view":"account" }
+  kata_held = account_page path problems seen
+  wire/paged kata_held account_pack account_drawn
 # in views, by kata/views
+fn confirm_offered_pack acc h
+  a1 = wire/add (wire/add_count acc 2) h.path
+  wire/add a1 h.email
+
+fn confirm_offered_drawn h
+  confirm_offered h.path h.email
+
 pub fn confirm_offered_view path email
-  kata_locals = { "email":email "path":path }
-  { "locals":kata_locals "view":"confirm_offered" }
+  kata_held = confirm_offered_page path email
+  wire/paged kata_held confirm_offered_pack confirm_offered_drawn
 # in views, by kata/views
+fn door_pack acc h
+  a1 = wire/add (wire/add_count acc 3) h.heading
+  a2 = wire/add a1 h.path
+  a3 = wire/add a2 h.button
+  a4 = wire/add a3 h.name
+  a5 = wire/add a4 h.email
+  a6 = wire/add a5 h.problems
+  a7 = wire/add a6 h.asks
+  wire/add a7 h.remembers
+
+fn door_drawn h
+  door h.heading h.path h.button h.name h.email h.problems h.asks h.remembers
+
 pub fn door_view heading path button name email problems asks remembers
-  kata_locals = {
-    "asks":asks
-    "button":button
-    "email":email
-    "heading":heading
-    "name":name
-    "path":path
-    "problems":problems
-    "remembers":remembers
-  }
-  { "locals":kata_locals "view":"door" }
+  kata_held = door_page heading path button name email problems asks remembers
+  wire/paged kata_held door_pack door_drawn
 # in views, by kata/views
+fn layout_pack acc h
+  a1 = wire/add (wire/add_count acc 4) h.title
+  wire/add a1 h.body
+
+fn layout_drawn h
+  layout h.title h.body
+
 pub fn layout_view title body
-  kata_locals = { "body":body "title":title }
-  { "locals":kata_locals "view":"layout" }
+  kata_held = layout_page title body
+  wire/paged kata_held layout_pack layout_drawn
 # in views, by kata/views
+fn reset_asked_pack acc h
+  a1 = wire/add (wire/add_count acc 5) h.flash
+  wire/add a1 h.problems
+
+fn reset_asked_drawn h
+  reset_asked h.flash h.problems
+
 pub fn reset_asked_view flash problems
-  kata_locals = { "flash":flash "problems":problems }
-  { "locals":kata_locals "view":"reset_asked" }
+  kata_held = reset_asked_page flash problems
+  wire/paged kata_held reset_asked_pack reset_asked_drawn
 # in views, by kata/views
+fn reset_chosen_pack acc h
+  a1 = wire/add (wire/add_count acc 6) h.path
+  wire/add a1 h.problems
+
+fn reset_chosen_drawn h
+  reset_chosen h.path h.problems
+
 pub fn reset_chosen_view path problems
-  kata_locals = { "path":path "problems":problems }
-  { "locals":kata_locals "view":"reset_chosen" }
+  kata_held = reset_chosen_page path problems
+  wire/paged kata_held reset_chosen_pack reset_chosen_drawn
 # in views, by kata/views
-fn signed_view_signatures_each x
-  # from signed.kata:31
-  kata_photo = x.photo
-  # from signed.kata:31
-  kata_name = x.name
-  # from signed.kata:29
-  kata_message = x.message
+fn signed_pack_signatures_each acc x
   # from signed.kata:33
-  kata_id = x.id
-  { "id":kata_id "message":kata_message "name":kata_name "photo":kata_photo }
+  a1 = wire/add acc x.id
+  # from signed.kata:29
+  a2 = wire/add a1 x.message
+  # from signed.kata:31
+  a3 = wire/add a2 x.name
+  # from signed.kata:31
+  wire/add a3 x.photo
 
-fn signed_view_signatures xs
-  list/to_list (list/map xs signed_view_signatures_each)
+fn signed_pack_signatures acc xs
+  counted = wire/add_count acc (length xs)
+  list/fold xs counted signed_pack_signatures_each
 
-fn signed_view_form x
-  # from signed.kata:21
-  kata_problems = x.problems
+fn signed_pack_form acc x
   # from signed.kata:19
-  kata_message = x.message
-  { "message":kata_message "problems":kata_problems }
+  a1 = wire/add acc x.message
+  # from signed.kata:21
+  wire/add a1 x.problems
+
+fn signed_pack acc h
+  a1 = signed_pack_signatures (wire/add_count acc 7) h.signatures
+  a2 = signed_pack_form a1 h.form
+  a3 = wire/add a2 h.flash
+  a4 = wire/add a3 h.removals
+  wire/add a4 h.viewer
+
+fn signed_drawn h
+  signed h.signatures h.form h.flash h.removals h.viewer
 
 pub fn signed_view signatures form flash removals viewer
-  kata_locals = {
-    "flash":flash
-    "form":(signed_view_form form)
-    "removals":removals
-    "signatures":(signed_view_signatures signatures)
-    "viewer":viewer
-  }
-  { "locals":kata_locals "view":"signed" }
+  kata_held = signed_page signatures form flash removals viewer
+  wire/paged kata_held signed_pack signed_drawn
 # in views, by kata/views
+fn unlock_offered_pack acc h
+  wire/add (wire/add_count acc 8) h.path
+
+fn unlock_offered_drawn h
+  unlock_offered h.path
+
 pub fn unlock_offered_view path
-  kata_locals = { "path":path }
-  { "locals":kata_locals "view":"unlock_offered" }
+  kata_held = unlock_offered_page path
+  wire/paged kata_held unlock_offered_pack unlock_offered_drawn
 # in views, by kata/views
-pub fn answer req node
-  answer_as req 200 node
+pub fn packed page
+  wire/written (text/to_bytes kata_marks) page
+# in views, by kata/views
+pub fn answer req page
+  answer_as req 200 page
 
-pub fn answer_as req code node
-  kata_answered req.headers["senro-view"] code node
+pub fn answer_as req code page
+  kata_answered req.headers["senro-view"] code page
 
-fn kata_answered none code node
-  page = ["content-type: text/html; charset=utf-8"]
-  http/respond code page (rendered node)
+fn kata_answered none code page
+  html = ["content-type: text/html; charset=utf-8"]
+  http/respond code html (wire/drawn page)
 
-fn kata_answered _ code node
+fn kata_answered _ code page
   heard = [
     "cache-control: no-store"
-    "content-type: application/json"
+    "content-type: application/octet-stream"
     "senro-view: 1"
   ]
-  http/respond code heard (json/encode node)
+  http/respond code heard (packed page)
 schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # models/tables
 # in account, by models/tables
 pub type account

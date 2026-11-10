@@ -1,11 +1,14 @@
 // An app's browser module run the way the page script runs it: linked
-// against the kanso runtime built for wasm32, with the event in SENRO_EVENT.
-// Prints what the module printed. Run as:
+// against the kanso runtime built for wasm32, with the event in SENRO_EVENT
+// and, for a page, its bytes as the one file the module can open,
+// /senro/page. Prints what the module printed. Run as:
 //
-//   node spec/browser/module.mjs <runtime.wasm> <app.wasm> <event>
+//   node spec/browser/module.mjs <runtime.wasm> <app.wasm> <event> [page file]
 import fs from "node:fs";
 
-const [runtimePath, appPath, event] = process.argv.slice(2);
+const [runtimePath, appPath, event, pagePath] = process.argv.slice(2);
+const page = pagePath ? new Uint8Array(fs.readFileSync(pagePath)) : null;
+let read = 0;
 class Exit {}
 const out = [];
 let memory = null;
@@ -45,7 +48,44 @@ const calls = {
     bytes().fill(0, stat, stat + 24);
     return 0;
   },
-  fd_prestat_get: () => 8,
+  fd_prestat_get(fd, stat) {
+    if (fd !== 3 || !page) return 8;
+    view().setUint32(stat, 0, true);
+    view().setUint32(stat + 4, 1, true);
+    return 0;
+  },
+  fd_prestat_dir_name(fd, name) {
+    bytes()[name] = 47;
+    return 0;
+  },
+  path_open(dir, flags, path, len, o, base, inheriting, f, opened) {
+    const name = new TextDecoder().decode(bytes().slice(path, path + len));
+    if (!page || name !== "senro/page") return 44;
+    read = 0;
+    view().setUint32(opened, 4, true);
+    return 0;
+  },
+  fd_seek(fd, by, whence, place) {
+    if (fd !== 4) return 8;
+    const from = whence === 0 ? 0 : whence === 1 ? read : page.length;
+    read = Math.max(0, Math.min(page.length, from + Number(by)));
+    view().setBigUint64(place, BigInt(read), true);
+    return 0;
+  },
+  fd_read(fd, iovs, n, got) {
+    if (fd !== 4) return 8;
+    let total = 0;
+    for (let k = 0; k < n; k++) {
+      const at = view().getUint32(iovs + k * 8, true);
+      const len = view().getUint32(iovs + k * 8 + 4, true);
+      const some = page.subarray(read, read + len);
+      bytes().set(some, at);
+      read += some.length;
+      total += some.length;
+    }
+    view().setUint32(got, total, true);
+    return 0;
+  },
   proc_exit() {
     throw new Exit();
   },

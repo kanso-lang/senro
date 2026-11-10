@@ -1,3 +1,3 @@
-<ul><li><h2>On tags</h2><p class="by">by Ada</p></li><li><h2>Second</h2><p class="by">by Bob</p></li></ul>
-{"locals":{"posts":[{"author":{"name":"Ada"},"title":"On tags"},{"author":{"name":"Bob"},"title":"Second"}]},"view":"list"}
-<ul><li><h2>On tags</h2><p class="by">by Ada</p></li><li><h2>Second</h2><p class="by">by Bob</p></li></ul>
+error[runtime]: no overload of `json/encode_onto` matches these arguments
+  failed in json/encode at std/json/json.kso:43
+  called from ./main.kso:13

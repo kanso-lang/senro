@@ -28,7 +28,7 @@ done
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-for entry in records data html browser; do
+for entry in records data payload html browser; do
   (cd bench/pages && "$KANSO" build "$entry.kso" --wasm > "$work/$entry.build" 2>&1) || {
     cat "$work/$entry.build" >&2
     exit 1
@@ -54,24 +54,24 @@ records=$(counted records records)
 data=$(counted data data)
 html=$(counted html html)
 
-# The browser module is handed the page's data as the page script hands it
-# over, and an action as a click does: the component, the action, the state
-# the page holds and the answers so far.
+# The browser module is handed the page's bytes as the page script hands
+# them over, in a file, and an action as a click does: the component, the
+# action, the state the page holds and the answers so far. The bytes come
+# from a run of their own, which prints them in base64 and is not counted.
+counted payload payload > /dev/null
+base64 -d < "$work/payload.out" > "$work/page.bin"
 printf '\n\n' > "$work/page.event"
-cat "$work/data.out" >> "$work/page.event"
 printf 'x' > "$work/none.event"
 node -e '
   const fs = require("fs");
   const html = fs.readFileSync(process.argv[1], "utf8");
-  const held = /data-state="([^"]*)"/.exec(html)[1];
-  const state = held.replace(/&quot;/g, "\"").replace(/&#39;/g, "\x27")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const state = /data-state="([^"]*)"/.exec(html)[1];
   fs.writeFileSync(process.argv[2], state);
   fs.writeFileSync(process.argv[3], ["reading", "saved_next", state, "[]"].join("\n"));
 ' "$work/html.out" "$work/state" "$work/act.event"
 
 start=$(counted start browser "SENRO_EVENT=@$work/none.event")
-page=$(counted page browser "SENRO_EVENT=@$work/page.event")
+page=$(counted page browser "SENRO_EVENT=@$work/page.event" "/senro/page=@$work/page.bin")
 act=$(counted act browser "SENRO_EVENT=@$work/act.event")
 
 # The page the module rendered from the data is the page the server sent a
@@ -83,7 +83,7 @@ if ! cmp -s "$work/html.out" "$work/page.out"; then
   exit 1
 fi
 
-rows="page_bytes=$(wc -c < "$work/data.out" | tr -d ' ')
+rows="page_bytes=$(wc -c < "$work/page.bin" | tr -d ' ')
 state_bytes=$(wc -c < "$work/state" | tr -d ' ')
 server_records_instructions=$records
 server_data_instructions=$data

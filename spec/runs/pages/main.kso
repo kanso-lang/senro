@@ -1,14 +1,25 @@
 import "../../../kata"
+import "../../../wire"
+import "./mangled"
 import "./posts"
 import "./views"
-import "std/json"
 
 derive kata/views
 
-# The page as data, then rendered from that data, then rendered by the
-# template from the records themselves. The two renderings are the same.
+# The page as the bytes a browser is sent, in base64; then drawn by the
+# server from the records, drawn from those bytes, and drawn by the
+# templates called directly. The three drawings are the same.
 listed = views/list_view posts/all "<saved>" posts/marks
 page = views/layout_view "Posts" listed
-print (json/encode page)
+bytes = views/packed page
+print (wire/as_text bytes)
 print (views/rendered page)
+print (views/rendered bytes)
 print (views/layout "Posts" (views/list posts/all "<saved>" posts/marks))
+
+# The same bytes as another compile would mark them, and cut short. Neither
+# draws anything: a page is read only from its own compile's bytes, whole.
+print (wire/as_text (mangled/remarked bytes))
+print (wire/as_text (mangled/cut_short bytes))
+print "[{views/rendered (mangled/remarked bytes)}]"
+print "[{views/rendered (mangled/cut_short bytes)}]"

@@ -1,0 +1,14 @@
+import "../../kata"
+import "./board"
+import "./reading"
+import "./views"
+import "std/base64"
+
+derive kata/views
+
+# The same answer's bytes in base64, for the benchmark to hand the browser
+# module. This run is not counted.
+held = reading/view (reading/holding 5)
+listed = views/board_view (board/topics 50) board/signed_in held
+answer = views/answer board/for_data (views/layout_view "Board" listed)
+print (base64/encode answer.body)
