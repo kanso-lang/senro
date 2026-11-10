@@ -6,8 +6,9 @@ there has shipped and is described in the READMEs: the page script morphs
 each answer into the live page, pages follow each other's changes over
 `/senro/live`, components run their actions in the browser as wasm or on the
 server behind policies, and pages travel as data and are rendered in the
-browser by the app's views compiled to wasm. This note keeps what is still
-to build, and it is deleted when that has shipped.
+browser by the app's views compiled to wasm, in bytes kata derives from
+each page's shape. This note keeps what is still to build, and it is deleted
+when that has shipped.
 
 ## Reaching JavaScript
 
@@ -15,17 +16,6 @@ A component will want a JavaScript library now and then, a charting or
 mapping library in particular. That needs a way for kanso code in the
 browser to call into JavaScript and be called back, which is a question
 about the language itself (kanso#2284, parked until an app needs it).
-
-## Page data in a binary encoding
-
-Page data and component state travel as JSON today, so every update pays
-to write and read field names, to format and parse numbers, and to escape
-strings, on the server and again in the browser. Both ends are one compiled
-program, and kata already knows each page's shape from the fields its
-template reads. The encoding kata derives from that shape is positional,
-with no field names and no schema file, and a page built by one compile
-refuses data from another. JSON stays wherever something outside senro
-reads the data (kanso#2416, ruled 2026-11-10).
 
 ## Later, each measured first
 
