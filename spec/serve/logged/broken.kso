@@ -1,0 +1,3 @@
+# An action that fails: a failure the app did not plan for.
+pub fn index _ _
+  err "the broken page broke"

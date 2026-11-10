@@ -1,0 +1,15 @@
+senro on port 24417
+GET /notes 200 in Nms
+GET /notes 200 in Nms
+GET /notes/7 200 in Nms
+GET /notes/7.json 200 in Nms
+PATCH /notes/7 200 in Nms
+GET /resets/:token/edit 200 in Nms
+GET /resets/:token.json 404 in Nms
+GET /resets/not.a.token/edit 200 in Nms
+GET /senro/blobs/:key 404 in Nms
+GET /missing 404 in Nms
+PATCH /notes/7 403 in Nms
+senro: a request failed: the broken page broke
+GET /broken 500 in Nms
+GET /nested 200 in Nms

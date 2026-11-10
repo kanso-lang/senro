@@ -1,0 +1,5 @@
+import "std/net/http"
+
+# The id is a token, as a mailed link's is.
+pub fn edit _ _ id
+  effect (http/text_page "a link of {length id} characters")

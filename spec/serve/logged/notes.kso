@@ -1,0 +1,10 @@
+import "std/net/http"
+
+pub fn index _ _
+  effect (http/text_page "notes")
+
+pub fn show _ _ id:int
+  effect (http/text_page "note {id}")
+
+pub fn update _ _ id:int
+  effect (http/text_page "note {id} changed")
