@@ -1,0 +1,65 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# A token shaped as `tokens/made` shapes one: an id, a moment, a signature.
+token = "7.1999999999999.{signature}"
+
+signature = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+
+# Asks the server for a page of each kind, so its log holds a line of each:
+# a list, with and without a query; a record, as a page and as JSON; a form
+# that stands for a PATCH; a link that carries a token, one that names no
+# route, and one whose id only looks like a token; an uploaded file's key; a
+# path that is no route; a form sent from another site; and a page that
+# fails. Each is a request line, then a header, then a body.
+asks = [
+  "GET /notes||"
+  "GET /notes?page=2&token=in-the-query||"
+  "GET /notes/7||"
+  "GET /notes/7.json||"
+  "POST /notes/7||_method=PATCH"
+  "GET /resets/{token}/edit||"
+  "GET /resets/{token}.json||"
+  "GET /resets/not.a.token/edit||"
+  "GET /senro/blobs/0123456789abcdef0123456789abcdef||"
+  "GET /missing||"
+  "POST /notes/7|origin: https://elsewhere.example|_method=PATCH"
+  "GET /broken||"
+]
+
+pub fn index _ _
+  list/fold asks (effect []) (acc a -> acc .> (got -> more got a))
+    .> (got -> effect (http/text_page (text/join got " ")))
+
+fn more got a
+  asked a .> (raw -> effect (push got (status raw)))
+
+fn asked a
+  net/dial "127.0.0.1" 24417 .> (c -> asking c (text/split a "|"))
+
+fn asking c parts
+  body = said (list/last parts)
+  typed = "content-type: application/x-www-form-urlencoded"
+  sized = "content-length: {length body}"
+  head = ["{said parts[1]} HTTP/1.1" "host: localhost:24417" typed sized]
+  lines = list/concat head (extra (said parts[2]))
+  net/write c "{text/join lines "\r\n"}\r\n\r\n{body}"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn extra ""
+  []
+
+fn extra header
+  [header]
+
+fn said none
+  ""
+
+fn said s
+  s
+
+fn status raw
+  said (text/split (list/first (text/split raw "\r\n")) " ")[2]

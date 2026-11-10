@@ -9,7 +9,8 @@
 # natively, interpreted and as wasm; spec/runs/pages renders a page in the
 # browser module as the server rendered it; each app under spec/db, run
 # against a live Postgres, prints its golden on both engines; each app under
-# spec/serve, served and asked over HTTP, answers its golden; the guestbook
+# spec/serve, served and asked over HTTP, answers its golden, and one logs
+# the requests as its golden holds them; the guestbook
 # and the pantry, used in a browser, update in place without a reload; the
 # generators write examples/notebook, which checks and serves its resource;
 # and each app under spec/errors is refused with the message its golden
@@ -171,7 +172,8 @@ fi
 note "== each app under spec/serve answers its golden, natively and interpreted"
 # Each is served and asked for /nested with curl. Its answer is another
 # request to the same server, made while the first waits, so a server that
-# answers one connection at a time hangs and the request times out. These
+# answers one connection at a time hangs and the request times out. One of
+# them, spec/serve/logged, is also held to the log the server wrote. These
 # use Postgres for their sessions, so SENRO_NO_DB=1 skips them too.
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/serve (SENRO_NO_DB=1)"
@@ -211,6 +213,22 @@ else
         bad "$name ($engine)"
         printf '%s\n' "$got" | diff "$want" -
         cat "$log"
+      fi
+      # An app with a golden beside it for what the server wrote
+      # (spec/serve/<name>.log) is held to that too: the line for each
+      # request it answered, the milliseconds each took read as N.
+      wrote="spec/serve/$name.log"
+      if [ -f "$wrote" ]; then
+        lines=$(sed 's/ in [0-9]*ms$/ in Nms/' "$log")
+        if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+          printf '%s\n' "$lines" > "$wrote"
+        fi
+        if printf '%s\n' "$lines" | diff "$wrote" - >/dev/null; then
+          note "ok: $name's log ($engine)"
+        else
+          bad "$name's log ($engine)"
+          printf '%s\n' "$lines" | diff "$wrote" -
+        fi
       fi
       rm -f "$log"
     done

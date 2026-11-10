@@ -166,12 +166,12 @@ fn heard c _ _:http/bad_request
 fn heard c s req
   return live c s.connect if req.path == "/senro/live"
   method = method_of req
-  return crossed c if forged? method req
+  return crossed c req method if forged? method req
   action = matched s.routes method (unformatted req.path)
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
   answering = pool/with s.dbs (db -> responded c db req method by (answer db))
-  turned = turned_away action req
+  turned = turned_away action req .> (r -> logged_as req method r)
   allowed s.calls action req
     .> (fine -> let_in fine c answering turned)
     .> (_ -> net/close_conn c)
@@ -206,9 +206,9 @@ fn foreign? origin host
   parts = text/split origin "://"
   length parts != 2 or list/last parts != host
 
-fn crossed c
+fn crossed c req method
   r = http/respond 403 [] "Forbidden: a request from another site\n"
-  sent c r .> (_ -> net/close_conn c)
+  logged_as req method r .> (_ -> sent c r) .> (_ -> net/close_conn c)
 
 fn let_in true _ answering _
   answering
@@ -336,7 +336,59 @@ fn responded c db req method by answer
   answer
     .> (r -> told db method by r)
     .> (r -> versioned by r)
+    .> (r -> logged_as req method r)
     .> (r -> sent c (notice_shown req (unchanged req r)))
+
+# The server writes a line for each request it answers, as it is about to
+# answer: the method the request stands for, its path, the status, and the
+# milliseconds since the request arrived.
+#
+#   GET /entries/3 200 in 2ms
+#   PATCH /entries/3 303 in 9ms
+#   GET /resets/:token/edit 200 in 1ms
+#
+# The query string is left out, and so is anything in the path that opens
+# something by being known: a signed token (`tokens`) is written `:token`,
+# and the key of an uploaded file `:key`. So a log can be kept and read by
+# people who may not reset an account's password. The stream a page listens
+# on at /senro/live has no line, and neither have bytes that were no request.
+fn logged_as req method r
+  asked = "{method} {logged_path req.path}"
+  time/now
+    .> (t -> print "{asked} {r.status} in {took req t}ms")
+    .> (_ -> effect r)
+
+fn took req t
+  waited (text/to_int (said req.headers["senro-at"])) t
+
+fn waited none _
+  0
+
+fn waited at t
+  t - at
+
+# A request's path as the log writes it.
+pub fn logged_path path
+  return "/senro/blobs/:key" if text/starts_with? path "/senro/blobs/"
+  text/join (list/to_list (list/map (text/split path "/") logged)) "/"
+
+fn logged segment
+  bare = unformatted segment
+  return segment if not token? bare
+  return ":token" if bare == segment
+  ":token.json"
+
+# Whether a path's segment is shaped as `tokens/made` shapes a token: a
+# record's id, a moment, and a signature of 64 hex digits, joined by dots.
+fn token? segment
+  parts = text/split segment "."
+  return false if length parts != 3
+  id = text/to_int (said parts[1])
+  until = text/to_int (said parts[2])
+  id != none and until != none and signature? (said parts[3])
+
+fn signature? s
+  length s == 64 and list/all? (text/chars s) (c -> hex_digit? c)
 
 # An answer that would set the session the request already carries sets
 # nothing. A page answered from a session read before a sign-out must not

@@ -334,7 +334,12 @@ when they are given that path. The specs write it again and compare the two.
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
   when it has answered, and a request that finds them all lent waits. An action
   that fails is answered with a 500, its reason goes to standard error, and the
-  server keeps serving. A request that would change something (any method but
+  server keeps serving. The server writes a line on standard output for each
+  request as it answers it: the method the request stands for, the path, the
+  status and the milliseconds it took, as in `PATCH /entries/3 303 in 9ms`.
+  The query string is left out, a signed token in the path is written
+  `:token`, and an uploaded file's key `:key`, so the log never holds a link
+  that would reset a password or open a file. A request that would change something (any method but
   GET and HEAD) is refused with a 403 when a browser says another site sent it:
   `Sec-Fetch-Site` anything but `same-origin` or `none`, or, from a browser too
   old for that header, an `Origin` other than the app's own. The session cookie
