@@ -1,0 +1,21 @@
+import "../../../pg"
+import "std/list"
+
+# How many sessions Postgres holds for clients, this one left out.
+others = """
+  select count(*) from pg_stat_activity
+  where backend_type = 'client backend' and pid <> pg_backend_pid()
+"""
+
+pub held = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/query db others [] .> (r -> pg/close db .> (_ -> effect r)))
+  .> (r -> effect (first_cell r))
+
+fn first_cell r
+  cell (list/first r.rows)
+
+fn cell none
+  "?"
+
+fn cell row
+  "{row["count"]}"

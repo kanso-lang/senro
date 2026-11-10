@@ -1,0 +1,157 @@
+import "../pg"
+import "std/io"
+import "std/list"
+import "std/net"
+import "std/os"
+import "std/pool"
+import "std/text"
+import "std/time"
+
+# A page that loaded senro's script listens at /senro/live, and is told when
+# what the app stores has changed, by this server or any other on the same
+# database, so it fetches itself again.
+#
+# The server keeps one database session for all of them. It listens on
+# Postgres's `senro` channel and hands each notification to every page
+# listening, so a page costs the server its one connection and Postgres
+# nothing. A page that has gone is found by writing to it: every `beat` the
+# server sends each page a comment line, which a browser ignores, and a page
+# whose line cannot be written is let go. The second write after a page
+# leaves is the one that fails, so a page is let go within two beats.
+#
+# The pages listening, and the seats of pages that left, kept to be sat in
+# again: a pool is never given back to the system, so a seat made for every
+# page that ever listened would be memory the server never gets back.
+type audience
+  listening
+  spare
+
+# One page's place. `mail` always holds one value, the lines the page has
+# not been sent yet, so a line is added without waiting for the page. `bell`
+# holds a mark while there are lines in the mail, and the page's fiber waits
+# on it.
+type seat
+  mail
+  bell
+
+# Fifteen seconds, in milliseconds. `SENRO_LIVE_BEAT` sets another, which a
+# spec does to see a page let go without waiting half a minute.
+default_beat = 15000
+
+watching = pool/make 1 .> (p -> pool/give p (audience [] []) .> (_ -> effect p))
+
+fresh_seat = pool/make 1 .> (mail -> pool/give mail [] .> (_ -> belled mail))
+
+stream_head = "HTTP/1.1 200 OK\r\n{event_stream}\r\n{uncached}\r\n\r\n"
+
+event_stream = "content-type: text/event-stream"
+
+uncached = "cache-control: no-cache"
+
+fn belled mail
+  pool/make 1 .> (bell -> effect (seat mail bell))
+
+# The stream a page holds open. It ends when a write to the page fails, and
+# the page's seat is given up for the next.
+fn live c pages
+  seated pages .> (s -> streamed c pages s)
+
+fn streamed c pages s
+  sent_all = net/write c stream_head .> (_ -> passed c s)
+  sent_all .? (_ -> effect 0) .> (_ -> vacated pages s)
+
+fn passed c s
+  pool/take s.bell
+    .> (_ -> pool/take s.mail)
+    .> (held -> pool/give s.mail [] .> (_ -> net/write c (text/join held "")))
+    .> (_ -> passed c s)
+
+# A seat that was sat in before may hold a line or two its last page never
+# read. The page that takes it is told of a change that came before it, and
+# fetches itself once more than it needed to.
+fn seated pages
+  pool/take pages .> (a -> placed pages a (list/first a.spare))
+
+fn placed pages a none
+  fresh_seat .> (s -> sat pages (push a.listening s) a.spare s)
+
+fn placed pages a s
+  sat pages (push a.listening s) (list/to_list (list/drop a.spare 1)) s
+
+fn sat pages listening spare s
+  pool/give pages (audience listening spare) .> (_ -> effect s)
+
+fn vacated pages s
+  pool/take pages .> (a -> pool/give pages (emptied a s))
+
+fn emptied a s
+  stayed = list/reject a.listening (x -> x.bell.handle == s.bell.handle)
+  audience (list/to_list stayed) (push a.spare s)
+
+# A line for every page listening. The pages are read and put straight back,
+# so none joins or leaves late for it, and a line is left in each page's
+# mail whether or not the page is reading.
+fn announced pages line
+  pool/take pages
+    .> (a -> pool/give pages a .> (_ -> effect a.listening))
+    .> (seats -> posted_to seats line)
+
+fn posted_to seats line
+  list/fold seats (effect 0) (acc s -> acc .> (_ -> posted s line))
+
+fn posted s line
+  pool/take s.mail .> (held -> added s held line)
+
+fn added s held line
+  pool/give s.mail (push held line) .> (_ -> rung s (length held))
+
+# The bell is rung for the first line in an empty mail and no other, so it
+# never holds two marks and ringing it never waits.
+fn rung s 0
+  pool/give s.bell true
+
+fn rung _ _
+  effect 0
+
+# The server's one listener. When its session is lost it says so, waits a
+# second and listens again on a new one; the pages keep their streams, and
+# miss what changed in between.
+fn relaying connect pages
+  connect
+    .> (db -> heard_through db pages)
+    .? relay_lost
+    .> (_ -> time/sleep 1000)
+    .> (_ -> relaying connect pages)
+
+fn heard_through db pages
+  heard_all = pg/run db "listen senro" .> (_ -> relayed db pages)
+  heard_all .? relay_lost .> (_ -> pg/close db)
+
+fn relayed db pages
+  pg/notified db
+    .> (p -> announced pages "data: changed {p}\n\n")
+    .> (_ -> relayed db pages)
+
+fn relay_lost u
+  io/write_err "senro: the live listener stopped: {u.reason}\n"
+
+# A comment line to every page, each `beat`.
+fn beating pages
+  os/env "SENRO_LIVE_BEAT" .> (set -> kept_time pages (beat_of set))
+
+fn kept_time pages every
+  time/sleep every
+    .> (_ -> announced pages ": beat\n\n")
+    .> (_ -> kept_time pages every)
+
+fn beat_of none
+  default_beat
+
+fn beat_of set
+  beat_or_default (text/to_int set)
+
+fn beat_or_default none
+  default_beat
+
+fn beat_or_default ms
+  ms

@@ -395,7 +395,12 @@ when they are given that path. The specs write it again and compare the two.
   POSTs a `_method` of `PATCH` or `DELETE` is routed as that method, as in
   Rails. When a request that isn't a GET finishes, the server notifies
   Postgres's `senro` channel, and every page holding `/senro/live` open fetches
-  itself again, so one visitor's change shows on another's page.
+  itself again, so one visitor's change shows on another's page. The server
+  listens on that channel with one database session for all its pages, so a
+  page costs it one connection and Postgres nothing. Every fifteen seconds
+  each page is sent a comment line, and a page it cannot be written to is let
+  go; that takes two such lines, so a closed tab is forgotten within half a
+  minute whether or not anyone is writing.
   `web/refusal` answers a `web/denied` with 403 Forbidden and a `web/absent`
   with 404 Not Found.
 - `passwords`: passwords kept as PBKDF2-SHA-256 digests under a salt from
