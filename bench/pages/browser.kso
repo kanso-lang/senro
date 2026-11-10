@@ -1,0 +1,11 @@
+import "../../browser"
+import "../../kata"
+import "./reading"
+import "./views"
+
+derive kata/views
+
+# The app's browser module: its pages and its component.
+kept = browser/component reading/act reading/view
+
+browser/answer_pages { "reading":kept } views/rendered

@@ -1,0 +1,10 @@
+import "../../kata"
+import "./board"
+import "./reading"
+
+derive kata/views
+
+# What both answers start from, without a page: the records built and the
+# component rendered. The other rows are read against this one.
+held = reading/view (reading/holding 5)
+print (length (board/topics 50) + length held)

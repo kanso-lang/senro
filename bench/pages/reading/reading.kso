@@ -1,0 +1,46 @@
+import "std/list"
+
+# A reading list kept in the browser: the topics saved so far, the one the
+# next click saves, and a note. Each action takes the list and answers the
+# next one.
+pub fn saved_next state
+  taken = up_next state["next"]
+  kept = push (ids state) taken
+  after = taken + 3
+  said = "Saved topic {taken}."
+  { "next":after "note":said "saved":kept }
+
+pub fn cleared state
+  after = up_next state["next"]
+  { "next":after "note":"" "saved":[] }
+
+fn up_next none
+  1
+
+fn up_next n
+  n
+
+fn listed none
+  []
+
+fn listed xs
+  xs
+
+# What the template shows of a list, whatever the state holds.
+fn ids state
+  listed state["saved"]
+
+fn note state
+  written state["note"]
+
+fn written none
+  ""
+
+fn written s
+  s
+
+# A list with `n` topics saved, as the page first shows it.
+pub fn holding n
+  first = list/to_list (list/map (list/take list/naturals n) (i -> i * 3))
+  after = n * 3
+  { "next":after "note":"" "saved":first }

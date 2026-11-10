@@ -1,0 +1,53 @@
+import "std/list"
+
+# The records behind the benchmark's page: fifty topics, each with its
+# author, a list of tags and a field no template reads. They are built here
+# and not read from a database, so a count is a count of the page and
+# nothing else.
+pub type author
+  name
+  karma
+
+pub type topic
+  id
+  title
+  author
+  excerpt
+  replies
+  pinned
+  tags
+  posted
+  notes
+
+pub type viewer
+  name
+
+# A request as far as a page's answer reads one: its headers.
+pub type asked
+  headers
+
+pub fn topics n
+  list/to_list (list/map (list/take list/naturals n) written)
+
+fn written i
+  by = author "Writer {i % 7}" (i * 13)
+  title = "Topic {i}: kata & <senro> in \"practice\""
+  day = "2026-11-{10 + i % 20}"
+  topic i title by (excerpt i) (i * 7 % 50) (i % 10 == 0) (tagged i) day "kept"
+
+fn excerpt i
+  lead = "A page that updates in place asks the server for its data"
+  "{lead}, and number {i} renders it with the app's own views."
+
+fn tagged i
+  return ["kata" "wasm" "views"] if i % 3 == 0
+  return ["senro"] if i % 3 == 1
+  []
+
+pub signed_in = viewer "Ada"
+
+# A browser asks for a page as data with this header, and for the page
+# itself without it.
+pub for_data = asked { "senro-view":"1" }
+
+pub for_page = asked {}

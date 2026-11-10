@@ -1,0 +1,13 @@
+import "../../kata"
+import "./board"
+import "./reading"
+import "./views"
+import "std/io"
+
+derive kata/views
+
+# The page as the server answers a browser that asked for the page.
+held = reading/view (reading/holding 5)
+listed = views/board_view (board/topics 50) board/signed_in held
+answer = views/answer board/for_page (views/layout_view "Board" listed)
+io/write answer.body

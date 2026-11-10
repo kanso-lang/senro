@@ -41,6 +41,11 @@ jobs:
           sudo ln -sf /usr/bin/clang-19 /usr/local/bin/clang
           sudo ln -sf /usr/bin/wasm-ld-19 /usr/local/bin/wasm-ld
           sh /tmp/kanso/scripts/build_runtime_wasm.sh /tmp/kanso-runtime.wasm
+      # bench/pages counts what its page costs in wasm instructions with
+      # kanso's count_module, an example over the host kanso counts its own
+      # browser rows with.
+      - name: kanso's instruction counter
+        run: cd /tmp/kanso && cargo build --release --example count_module
       # The service starts before the checkout, so it learns its certificate
       # here: spec/tls's localhost certificate, then ssl on and a reload.
       - name: Postgres serves TLS with the test certificate
@@ -65,9 +70,10 @@ jobs:
         run: |
           npm install --prefix /tmp/pw playwright@1.56.1
           /tmp/pw/node_modules/.bin/playwright install --with-deps chromium firefox
-      - name: specs (checks, derived table, kata's views, runs, database, browsers, errors)
+      - name: specs (checks, derived table, kata's views, runs, database, browsers, errors, benchmark)
         env:
           NODE_PATH: /tmp/pw/node_modules
           SENRO_BROWSERS: chromium firefox
           KANSO_RUNTIME_WASM: /tmp/kanso-runtime.wasm
+          KANSO_COUNT: /tmp/kanso/target/release/examples/count_module
         run: KANSO=/tmp/kanso/target/release/kanso sh spec.sh

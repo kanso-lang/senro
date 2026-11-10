@@ -1,0 +1,33 @@
+# What bench/pages costs, read by bench/pages.sh. The app is a board of
+# fifty topics inside a layout, with a reading list component on it.
+#
+# Bytes are what travels: the page as data, as a browser that asked for it
+# is answered, and the component's state, as the page hands it to an action.
+#
+# Instructions are wasm instructions executed by one run, counted by kanso's
+# count_module, which reads the same number on every machine for the same
+# two modules. The server's entries are built for wasm and counted the same
+# way: the count is of the same kanso code, though not of the native
+# instructions a server retires.
+#
+#   server_records  the fifty records built and the component rendered:
+#                   what both answers below start from
+#   server_data     the page answered as data
+#   server_html     the page answered as a page
+#   browser_start   the browser module run on an event it does nothing with
+#   browser_page    the module turning the page's data into the page
+#   browser_act     the module running an action: the state read, the action
+#                   run, the next state written and the component rendered.
+#                   The server runs the same steps for a component whose
+#                   actions run there.
+#
+# The rows belong to the kanso in .kanso-version and to the clang that built
+# the runtime for wasm32, so they are taken from CI.
+page_bytes=15191
+state_bytes=43
+server_records_instructions=405238
+server_data_instructions=1861294
+server_html_instructions=5720686
+browser_start_instructions=13894
+browser_page_instructions=7092344
+browser_act_instructions=172434
