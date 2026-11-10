@@ -1,0 +1,6 @@
+import "../../../web"
+import "std/io"
+
+# The JavaScript the page script runs a browser module with, for
+# spec/browser/module.mjs to run under node.
+io/write web/module_runner

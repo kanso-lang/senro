@@ -91,7 +91,10 @@ note "== each browser module answers its events on every engine"
 # event with no component and no action, whose third field is the page's
 # bytes in base64, handed over as a file. The browser build is run
 # by spec/browser/module.mjs against the kanso runtime for wasm32 named by
-# KANSO_RUNTIME_WASM, and is skipped without it.
+# KANSO_RUNTIME_WASM, and is skipped without it. The JavaScript that runs it
+# is the page script's own, which spec/browser/runner prints.
+runner=$(mktemp)
+(cd spec/browser/runner && "$KANSO" run .) > "$runner" 2>&1 || bad "the page script's module runner prints"
 tab=$(printf '\t')
 nl='
 '
@@ -134,7 +137,7 @@ for events in spec/runs/*.events; do
       case $engine in
         native) (cd "$d" && SENRO_PAGE="$page" SENRO_EVENT="$event" "$KANSO" run browser.kso 2>&1) ;;
         interp) (cd "$d" && SENRO_PAGE="$page" SENRO_EVENT="$event" "$KANSO" run browser.kso --interp 2>&1) ;;
-        wasm) node spec/browser/module.mjs "$KANSO_RUNTIME_WASM" "$built/app.wasm" "$event" $page 2>&1 ;;
+        wasm) node spec/browser/module.mjs "$runner" "$KANSO_RUNTIME_WASM" "$built/app.wasm" "$event" $page 2>&1 ;;
       esac
       echo "--"
     done < "$events")
