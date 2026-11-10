@@ -48,9 +48,9 @@ fn shown req rows editing
   effect (views/answer req (views/layout_view "Pantry" page))
 
 # Each item's staple star, a component whose state is the item's id and flag.
-# Postgres sends a boolean as text, t or f.
+# senro/pg reads a boolean column as true or false.
 fn starred i
-  staple/view { "id":i.id "staple":(i.staple == "t") }
+  staple/view { "id":i.id "staple":i.staple }
 
 stocked = "select id, name, quantity, staple from items order by id"
 

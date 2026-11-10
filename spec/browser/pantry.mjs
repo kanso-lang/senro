@@ -235,4 +235,13 @@ const seen = await other.evaluate(() => ({
 console.log(`the other visitor sees green tea at ${seen.count}, mark ${seen.mark}`);
 const asData = fetched.length > 0 && fetched.every((k) => k === "data");
 console.log(`every page the shelf fetched came as data: ${asData}`);
+
+// A page loaded afresh draws each star from the database, so the staple
+// starred above is still starred.
+await page.reload();
+await page.waitForSelector("html.senro-ready", { state: "attached" });
+const kept = await page.evaluate(() =>
+  [...document.querySelectorAll(".items li button.staple")]
+    .map((b) => b.textContent.trim()).join(" "));
+console.log(`staples after a reload: ${kept}`);
 await browser.close();
