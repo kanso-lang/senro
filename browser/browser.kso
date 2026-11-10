@@ -1,4 +1,6 @@
 import "../data"
+import "../wire"
+import "std/base64"
 import "std/json"
 import "std/os"
 import "std/text"
@@ -15,28 +17,43 @@ pub fn component act view
 
 # The page's script runs the app's browser module once for each event, and
 # hands it the event in SENRO_EVENT as three lines: the component's name, the
-# action's name and the state as JSON. The module prints the next state as
-# JSON on one line, then the component rendered in it.
+# action's name and the state as the page holds it, its bytes in base64
+# (`wire`). The module prints an empty line, then the component rendered in
+# its next state, which holds that state in turn.
 pub fn answer components
   os/env "SENRO_EVENT" .> (e -> print (heard components (said e)))
 
 # A module that renders the app's pages as well, with the `rendered` that
 # `derive kata/views` wrote for its views. A page arrives as an event with
-# no component and no action, and its state is the page as data, as the
-# server sent it; the module prints the page rendered.
+# no component and no action, and its bytes, as the server sent them, in a
+# file the page's script serves: `/senro/page`, or the file SENRO_PAGE names
+# where a spec runs the module outside a browser. The module prints the page
+# rendered, or nothing when the bytes are not a page of this app's.
 pub fn answer_pages components rendered
-  os/env "SENRO_EVENT" .> (e -> print (paged components rendered (said e)))
+  os/env "SENRO_EVENT" .> (e -> paged components rendered (said e))
 
 fn paged components rendered event
   parts = text/split event "\n"
-  return heard components event if length parts < 3 or parts[1] != ""
-  drawn rendered (json/decode (part parts 3))
+  page = length parts >= 3 and parts[1] == ""
+  return print (heard components event) if not page
+  os/env "SENRO_PAGE"
+    .> (named -> os/read_bytes (page_at named))
+    .> (bytes -> print (drawn rendered bytes))
+
+fn page_at none
+  "/senro/page"
+
+fn page_at named
+  named
 
 fn drawn _ none
   ""
 
-fn drawn rendered page
-  rendered page
+fn drawn _ _:os/file_not_found
+  ""
+
+fn drawn rendered bytes
+  rendered bytes
 
 fn heard components event
   answered components (text/split event "\n")
@@ -49,9 +66,16 @@ fn said event
 
 fn answered components parts
   return "" if length parts < 3
-  decoded components parts (json/decode (part parts 3))
+  decoded components parts (held (base64/decode (part parts 3)))
 
-# A state that is not JSON is no state, and the component is left alone.
+fn held none
+  none
+
+fn held bytes
+  wire/unpacked bytes
+
+# Text that is not a state's bytes is no state, and the component is left
+# alone.
 fn decoded _ _ none
   ""
 
@@ -66,12 +90,12 @@ fn found none _ _ _
 # instead of its next state (`data/ask`). The event's fourth line is the
 # answers the page has had so far, one list for each round it sent, and the
 # action is run through them. While it still asks, the module prints `?` and
-# the calls, which the page sends to the server in one request; `?` is not
-# JSON, so it cannot be read as a state.
+# the calls, which the page sends to the server in one request. An answer's
+# first line is empty otherwise, so the two cannot be confused.
 fn found c action state rounds
   next = data/settled (c.act action state) rounds
   return "?\n{json/encode (data/calls_in next)}" if data/asking? next
-  "{json/encode next}\n{c.view next}"
+  "\n{c.view next}"
 
 fn given_rounds none
   []

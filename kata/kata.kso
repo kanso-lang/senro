@@ -96,6 +96,17 @@ type lined
   lines
   file
 
+# How a value travels (kanso#2416): the function that writes one onto the
+# bytes, the function that reads one back, and every type and helper those
+# two lean on, as source: the packer's helpers, the reader's, and the types
+# of the records the reader builds.
+type borne
+  pack
+  read
+  packers
+  readers
+  kinds
+
 # The kanso source for template `name`, read from `file`, whose text is
 # `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
@@ -390,11 +401,10 @@ fn quoted c
 fn spliced acc hole at
   woven (push acc.units (unit hole at true)) acc.helpers
 
-# Markup spliced in as it is. What JSON decoded may hold a page within the
-# page, such as a layout's body, which is rendered where it is spliced.
-fn raw e o
-  return "\{kata_raw {wrapped e}}" if o.keyed
-  "\{{e}}"
+# Markup spliced in as it is, through `kata_raw`, which draws a page within
+# the page, such as a layout's body, where it is spliced.
+fn raw e _
+  "\{kata_raw {wrapped e}}"
 
 fn escaped e
   "\{escape {wrapped e}}"
@@ -872,27 +882,6 @@ fn looped_from over rest loops declared depth
   return "" if base == ""
   text/join (list/concat ["{base}.[]"] rest) "."
 
-# `{name}_view` takes what the template takes and answers the page as data:
-# the template's name and its values, each record cut down to a map of the
-# fields the template reads, so the page can travel as JSON. Reading those
-# fields here, from the records the action built, is what checks them.
-pub fn viewed name file src
-  declared = takes src
-  paths = reads src
-  at = lined (read_lines src) file
-  each = list/to_list (list/map declared (d -> local_of name d paths at))
-  helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
-  pairs = list/to_list (list/sort (list/map each (e -> e.call)))
-  locals = map_literal pairs "  kata_locals = " "  "
-  head = "pub fn {name}_view {params_of declared}"
-  node = "  \{ \"locals\":kata_locals \"view\":\"{name}\" }"
-  main = "{head}\n{locals}\n{node}\n"
-  text/join (push helpers main) "\n"
-
-fn local_of name d paths at
-  v = encoding name d d (under paths d) at d
-  helped "\"{d}\":{wrapped v.call}" v.helpers
-
 # The paths under `name`, with `name.` taken off.
 fn under paths name
   lead = "{name}."
@@ -904,51 +893,6 @@ fn first_step p
 
 fn rest_of p
   text/join (list/to_list (list/drop (text/split p ".") 1)) "."
-
-# What the encoder writes for a value read by `expr`, given the paths read
-# beneath it: the value itself when nothing is read from it, each element
-# mapped when it is a list, and its fields picked when it is a record.
-fn encoding name slug expr subs at path
-  return helped expr [] if length subs == 0
-  each = list/to_list (list/select subs (s -> first_step s == "[]"))
-  return as_list name slug expr each at path if length each > 0
-  r = picked name slug subs at path
-  helped "{r.call} {wrapped expr}" r.helpers
-
-fn as_list name slug expr each at path
-  inner = list/to_list (list/reject (list/map each rest_of) (s -> s == ""))
-  return helped expr [] if length inner == 0
-  e = each_one name "{slug}_each" inner at "{path}.[]"
-  h = "{name}_view_{slug}"
-  mapped = "fn {h} xs\n  list/to_list (list/map xs {e.call})\n"
-  helped "{h} {wrapped expr}" (push e.helpers mapped)
-
-fn each_one name slug subs at path
-  lists = list/any? subs (s -> first_step s == "[]")
-  return picked name slug subs at path if not lists
-  h = "{name}_view_{slug}"
-  s = encoding name slug "x" subs at path
-  helped h (push s.helpers "fn {h} x\n  {s.call}\n")
-
-# A record cut down to the fields read from it, as a function of the record.
-# Each field is read into a binding of its own, under the template line that
-# first reads it, so a field the record lacks is reported at that line.
-fn picked name slug subs at path
-  fields = distinct (list/to_list (list/map subs first_step)) []
-  each = list/to_list (list/map fields (f -> field_of name slug subs f at path))
-  helpers = list/fold each [] (acc e -> list/concat acc e.helpers)
-  binds = text/join (list/to_list (list/map each (e -> e.call))) ""
-  pairs = list/to_list (list/sort (list/map fields (f -> "\"{f}\":kata_{f}")))
-  h = "{name}_view_{slug}"
-  body = "{binds}{map_literal pairs "  " "  "}"
-  helped h (push helpers "fn {h} x\n{body}\n")
-
-fn field_of name slug subs f at path
-  below = list/select subs (s -> first_step s == f and s != f)
-  rests = list/to_list (list/map below rest_of)
-  v = encoding name "{slug}_{f}" "x.{f}" rests at "{path}.{f}"
-  from = first_cited subs f at path
-  helped "{from}  kata_{f} = {v.call}\n" v.helpers
 
 # The `# from` line above a field's binding: the first template line that
 # reads the field or anything beneath it.
@@ -966,3 +910,154 @@ fn map_literal pairs lead indent
   return "{lead}\{}" if length pairs == 0
   return line if length line <= 80
   "{lead}\{\n{indent}  {text/join pairs "\n{indent}  "}\n{indent}}"
+
+# A value nothing is read beneath travels behind a tag, whatever it is.
+leaf = borne "wire/add" "wire/at" [] [] []
+
+# A page's shape as kata reads it from the template: what it takes, in the
+# order written, and every path it reads beneath them. Two compiles agree on
+# a module's bytes exactly when they agree on this for each of its pages.
+pub fn shape name src
+  "{name}({text/join (takes src) " "}){text/join (list/sort (reads src)) ","}"
+
+# `{name}_view` takes what the template takes and answers the page: how it
+# is written onto bytes, and how it is drawn as markup from the records the
+# action built. Written onto bytes it is `number`, the page's place among
+# its module's pages, and then each value by its shape: a record as the
+# fields the template reads, in order, and a list of records as a count and
+# the records. Reading those fields from the action's records is what checks
+# them.
+pub fn viewed name file src number
+  declared = takes src
+  each = borne_all name file src
+  helpers = list/fold each [] (acc b -> list/concat acc b.packers)
+  given = params_of declared
+  passed = if (length declared == 0) "\"\"" (text/join declared " ")
+  pack = "  kata_pack = (acc -> {name}_pack acc {passed})"
+  draw = "  kata_draw = (_ -> {name} {passed})"
+  made = "  wire/paged kata_pack kata_draw"
+  view = "pub fn {name}_view {given}\n{pack}\n{draw}\n{made}"
+  first = "wire/add_count acc {number}"
+  body = threaded first (list/to_list (list/map each (b -> b.pack))) declared
+  packer = "fn {name}_pack acc {given}\n{body}"
+  "{text/join (list/concat helpers [packer view]) "\n\n"}\n"
+
+# The readers of a page's values and `{name}_shown`, which reads a page from
+# bytes at a position and draws it with the template, or draws nothing when
+# the bytes are not this page and nothing else.
+pub fn read_page name file src
+  declared = takes src
+  each = borne_all name file src
+  helpers = list/fold each [] (acc b -> list/concat acc b.readers)
+  readers = list/to_list (list/map each (b -> b.read))
+  steps = read_steps readers 1 "p" []
+  last = if (length declared == 0) "p" "r{length declared}.next"
+  found = values_of (length declared)
+  call = if (length declared == 0) "{name} \"\"" "{name} {text/join found " "}"
+  guard = "  return \"\" if {last} != length bs + 1"
+  lines = list/concat steps [guard "  {call}"]
+  page = "fn {name}_shown bs p\n{text/join lines "\n"}"
+  "{text/join (list/concat helpers [page]) "\n\n"}\n"
+
+# The types of the records a page's reader builds, one for each record the
+# template reads fields from, each a definition of its own.
+pub fn kinds name file src
+  each = borne_all name file src
+  list/fold each [] (acc b -> list/concat acc b.kinds)
+
+fn borne_all name file src
+  declared = takes src
+  paths = reads src
+  at = lined (read_lines src) file
+  list/to_list (list/map declared (d -> borne_by name d (under paths d) at d))
+
+# What each of `n` reads in a row found: `r1.value`, `r2.value` and on.
+fn values_of n
+  list/to_list (list/map (list/take list/naturals n) (i -> "r{i}.value"))
+
+# One line a value, each written onto what the line before answered.
+fn threaded first packs names
+  return "  {first}" if length packs == 0
+  lines = thread packs names 1 first []
+  text/join lines "\n"
+
+fn thread packs names i from acc
+  return acc if i < 1 or length packs < i or length names < i
+  last = i == length packs
+  call = "{packs[i]} {wrapped from} {names[i]}"
+  line = if last "  {call}" "  a{i} = {call}"
+  thread packs names (i + 1) "a{i}" (push acc line)
+
+# One line a value, each read from where the line before stopped.
+fn read_steps readers i from acc
+  return acc if i < 1 or length readers < i
+  line = "  r{i} = {readers[i]} bs {from}"
+  read_steps readers (i + 1) "r{i}.next" (push acc line)
+
+# How the value read by the paths `subs` beneath it travels: behind a tag
+# when nothing is read from it, as a count and its elements when it is a
+# list whose elements are read from, and as its fields when it is a record.
+fn borne_by name slug subs at path
+  return leaf if length subs == 0
+  each = list/to_list (list/select subs (s -> first_step s == "[]"))
+  return list_borne name slug each at path if length each > 0
+  record_borne name slug subs at path
+
+fn list_borne name slug each at path
+  inner = list/to_list (list/reject (list/map each rest_of) (s -> s == ""))
+  return leaf if length inner == 0
+  one = borne_by name "{slug}_each" inner at "{path}.[]"
+  p = "{name}_pack_{slug}"
+  r = "{name}_read_{slug}"
+  counted = "(wire/add_count acc (length xs))"
+  packer = "fn {p} acc xs\n  list/fold xs {counted} {one.pack}"
+  reader = "fn {r} bs p\n  wire/listed bs p {one.read}"
+  borne p r (push one.packers packer) (push one.readers reader) one.kinds
+
+fn record_borne name slug subs at path
+  fields = list/to_list (list/sort (distinct (firsts subs) []))
+  one = (f -> field_borne name slug subs f at path)
+  each = list/to_list (list/map fields one)
+  packers = list/fold each [] (acc b -> list/concat acc b.packers)
+  readers = list/fold each [] (acc b -> list/concat acc b.readers)
+  rows = list/fold each [] (acc b -> list/concat acc b.kinds)
+  kind_name = "{name}_row_{slug}"
+  kind = "type {kind_name}\n  {text/join fields "\n  "}"
+  p = "{name}_pack_{slug}"
+  r = "{name}_read_{slug}"
+  cites = list/to_list (list/map fields (f -> first_cited subs f at path))
+  packs = list/to_list (list/map each (b -> b.pack))
+  lines = fielded packs fields cites 1 "acc" []
+  packer = "fn {p} acc x\n{text/join lines "\n"}"
+  steps = read_steps (list/to_list (list/map each (b -> b.read))) 1 "p" []
+  found = values_of (length fields)
+  made = call_lines "  made = " kind_name found
+  got = "  wire/got made r{length fields}.next"
+  reader = "fn {r} bs p\n{text/join (list/concat steps [made got]) "\n"}"
+  borne p r (push packers packer) (push readers reader) (push rows kind)
+
+fn firsts subs
+  list/to_list (list/map subs first_step)
+
+fn field_borne name slug subs f at path
+  below = list/select subs (s -> first_step s == f and s != f)
+  rests = list/to_list (list/map below rest_of)
+  borne_by name "{slug}_{f}" rests at "{path}.{f}"
+
+# A field a line, each under the template line that first reads it, so a
+# field the record lacks is reported at that line.
+fn fielded packs fields cites i from acc
+  return acc if i < 1 or length packs < i or length fields < i
+  return acc if length cites < i
+  last = i == length packs
+  call = "{packs[i]} {from} x.{fields[i]}"
+  line = if last "  {call}" "  a{i} = {call}"
+  fielded packs fields cites (i + 1) "a{i}" (push acc "{cites[i]}{line}")
+
+# A call on one line when it fits in 80 columns, and an argument to a line
+# after the first when it does not, as the formatter asks.
+fn call_lines lead called args
+  line = "{lead}{called} {text/join args " "}"
+  return line if length line <= 80 or length args < 2
+  rest = list/to_list (list/drop args 1)
+  "{lead}{called} {args[1]}\n    {text/join rest "\n    "}"

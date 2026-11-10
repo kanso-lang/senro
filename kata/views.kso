@@ -1,3 +1,4 @@
+import "std/bits"
 import "std/derive"
 import "std/list"
 import "std/text"
@@ -21,27 +22,25 @@ fn templates p m
   use = used asked m
   keep = (n -> use != "render" or has? asked "{m.name}/{n}")
   server = served? m
-  found = list/fold (keys m.files) [] (acc f -> added acc m server f keep)
+  found = list/fold (keys m.files) [] (acc f -> added acc m server f)
   bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
   head = derive/define m.name (head_of (length bound > 0) use)
   acts = if (length bound == 0) [] (acting m bound)
   pages = if (use == "") [] (pages_of m use keep)
-  list/concat (list/concat (list/concat [head] found) acts) pages
+  types = if (use == "") [] (types_of m)
+  rest = list/concat (list/concat (list/concat [head] found) acts) pages
+  list/concat types rest
 
-fn added acc m server f keep
-  wrote acc m.name server f m.files[f] keep
+fn added acc m server f
+  wrote acc m.name server f m.files[f]
 
-fn wrote acc _ _ _ none _
+fn wrote acc _ _ _ none
   acc
 
-# A program that only renders pages, such as the app's browser module, holds
-# none of the records its pages read, so it gets a page's own function only
-# when it names it.
-fn wrote acc m server f src keep
+fn wrote acc m server f src
   return acc if not text/ends_with? f ".kata"
   name = text/join (text/split f ".kata") ""
   return push acc (derive/refuse m (reserved f name)) if taken? name
-  return acc if bare? src and not keep name
   return push acc (derive/define m (compiled name f src)) if bare? src
   push acc (component m server f name src)
 
@@ -51,8 +50,9 @@ fn bare? src
 # A template that binds actions is a component. Its state is the one value
 # it takes, and the function named after the file wraps what the template
 # renders in an element that says which component it is, what its state is,
-# as JSON, and whether its actions run on the server, so the page's script
-# can hand the state to `act` in the browser or post it to the server.
+# as its bytes in base64, and whether its actions run on the server, so the
+# page's script can hand the state to `act` in the browser or post it to the
+# server.
 fn component m server f name src
   taken = takes src
   return derive/refuse m (one_state f) if length taken != 1
@@ -61,7 +61,7 @@ fn component m server f name src
   runs = if server " data-runs=\\\"server\\\"" ""
   wrap = [
     "pub fn {name} {s}"
-    "  kata_state = escape (json/encode {s})"
+    "  kata_state = base64/encode (wire/packed {s})"
     "  kata_inside = {name}_body {s}"
     "  kata_open = \"<div data-component=\\\"{m}\\\"{runs}\""
     "  \"\{kata_open} data-state=\\\"\{kata_state}\\\">\{kata_inside}</div>\""
@@ -212,32 +212,54 @@ fn used asked m
 fn named_in acc c
   list/concat (push acc c.callee) c.arguments
 
-# The imports and helpers every compiled template leans on, and those the
-# pages compiled to read JSON lean on too.
+# The imports every compiled template leans on, those a component's state
+# travels with, and those a module of pages leans on too. `../wire` is
+# written from this module, as a derivation's imports are.
 fn head_of bound use
-  json = bound or use == "serve"
+  paged = use != ""
+  wired = if (bound or paged) ["../wire"] []
+  held = if bound ["std/base64"] []
   extra = if (use == "serve") ["std/net/http"] []
-  listed = list/concat (if json ["std/json" "std/list"] ["std/list"]) extra
-  all = push listed "std/text"
+  std = list/concat (list/concat held ["std/list"]) extra
+  all = list/concat wired (push std "std/text")
   lines = list/to_list (list/map all (i -> "import \"{i}\""))
-  body = if (use == "") leaned_on "{leaned_on}\n{keyed_helpers}"
+  body = if paged "{leaned_on}\n{splicing}" "{leaned_on}\n{plain_splice}"
   "{text/join lines "\n"}\n\n{body}"
 
-# Each page of the module as data and rendered from it: `{name}_view`,
-# which describes the page, the template compiled to read JSON, and
-# `rendered`, which renders a page `{name}_view` described with that
-# compile. A server also gets `answer`.
+# Each page of the module as bytes and drawn from them (kanso#2416). A
+# page's reader, `{name}_shown`, and the types of the records it builds are
+# written whenever the module's pages are used. `{name}_view`, which answers
+# the page a server sends, is written for a server, and for a browser module
+# that names it. `rendered` draws a page, from the page itself or from its
+# bytes, and a server also gets `packed` and `answer`.
 fn pages_of m use keep
   files = list/to_list (list/sort (keys m.files))
   pages = list/to_list (list/select files (f -> page? f m.files[f]))
-  keyed_all = list/to_list (list/map pages (f -> keyed_of m f m.files[f]))
-  arms = list/to_list (list/map pages (f -> shown_arm f m.files[f]))
-  dispatch = "{rendering}\n{text/join arms "\n"}\nfn kata_shown _ _\n  \"\"\n"
-  drawn = push keyed_all (derive/define m.name dispatch)
-  asked_for = list/select pages (f -> keep "{page_name f}_view")
-  described = list/to_list (list/map asked_for (f -> viewed_of m f m.files[f]))
-  both = list/concat drawn described
+  readers = list/to_list (list/map pages (f -> reader_of m f m.files[f]))
+  numbers = list/to_list (list/take list/naturals (length pages))
+  arms = list/to_list (list/map numbers (i -> shown_arm i pages[i]))
+  marks = marked (shapes_of m pages)
+  dispatch = "{drawing marks}\n{text/join arms "\n"}\n{shown_else}"
+  drawn = push readers (derive/define m.name dispatch)
+  wanted = list/select numbers (i -> viewing? use keep pages[i])
+  answers = list/to_list (list/map wanted (i -> view_of m pages[i] i))
+  both = list/concat drawn answers
   if (use == "serve") (push both (derive/define m.name answering)) both
+
+# The types of the records the module's readers build. A type comes before
+# any function in the file a module's definitions share, so these are
+# answered first.
+fn types_of m
+  files = list/to_list (list/sort (keys m.files))
+  pages = list/to_list (list/select files (f -> page? f m.files[f]))
+  typed = (acc f -> list/concat acc (kinds_of m f m.files[f]))
+  list/fold pages [] typed
+
+fn viewing? _ _ none
+  false
+
+fn viewing? use keep f
+  use == "serve" or keep "{page_name f}_view"
 
 fn page? _ none
   false
@@ -248,87 +270,146 @@ fn page? f src
 fn page_name f
   text/join (text/split f ".kata") ""
 
-fn keyed_of m f none
+fn kinds_of _ _ none
+  []
+
+fn kinds_of m f src
+  each = kata_kinds (page_name f) f src
+  list/to_list (list/map each (k -> derive/define m.name "{k}\n"))
+
+fn kata_kinds name f src
+  kinds name f src
+
+fn reader_of m f none
   derive/refuse m.name "`{f}` could not be read"
 
-fn keyed_of m f src
-  derive/define m.name (keyed (page_name f) f src)
+fn reader_of m f src
+  derive/define m.name (read_page (page_name f) f src)
 
-fn viewed_of m f none
+fn view_of m none _
+  derive/refuse m.name "a page could not be read"
+
+fn view_of m f i
+  written_view m f m.files[f] i
+
+fn written_view m f none _
   derive/refuse m.name "`{f}` could not be read"
 
-fn viewed_of m f src
-  derive/define m.name (viewed (page_name f) f src)
+fn written_view m f src i
+  derive/define m.name (viewed (page_name f) f src i)
 
 fn shown_arm _ none
   ""
 
-fn shown_arm f src
-  n = page_name f
-  declared = takes src
-  return "fn kata_shown \"{n}\" _\n  {n}_keyed \"\"\n" if length declared == 0
-  bound = list/map declared (d -> "  {d} = kata_at kata_l \"{d}\"")
-  call = "  {n}_keyed {text/join declared " "}"
-  lines = list/concat (list/to_list bound) [call]
-  "fn kata_shown \"{n}\" kata_l\n{text/join lines "\n"}\n"
+fn shown_arm i f
+  "fn kata_shown {i} bs p\n  {page_name f}_shown bs p\n"
 
-rendering = """
-  pub fn rendered node
-    kata_shown (kata_at node "view") (kata_at node "locals")
+shown_else = """
+  fn kata_shown none _ _
+    ""
+
+  fn kata_shown _ _ _
+    ""
 """
 
-# A page answers a request a browser made itself as HTML, rendered here. The
-# page's script asks with a `senro-view` header, and gets the page's data as
-# JSON, which it renders with the app's browser module. `answer_as` answers
-# with a status of the action's choosing, such as 422 for a form sent back
-# with its problems.
+# The module's shapes as four bytes, which open every page it sends. A page
+# is read only when it opens with the reader's own four, so bytes from
+# another compile, whose pages may take other values or read other fields,
+# are refused whole and never misread. The mark is the FNV-1a hash of each
+# page's shape in turn.
+fn shapes_of m pages
+  each = list/to_list (list/map pages (f -> shape_of f m.files[f]))
+  text/join each ";"
+
+fn shape_of _ none
+  ""
+
+fn shape_of f src
+  shape (page_name f) src
+
+fn marked s
+  h = list/fold (list/to_list (text/bytes s)) 2166136261 hashed
+  [(byte_of h 24) (byte_of h 16) (byte_of h 8) (byte_of h 0)]
+
+fn hashed h b
+  bits/xor h b * 16777619 & 4294967295
+
+fn byte_of h shift
+  bits/shr h shift & 255
+
+fn drawing marks
+  listed = "[{marks[1]} {marks[2]} {marks[3]} {marks[4]}]"
+  first = "bs[1] == {marks[1]} and bs[2] == {marks[2]}"
+  second = "bs[3] == {marks[3]} and bs[4] == {marks[4]}"
+  lines = [
+    "kata_marks = {listed}"
+    ""
+    "pub fn rendered p:wire/page"
+    "  p.draw none"
+    ""
+    "pub fn rendered bs"
+    "  kata_drawn bs (wire/count_at bs (kata_opened bs))"
+    ""
+    "fn kata_opened bs"
+    "  first = {first}"
+    "  second = {second}"
+    "  if (first and second) 5 0"
+    ""
+    "fn kata_drawn bs r"
+    "  kata_shown r.value bs r.next"
+    ""
+  ]
+  text/join lines "\n"
+
+# A page answers a request a browser made itself as HTML, drawn here from
+# the records. The page's script asks with a `senro-view` header, and gets
+# the page as bytes, which it draws with the app's browser module.
+# `answer_as` answers with a status of the action's choosing, such as 422
+# for a form sent back with its problems.
 answering = """
-  pub fn answer req node
-    answer_as req 200 node
+  pub fn packed page
+    page.pack (text/to_bytes kata_marks)
 
-  pub fn answer_as req code node
-    kata_answered req.headers["senro-view"] code node
+  pub fn answer req page
+    answer_as req 200 page
 
-  fn kata_answered none code node
-    page = ["content-type: text/html; charset=utf-8"]
-    http/respond code page (rendered node)
+  pub fn answer_as req code page
+    kata_answered req.headers["senro-view"] code page
 
-  fn kata_answered _ code node
+  fn kata_answered none code page
+    html = ["content-type: text/html; charset=utf-8"]
+    http/respond code html (rendered page)
+
+  fn kata_answered _ code page
     heard = [
       "cache-control: no-store"
-      "content-type: application/json"
+      "content-type: application/octet-stream"
       "senro-view: 1"
     ]
-    http/respond code heard (json/encode node)
+    http/respond code heard (packed page)
 """
 
-# What JSON decoded is read through these: a key a map lacks reads as "", a
-# value that is not a list loops over nothing, and a page within the page
-# renders where it is spliced.
-keyed_helpers = """
-  fn kata_at none _
-    ""
-
-  fn kata_at m k
-    kata_present m[k]
-
-  fn kata_present none
-    ""
-
-  fn kata_present v
-    v
-
-  fn kata_items xs:[]some
-    xs
-
-  fn kata_items _
-    []
-
+# What a template splices in as it is: markup, or a page within the page,
+# which is drawn where it is spliced. On a server that is the page the
+# action built, and in the browser it is that page's bytes.
+splicing = """
   fn kata_raw none
     "<none>"
 
-  fn kata_raw node:map[string some]
-    rendered node
+  fn kata_raw p:wire/page
+    p.draw none
+
+  fn kata_raw b:wire/blob
+    kata_drawn b.bytes (wire/count_at b.bytes 1)
+
+  fn kata_raw x
+    "\{x}"
+"""
+
+# The same for a module with no pages, where what is spliced is markup.
+plain_splice = """
+  fn kata_raw none
+    "<none>"
 
   fn kata_raw x
     "\{x}"
