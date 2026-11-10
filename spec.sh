@@ -205,6 +205,10 @@ else
         tries=$((tries + 1))
       done
       got=$(curl -s -m 10 "http://127.0.0.1:$port/nested")
+      # What the server wrote is read before it is stopped. A request's line
+      # is written before its answer, so every line is there by now, and a
+      # server being ended may add a word about the signal that ended it.
+      lines=$(sed 's/ in [0-9]*ms$/ in Nms/' "$log")
       pkill -P "$server" 2>/dev/null
       kill "$server" 2>/dev/null
       wait "$server" 2>/dev/null
@@ -223,7 +227,6 @@ else
       # request it answered, the milliseconds each took read as N.
       wrote="spec/serve/$name.log"
       if [ -f "$wrote" ]; then
-        lines=$(sed 's/ in [0-9]*ms$/ in Nms/' "$log")
         if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
           printf '%s\n' "$lines" > "$wrote"
         fi
