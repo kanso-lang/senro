@@ -1,10 +1,9 @@
 import "../../models"
-import "../../pg"
 import "../../tokens"
 import "../../web"
+import "./account"
 import "./account_mailer"
 import "./views"
-import "std/list"
 import "std/time"
 
 # The link in an unlock mail leads here. As with confirming an address,
@@ -35,24 +34,19 @@ fn opened _ _ _ false
 
 fn opened _ db token true
   id = id_text (tokens/id_of token)
-  pg/query db cleared [id]
+  account/update (models/as_app db) id { "failures":"0" "locked":"" }
     .> (_ -> effect (told "Your account is unlocked. Sign in."))
-
-cleared = "update accounts set failures = 0, locked = '' where id = $1"
 
 # Whether `token` is good now for the account it names.
 fn held db token
   id = id_text (tokens/id_of token)
-  pg/query db looked [id]
-    .> (r -> time/now .> (t -> effect (good? token (list/first r.rows) t)))
-
-looked = "select locked from accounts where id = $1"
+  account/find db id .> (a -> time/now .> (t -> effect (good? token a t)))
 
 fn good? _ none _
   false
 
-fn good? token row t
-  account_mailer/unlocks? token (models/cell row "locked") t
+fn good? token a t
+  account_mailer/unlocks? token a.locked t
 
 fn id_text none
   "0"

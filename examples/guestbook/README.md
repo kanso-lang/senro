@@ -49,21 +49,27 @@ place, rendered on the server.
   `:id`, and an `id:int` action is handed the number or answers 404. A path
   under `public/` is served as a file, which is where the stylesheet comes
   from.
-- A visitor signs the book with an account. `account.kso` declares the
-  `account` model, a name, a password digest and an email address, and its
-  actions. It is a singular resource, since a visitor only ever has the one:
-  `account/new` and `account/create` answer GET /account/new and POST
-  /account. A name or an address already taken, an address with no `@`, or
-  a password under eight characters, brings the form back with a 422.
-  Otherwise the password is digested with `passwords/digested`, the account
-  is made through its model, and its address is mailed a link to confirm.
-  GET /account/edit lets a signed-in visitor choose a new password, and
-  PATCH /account checks the current one before setting it, ten tries in
+- A visitor signs the book with an account. `account.kso` is the `account`
+  model alone: its policies, with the record declared from the table's
+  columns. Two singular resources work on it, each named for what it does.
+  `registration.kso` makes one: `registration/new` and
+  `registration/create` answer GET /registration/new and POST
+  /registration. A name or an address already taken, an address with no
+  `@`, or a password under eight characters, brings the form back with a
+  422. Otherwise the password is digested with `passwords/digested`, the
+  account is made through its model, and its address is mailed a link to
+  confirm. `password.kso` changes a password: GET /password/edit lets a
+  signed-in visitor choose a new one, and PATCH /password checks the
+  current one before setting it through `account/update`, ten tries in
   three minutes, as Devise's registrations do. `session.kso` is a singular
   resource too: GET /session/new is the sign-in form, POST /session checks
   the password with `passwords/matches?`, and a DELETE signs out. A wrong
   password and a name with no account get the same message, after the same
-  work.
+  work. What a sign-in keeps on the account (the run of wrong passwords,
+  the lock, when and from where it last signed in) the app writes as
+  itself, with `models/as_app`, and it counts with `account/increment`. No
+  module of the guestbook holds a query; the entry opens the database and
+  closes it.
 - A visitor who has lost a password follows "Forgot your password?" on the
   sign-in form to `resets.kso`. GET /resets/new asks for the address, and
   POST /resets mails a link to it when an account has it, answering the same

@@ -1,0 +1,34 @@
+import "std/text"
+
+# A day of the calendar.
+pub type date
+  year
+  month
+  day
+
+# The date `days` after 1970-01-01, by Howard Hinnant's civil_from_days,
+# which counts in 400-year eras starting in March.
+pub fn civil days
+  z = days + 719468
+  era = z / 146097
+  doe = z - era * 146097
+  yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+  doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+  mp = (5 * doy + 2) / 153
+  day = doy - (153 * mp + 2) / 5 + 1
+  month = if (mp < 10) (mp + 3) (mp - 9)
+  date (yoe + era * 400 + if (month <= 2) 1 0) month day
+
+# A moment of the app's clock, in milliseconds since 1970, written as UTC
+# to the minute: "2026-11-10 02:31 UTC". A table that keeps when something
+# happened as text keeps it this way.
+pub fn utc_minute t
+  s = t / 1000
+  d = civil (s / 86400)
+  left = s % 86400
+  day = "{d.year}-{two d.month}-{two d.day}"
+  "{day} {two (left / 3600)}:{two (left % 3600 / 60)} UTC"
+
+# A number in two digits, as a clock and a calendar write one.
+pub fn two n
+  text/pad_start "{n}" 2 "0"

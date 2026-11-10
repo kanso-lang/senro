@@ -28,7 +28,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata data mail jobs passwords tokens generate examples/guestbook examples/notebook examples/pantry examples/pg; do
+for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -280,10 +280,15 @@ fi
 # them names the pg module (kanso#2394).
 sql=$(grep -n "pg/" "$gen/note.kso" "$gen/notes.kso" "$gen/page.kso" \
   "$gen/pages.kso" examples/pantry/items.kso examples/pantry/stock.kso)
+# The guestbook's modules hold no query either; its entry opens and closes
+# the database and does nothing else with it.
+asked=$(grep -n "pg/query\|pg/run\|pg/exec" examples/guestbook/*.kso \
+  examples/guestbook/removal/*.kso)
+sql="$sql$asked"
 if [ -z "$sql" ]; then
-  note "ok: the scaffold and the pantry write no SQL"
+  note "ok: the scaffold, the pantry and the guestbook write no SQL"
 else
-  bad "the scaffold and the pantry write no SQL"
+  bad "the scaffold, the pantry and the guestbook write no SQL"
   echo "$sql"
 fi
 if out=$("$KANSO" check "$gen" 2>&1); then

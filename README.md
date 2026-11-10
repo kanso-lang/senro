@@ -404,6 +404,11 @@ when they are given that path. The specs write it again and compare the two.
   changes, the tokens made over the old one stop working, and a token made
   for one purpose opens nothing else. `tokens/id_of` reads the record's id,
   and `tokens/valid? purpose secret token bound t` checks the rest.
+- `clock`: the calendar arithmetic senro needs. `clock/utc_minute t` writes
+  a moment of the app's clock as UTC to the minute, "2026-11-10 02:31 UTC",
+  which is how a table keeps a time as text, and `clock/civil days` is the
+  date so many days after 1970-01-01, which mail's date header is written
+  from (`spec/runs/clock`).
 - `mail`: mail an app sends, such as a password reset. `mail/composed from
   to subject body` makes a plain-text message, and `mail/delivered m` sends
   it the way `SENRO_MAIL` names: to standard error when it is unset, as
