@@ -471,6 +471,10 @@ when they are given that path. The specs write it again and compare the two.
   `data-while-loading` shows and one marked `data-when-loaded` is hidden;
   afterwards it is the other way round. senro shows nothing of its own
   while loading.
+- `wire`: the bytes pages and component states travel in. A value kata
+  cannot see into is written behind a one-byte tag, and a record whose shape
+  it reads from a template is written as its fields in order, with no names.
+  `spec/runs/wire` prints each kind of value as its bytes.
 - `data`: what an action running in the browser reads from the server.
   `data/ask "stock/low" [3]` asks the provider the app named `stock/low`,
   `data/all [a b]` asks for several in one request, and `data/then a f`

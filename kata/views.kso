@@ -196,7 +196,7 @@ leaned_on = """
 # The names of the functions a module of pages answers with, which no
 # template may take.
 fn taken? name
-  list/any? ["answer" "answer_as" "rendered"] (n -> n == name)
+  list/any? ["answer" "answer_as" "rendered" "packed"] (n -> n == name)
 
 fn reserved f name
   "`{f}` would be the function `{name}`, which kata writes for every page"
