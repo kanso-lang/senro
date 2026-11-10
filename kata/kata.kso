@@ -69,18 +69,16 @@ type shaped
   open
   classes
 
-# The template's name, which prefixes every helper; the file it came from,
-# which the generated comments cite; and whether this compile reads its
-# values as JSON decoded them, with each record a map of its fields.
+# The template's name, which prefixes every helper, and the file it came
+# from, which the generated comments cite.
 type origin
   name
   file
-  keyed
 
-# What a scan of an expression found: its text with every field read written
-# as `(kata_at e "name")`, and each chain of reads it rewrote, such as
-# `post.author.name`. Only code is read; the text of a string literal is
-# copied, though the code in its `{}` holes is not.
+# What a scan of an expression found: each chain of reads in it, such as
+# `post.author.name`, which is what `reads` is after, and its text with
+# every field read written as a call. Only code is read; the text of a
+# string literal is copied, though the code in its `{}` holes is not.
 type reading
   text
   chains
@@ -111,16 +109,7 @@ type borne
 # `src`. The first line may say what the template takes, which become the
 # function's parameters in the order written.
 pub fn compiled name file src
-  written "pub fn" name (origin name file false) src
-
-# The same template compiled to read what JSON decoded: `{name}_keyed`, a
-# private function of the same parameters, in which `e.name` reads the key
-# `name` of a map. The browser renders a page with it from the data the
-# server sent, and the server renders the first request with it too. Its
-# helpers are named `{name}_k` and a line number, kept short because each
-# hole must fit on a line of the source kata writes.
-pub fn keyed name file src
-  written "fn" "{name}_keyed" (origin "{name}_k" file true) src
+  written "pub fn" name (origin name file) src
 
 fn written kind head o src
   rows = rows_of src
@@ -351,8 +340,7 @@ fn named word
 fn walked by name over rows r i last scope o acc
   body = helper rows (i + 1) last (push scope name) o r.line
   bound = if (list/any? (text/split body.call " ") (w -> w == name)) name "_"
-  listed = if o.keyed "(kata_items {wrapped over})" (wrapped over)
-  hole = "\{{by} {listed} ({bound} -> {body.call})}"
+  hole = "\{{by} {wrapped over} ({bound} -> {body.call})}"
   helpers = list/concat acc.helpers body.helpers
   woven (push acc.units (unit hole r.line true)) helpers
 
@@ -569,7 +557,7 @@ fn content s acc at o
 # short enough for the line, each preceded by the template lines its holes
 # came from.
 fn emitted head units o
-  chunks = packed (list/to_list (list/map units (u -> read_as u o)))
+  chunks = packed (list/to_list units)
   return constant_of head chunks o if text/ends_with? head " ="
   "{head}\n{body_of chunks o}"
 
@@ -691,11 +679,6 @@ fn digit? s
 fn name_char? c
   letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_?!"
   length (text/split letters c) > 1
-
-# In the keyed compile a hole's field reads become reads of a map's keys.
-fn read_as u o
-  return u if not o.keyed or not u.hole
-  unit (scanned_reads u.text).text u.line true
 
 fn scanned_reads s
   rewritten (text/chars s) 1 ["code"] (reading "" [])
