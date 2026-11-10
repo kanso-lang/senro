@@ -1,24 +1,14 @@
 import "../../models"
 import "../../passwords"
-import "../../pg"
 import "../../web"
 import "./session"
+import "./user"
 import "./views"
 import "std/text"
-
-# A user, as the `users` table stores them: the address they sign in with
-# and a digest of the password. The password itself is never stored.
-pub type user
-  id
-  email
-  digest
 
 # Anyone may make an account, as Devise's registerable lets them, and the
 # registration is a singular resource: /registration/new and /registration.
 pub without_sign_in = ["create" "new"]
-
-pub fn create? _ _
-  true
 
 pub fn new req _
   effect (opened req "" {} 200)
@@ -30,10 +20,8 @@ pub fn create req db
   f = web/form req.body
   email = text/lowercase (text/trim (web/value f "email"))
   password = web/value f "password"
-  pg/query db addressed [email]
-    .> (r -> joined req db email password (length r.rows > 0))
-
-addressed = "select id from users where email = $1"
+  user/find_by db "email" email
+    .> (held -> joined req db email password (held != none))
 
 fn joined req db email password taken
   short = "Use eight characters or more."
@@ -44,14 +32,14 @@ fn joined req db email password taken
   ]
   return effect (opened req email found 422) if models/problems? found
   passwords/digested password
-    .> (d -> models/created "" db user_model (fields_of email d))
+    .> (d -> user/create db (fields_of email d))
     .> (w -> made req w)
 
 fn fields_of email digest
   { "digest":digest "email":email }
 
 # A new account is signed in at once.
-fn made req kept:user
+fn made req kept:user/user
   s = web/session req session/secret
   home = web/noticed (web/redirect "/") "Welcome."
   effect (web/signed_in req home session/secret s kept.email kept.digest)

@@ -1,0 +1,10 @@
+# A user, as the `users` table stores them: the address they sign in with
+# and a digest of the password. The password itself is never stored. This
+# module is named for the record, so the models derivation declares `user`
+# here with a field for each column and answers for the table by this
+# module's name.
+#
+# Anyone may make an account, as Devise's registerable lets them. A reset
+# link sets a password as the app, so no policy lets a viewer change one.
+pub fn create? _ _
+  true

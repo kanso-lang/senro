@@ -1,12 +1,11 @@
 import "../../models"
 import "../../passwords"
-import "../../pg"
 import "../../web"
 import "./password_mailer"
 import "./session"
+import "./user"
 import "./views"
 import "std/io"
-import "std/list"
 import "std/text"
 import "std/time"
 
@@ -31,21 +30,18 @@ pub fn new req _
 pub fn create req db
   f = web/form req.body
   email = text/lowercase (text/trim (web/value f "email"))
-  pg/query db holder [email]
-    .> (r -> sent db (list/first r.rows) email)
+  user/find_by db "email" email
+    .> (u -> sent db u)
     .? (u -> io/write_err "no reset mail: {u.reason}\n")
     .> (_ -> effect (told "/session/new" on_its_way))
 
-holder = "select id, digest from users where email = $1"
-
 on_its_way = "If that address has an account, a link is on its way to it."
 
-fn sent _ none _
+fn sent _ none
   effect ""
 
-fn sent db row email
-  id = models/cell row "id"
-  password_mailer/reset db id email (models/cell row "digest")
+fn sent db u
+  password_mailer/reset db u.id u.email u.digest
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id
@@ -74,27 +70,21 @@ fn chose req db token password true
   return effect (chosen req token short 422) if length password < 8
   id = id_of (passwords/reset_id token)
   passwords/digested password
-    .> (d -> pg/query db reset [d id])
+    .> (d -> user/update (models/as_app db) id { "digest":d })
     .> (_ -> effect (told "/session/new" changed))
-
-reset = "update users set digest = $1 where id = $2"
 
 changed = "Your password is changed. Sign in with it."
 
 # Whether `token` is good now for the account it names.
 fn checked db token
   id = id_of (passwords/reset_id token)
-  pg/query db digest_by_id [id]
-    .> (r -> time/now .> (t -> effect (good? token (list/first r.rows) t)))
-
-digest_by_id = "select digest from users where id = $1"
+  user/find db id .> (u -> time/now .> (t -> effect (good? token u t)))
 
 fn good? _ none _
   false
 
-fn good? token row t
-  kept = models/cell row "digest"
-  passwords/reset_valid? session/secret token kept t
+fn good? token u t
+  passwords/reset_valid? session/secret token u.digest t
 
 fn id_of none
   "0"

@@ -14,6 +14,7 @@ import "./pages"
 import "./registration"
 import "./resets"
 import "./session"
+import "./user"
 import "./views"
 
 derive kata/views

@@ -1,9 +1,8 @@
 import "../../models"
 import "../../passwords"
-import "../../pg"
 import "../../web"
+import "./user"
 import "./views"
-import "std/list"
 import "std/text"
 
 # What a sign-in checks of the account an address holds. An address with no
@@ -26,18 +25,16 @@ pub without_sign_in = ["create" "new"]
 
 # What a sign-in rests on: the digest the account keeps now. A new password
 # changes it, so a password reset signs out every session made before it.
-pub signed_against = (db email -> pg/query db digest_by [email] .> kept_of)
+pub signed_against = (db email -> user/find_by db "email" email .> kept_of)
 
-digest_by = "select digest from users where email = $1"
-
-fn kept_of r
-  effect (digest_in (list/first r.rows))
+fn kept_of u
+  effect (digest_in u)
 
 fn digest_in none
   ""
 
-fn digest_in row
-  models/cell row "digest"
+fn digest_in u
+  u.digest
 
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's address into it as the viewer.
@@ -51,15 +48,15 @@ pub fn create req db
   f = web/form req.body
   email = text/lowercase (text/trim (web/value f "email"))
   password = web/value f "password"
-  pg/query db digest_by [email]
-    .> (r -> held email (list/first r.rows))
+  user/find_by db "email" email
+    .> (u -> held u)
     .> (a -> entered req email a password)
 
-fn held _ none
+fn held none
   passwords/stand_in .> (d -> effect (holder "" d))
 
-fn held email row
-  effect (holder email (models/cell row "digest"))
+fn held u
+  effect (holder u.email u.digest)
 
 fn entered req email a password
   right = passwords/matches? password a.digest
