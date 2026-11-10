@@ -13,8 +13,10 @@
 # requests as its golden holds them; the guestbook and the pantry, used in a
 # browser, update in place without a reload; the generators write
 # examples/notebook, which checks and serves its resource; a lock on a
-# guestbook account runs out by the clock (spec/lapsed); and each app under
-# spec/errors is refused with the message its golden holds.
+# guestbook account runs out by the clock (spec/lapsed); pages listening for
+# changes cost the server a connection each and Postgres nothing
+# (spec/live); and each app under spec/errors is refused with the message
+# its golden holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -29,7 +31,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later; do
+for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -372,6 +374,52 @@ else
   echo "$out"
 fi
 rm -rf "$gen"
+
+note "== pages listening for changes cost a connection each, and none once gone"
+# spec/live/app is served with a heartbeat of 300 ms and twenty pages hold
+# its stream at /senro/live open (spec/live/drive.sh). The server has one
+# more file open for each and Postgres no more sessions; a change reaches
+# every page; and once the pages have gone the server is back where it
+# began without anyone writing. The files are counted under /proc, so the
+# spec is skipped where there is none, and it uses Postgres, so
+# SENRO_NO_DB=1 skips it too.
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/live (SENRO_NO_DB=1)"
+elif [ ! -d /proc/self/fd ]; then
+  note "SKIPPED: spec/live (no /proc to count open files in)"
+else
+  for engine in native interp; do
+    flag=""
+    [ "$engine" = interp ] && flag=--interp
+    log=$(mktemp)
+    (cd spec/live/app && SENRO_LIVE_BEAT=300 exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    server=$!
+    tries=0
+    while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+      sleep 0.1
+      tries=$((tries + 1))
+    done
+    # Natively `kanso run` starts the program it built, and the server is
+    # that child; interpreted, the server is kanso itself.
+    pid=$(pgrep -P "$server" | head -1)
+    [ -z "$pid" ] && pid=$server
+    got=$(KANSO=$KANSO sh spec/live/drive.sh 24420 "$pid" 2>&1)
+    pkill -P "$server" 2>/dev/null
+    kill "$server" 2>/dev/null
+    wait "$server" 2>/dev/null
+    if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+      printf '%s\n' "$got" > spec/live/served.out
+    fi
+    if printf '%s\n' "$got" | diff spec/live/served.out - >/dev/null; then
+      note "ok: pages listening ($engine)"
+    else
+      bad "pages listening ($engine)"
+      printf '%s\n' "$got" | diff spec/live/served.out -
+      cat "$log"
+    fi
+    rm -f "$log"
+  done
+fi
 
 note "== a lock on a guestbook account runs out by the clock"
 # The guestbook is served and used over HTTP (spec/lapsed/drive.sh): three

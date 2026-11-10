@@ -54,8 +54,8 @@ type handed
 type site
   routes
   dbs
-  connect
   calls
+  pages
 
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
@@ -77,10 +77,17 @@ type site
 pub fn serve at routes connect
   pool/make sessions
     .> (dbs -> filled dbs connect sessions)
-    .> (dbs -> counting .> (calls -> opening at routes dbs connect calls))
+    .> (dbs -> counting .> (calls -> watched at routes dbs connect calls))
 
-fn opening at routes dbs connect calls
-  listened at (site routes dbs connect calls)
+fn watched at routes dbs connect calls
+  watching .> (pages -> opening at connect (site routes dbs calls pages))
+
+# The server's listener for changes and its heartbeat run beside the fiber
+# that accepts connections (live.kso).
+fn opening at connect s
+  relaying connect s.pages
+  beating s.pages
+  listened at s
 
 # The pool of one book a server counts its clients' calls in.
 pub counting = pool/make 1 .> first_book
@@ -177,7 +184,7 @@ fn heard c _ _:http/bad_request
   sent c bad_request
 
 fn heard c s req
-  return live c s.connect if req.path == "/senro/live"
+  return live c s.pages if req.path == "/senro/live"
   method = method_of req
   return crossed c req method if forged? method req
   action = matched s.routes method (unformatted req.path)
@@ -504,30 +511,6 @@ fn sender none
 
 fn sender page
   page
-
-# A page that loaded senro's script listens here. The stream holds a database
-# session of its own, listening on the `senro` channel, and writes an event
-# for each notification, from this server or any other on the same database.
-# It ends when the page has gone and a write fails.
-fn live c connect
-  connect .> (db -> listening c db)
-
-fn listening c db
-  heard_all = net/write c stream_head
-    .> (_ -> pg/run db "listen senro")
-    .> (_ -> relayed c db)
-  heard_all .? (_ -> effect 0) .> (_ -> pg/close db)
-
-fn relayed c db
-  pg/notified db
-    .> (p -> net/write c "data: changed {p}\n\n")
-    .> (_ -> relayed c db)
-
-stream_head = "HTTP/1.1 200 OK\r\n{event_stream}\r\n{uncached}\r\n\r\n"
-
-event_stream = "content-type: text/event-stream"
-
-uncached = "cache-control: no-cache"
 
 # An action that fails is the app's failure, born in another hako, so the
 # server may rescue it: the reason goes to standard error, the browser gets a

@@ -1,0 +1,6 @@
+import "./counted"
+
+# Prints how many sessions Postgres holds for other clients:
+#
+#   kanso run spec/live/sessions
+counted/held .> print .? (u -> print u.reason)
