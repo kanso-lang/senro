@@ -1,14 +1,16 @@
 import "../../../kata"
+import "../../../wire"
 import "./posts"
 import "./views"
-import "std/json"
 
 derive kata/views
 
-# The page as data, then rendered from that data, then rendered by the
-# template from the records themselves. The two renderings are the same.
+# The page as the bytes a browser is sent, in base64; then drawn by the
+# server from the records, drawn from those bytes, and drawn by the
+# templates called directly. The three drawings are the same.
 listed = views/list_view posts/all "<saved>" posts/marks
 page = views/layout_view "Posts" listed
-print (json/encode page)
+print (wire/as_text (views/packed page))
 print (views/rendered page)
+print (views/rendered (views/packed page))
 print (views/layout "Posts" (views/list posts/all "<saved>" posts/marks))

@@ -1,0 +1,8 @@
+import "./held"
+import "std/os"
+
+# A component's state as the page holds it, from the JSON an event file
+# writes it in: SENRO_STATE in, the state's bytes in base64 out. Text that is
+# not JSON is printed as it came, so a spec can hand a component a state
+# that is no state.
+os/env "SENRO_STATE" .> (s -> print (held/spelt s))

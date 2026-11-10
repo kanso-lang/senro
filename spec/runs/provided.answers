@@ -1,6 +1,6 @@
 ?
 [["stock/low",[3]],["stock/recent",[2]]]
 --
-{"low":"3 jars","recent":"2 orders"}
-<div data-component="shelf" data-state="{&quot;low&quot;:&quot;3 jars&quot;,&quot;recent&quot;:&quot;2 orders&quot;}"><p class="low">Low: 3 jars</p><p class="recent">Recent: 2 orders</p><button data-on-click="opened">Open</button></div>
+
+<div data-component="shelf" data-state="yAKDbG93hjMgamFyc4ZyZWNlbnSIMiBvcmRlcnM="><p class="low">Low: 3 jars</p><p class="recent">Recent: 2 orders</p><button data-on-click="opened">Open</button></div>
 --

@@ -24,10 +24,11 @@ fn templates p m
   server = served? m
   found = list/fold (keys m.files) [] (acc f -> added acc m server f)
   bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
-  head = derive/define m.name (head_of (length bound > 0) use)
   acts = if (length bound == 0) [] (acting m bound)
-  pages = if (use == "") [] (pages_of m use keep)
-  types = if (use == "") [] (types_of m)
+  bytes_read = has? asked "{m.name}/rendered"
+  head = derive/define m.name (head_of (length bound > 0) use bytes_read)
+  pages = if (use == "") [] (pages_of m use keep bytes_read)
+  types = if (use == "") [] (types_of m use keep bytes_read)
   rest = list/concat (list/concat (list/concat [head] found) acts) pages
   list/concat types rest
 
@@ -98,7 +99,7 @@ fn acting m names
 
 # A server action writes through a model, whose policy checks the write
 # (`models/updated`, `models/destroyed`), and never with SQL of its own. The
-# check reads the action's own calls.
+# check bytes_read the action's own calls.
 fn around? names c
   bound = list/any? names (n -> n == c.caller)
   bound and (c.callee == "pg/query" or c.callee == "pg/run")
@@ -207,7 +208,8 @@ fn reserved f name
 fn used asked m
   serving = has? asked "{m.name}/answer" or has? asked "{m.name}/answer_as"
   return "serve" if serving
-  if (has? asked "{m.name}/rendered") "render" ""
+  drawn = has? asked "{m.name}/rendered" or has? asked "{m.name}/packed"
+  if drawn "render" ""
 
 fn named_in acc c
   list/concat (push acc c.callee) c.arguments
@@ -215,44 +217,76 @@ fn named_in acc c
 # The imports every compiled template leans on, those a component's state
 # travels with, and those a module of pages leans on too. `../wire` is
 # written from this module, as a derivation's imports are.
-fn head_of bound use
+fn head_of bound use bytes_read
   paged = use != ""
   wired = if (bound or paged) ["../wire"] []
   extra = if (use == "serve") ["std/net/http"] []
   std = list/concat ["std/list"] extra
   all = list/concat wired (push std "std/text")
   lines = list/to_list (list/map all (i -> "import \"{i}\""))
-  body = if paged "{leaned_on}\n{splicing}" "{leaned_on}\n{plain_splice}"
-  "{text/join lines "\n"}\n\n{body}"
+  splice = if bytes_read read_splice (if paged page_splice plain_splice)
+  "{text/join lines "\n"}\n\n{leaned_on}\n{splice}"
 
-# Each page of the module as bytes and drawn from them (kanso#2416). A
-# page's reader, `{name}_shown`, and the types of the records it builds are
-# written whenever the module's pages are used. `{name}_view`, which answers
-# the page a server sends, is written for a server, and for a browser module
-# that names it. `rendered` draws a page, from the page itself or from its
-# bytes, and a server also gets `packed` and `answer`.
-fn pages_of m use keep
+# Each page of the module as bytes and drawn from them (kanso#2416).
+# `{name}_view`, which answers the page a server sends, is written for a
+# server, and for any program that names it, with `packed`, which answers a
+# page's bytes. A server also gets `answer`. A program that names `rendered`
+# draws pages from bytes, so it gets each page's reader, `{name}_shown`, and
+# `rendered` itself: the app's browser module is one. A server does not,
+# and that is what keeps a field a record lacks a compile error there: the
+# reader's record types hold every field a template bytes_read, so a program
+# with them has some record with any field a template names.
+fn pages_of m use keep bytes_read
   files = list/to_list (list/sort (keys m.files))
   pages = list/to_list (list/select files (f -> page? f m.files[f]))
-  readers = list/to_list (list/map pages (f -> reader_of m f m.files[f]))
   numbers = list/to_list (list/take list/naturals (length pages))
-  arms = list/to_list (list/map numbers (i -> shown_arm i pages[i]))
   marks = marked (shapes_of m pages)
-  dispatch = "{drawing marks}\n{text/join arms "\n"}\n{shown_else}"
-  drawn = push readers (derive/define m.name dispatch)
+  opened = derive/define m.name "kata_marks = {listed_marks marks}\n"
   wanted = list/select numbers (i -> viewing? use keep pages[i])
   answers = list/to_list (list/map wanted (i -> view_of m pages[i] i))
-  both = list/concat drawn answers
-  if (use == "serve") (push both (derive/define m.name answering)) both
+  packs = if (length answers == 0) [] [(derive/define m.name packed_source)]
+  serves = if (use == "serve") [(derive/define m.name answering)] []
+  sent = list/concat (list/concat answers packs) serves
+  drawn = if bytes_read (readers_of m pages numbers marks) []
+  list/concat (push drawn opened) sent
 
-# The types of the records the module's readers build. A type comes before
-# any function in the file a module's definitions share, so these are
-# answered first.
-fn types_of m
+fn readers_of m pages numbers marks
+  readers = list/to_list (list/map pages (f -> reader_of m f m.files[f]))
+  arms = list/to_list (list/map numbers (i -> shown_arm i pages[i]))
+  dispatch = "{read_source marks}\n{text/join arms "\n"}\n{shown_else}"
+  push readers (derive/define m.name dispatch)
+
+# The types the module's pages lean on: the records its readers build, when
+# it bytes_read pages, and what each view holds, when it answers them. A type
+# comes before any function in the file a module's definitions share, so
+# these are answered first.
+fn types_of m use keep bytes_read
   files = list/to_list (list/sort (keys m.files))
   pages = list/to_list (list/select files (f -> page? f m.files[f]))
+  numbers = list/to_list (list/take list/naturals (length pages))
   typed = (acc f -> list/concat acc (kinds_of m f m.files[f]))
-  list/fold pages [] typed
+  rows = if bytes_read (list/fold pages [] typed) []
+  wanted = list/select numbers (i -> viewing? use keep pages[i])
+  held = list/fold wanted [] (acc i -> held_of acc m pages[i])
+  list/concat rows held
+
+fn held_of acc _ none
+  acc
+
+fn held_of acc m f
+  holder acc m (page_kind_of f m.files[f])
+
+fn page_kind_of _ none
+  none
+
+fn page_kind_of f src
+  page_kind (page_name f) src
+
+fn holder acc _ none
+  acc
+
+fn holder acc m kind
+  push acc (derive/define m.name "{kind}\n")
 
 fn viewing? _ _ none
   false
@@ -336,15 +370,15 @@ fn hashed h b
 fn byte_of h shift
   bits/shr h shift & 255
 
-fn drawing marks
-  listed = "[{marks[1]} {marks[2]} {marks[3]} {marks[4]}]"
+fn listed_marks marks
+  "[{marks[1]} {marks[2]} {marks[3]} {marks[4]}]"
+
+fn read_source marks
   first = "bs[1] == {marks[1]} and bs[2] == {marks[2]}"
   second = "bs[3] == {marks[3]} and bs[4] == {marks[4]}"
   lines = [
-    "kata_marks = {listed}"
-    ""
     "pub fn rendered p:wire/page"
-    "  p.draw none"
+    "  wire/drawn p"
     ""
     "pub fn rendered bs"
     "  kata_drawn bs (wire/count_at bs (kata_opened bs))"
@@ -360,15 +394,17 @@ fn drawing marks
   ]
   text/join lines "\n"
 
+packed_source = """
+  pub fn packed page
+    wire/written (text/to_bytes kata_marks) page
+"""
+
 # A page answers a request a browser made itself as HTML, drawn here from
 # the records. The page's script asks with a `senro-view` header, and gets
 # the page as bytes, which it draws with the app's browser module.
 # `answer_as` answers with a status of the action's choosing, such as 422
 # for a form sent back with its problems.
 answering = """
-  pub fn packed page
-    page.pack (text/to_bytes kata_marks)
-
   pub fn answer req page
     answer_as req 200 page
 
@@ -377,7 +413,7 @@ answering = """
 
   fn kata_answered none code page
     html = ["content-type: text/html; charset=utf-8"]
-    http/respond code html (rendered page)
+    http/respond code html (wire/drawn page)
 
   fn kata_answered _ code page
     heard = [
@@ -390,13 +426,24 @@ answering = """
 
 # What a template splices in as it is: markup, or a page within the page,
 # which is drawn where it is spliced. On a server that is the page the
-# action built, and in the browser it is that page's bytes.
-splicing = """
+# action built, and where pages are read from bytes it is that page's bytes.
+page_splice = """
   fn kata_raw none
     "<none>"
 
   fn kata_raw p:wire/page
-    p.draw none
+    wire/drawn p
+
+  fn kata_raw x
+    "\{x}"
+"""
+
+read_splice = """
+  fn kata_raw none
+    "<none>"
+
+  fn kata_raw p:wire/page
+    wire/drawn p
 
   fn kata_raw b:wire/blob
     kata_drawn b.bytes (wire/count_at b.bytes 1)

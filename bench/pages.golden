@@ -23,11 +23,11 @@
 #
 # The rows belong to the kanso in .kanso-version and to the clang that built
 # the runtime for wasm32, so they are taken from CI.
-page_bytes=15191
-state_bytes=43
-server_records_instructions=405238
-server_data_instructions=1861294
-server_html_instructions=5720686
-browser_start_instructions=13894
-browser_page_instructions=7092344
-browser_act_instructions=172434
+page_bytes=9636
+state_bytes=36
+server_records_instructions=423234
+server_data_instructions=1269868
+server_html_instructions=5074473
+browser_start_instructions=13756
+browser_page_instructions=6302134
+browser_act_instructions=230181

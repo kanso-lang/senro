@@ -39,23 +39,32 @@ pub type read
 pub type blob
   bytes
 
-# A page a server answers with: how it is written onto the bytes, and how it
-# is drawn as markup. kata builds one for each view (`{name}_view`).
+# A page a server answers with: the values its template takes, the function
+# that writes them onto the bytes, and the function that draws them as
+# markup. kata builds one for each view (`{name}_view`).
 pub type page
+  held
   pack
   draw
 
 # Only this module builds its records, so these build them for the code kata
 # writes: a value read and where the next begins, bytes to carry untouched,
-# and a page from how it is written and how it is drawn.
+# and a page from its values, how they are written and how they are drawn.
 pub fn got value next
   read value next
 
 pub fn enclosed bytes
   blob bytes
 
-pub fn paged pack draw
-  page pack draw
+pub fn paged taken pack draw
+  page taken pack draw
+
+# A page as its bytes, written after `opening`, and as its markup.
+pub fn written opening p
+  p.pack opening p.held
+
+pub fn drawn p
+  p.draw p.held
 
 pub fn add_count acc n
   return text/append acc n if n < 128
@@ -96,7 +105,7 @@ pub fn add acc b:blob
   text/append (add_count (text/append acc 201) (length b.bytes)) b.bytes
 
 pub fn add acc p:page
-  add acc (blob (p.pack (text/bytes "")))
+  add acc (blob (written (text/bytes "") p))
 
 # One value as bytes, and the value those bytes hold, or none when they are
 # not one value and nothing else.
