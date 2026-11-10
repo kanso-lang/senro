@@ -1,0 +1,38 @@
+import "../../../wire"
+import "./shown"
+
+# Each value as its bytes, then read back from them. A value survives the
+# trip, a small number and a short string take one tag byte, and bytes that
+# are not a value and nothing else read as none.
+print (shown/trip none)
+print (shown/trip true)
+print (shown/trip false)
+print (shown/trip 0)
+print (shown/trip 127)
+print (shown/trip 128)
+print (shown/trip 300)
+print (shown/trip (0 - 1))
+print (shown/trip (0 - 300))
+print (shown/trip 9007199254740993)
+print (shown/trip 1.5)
+print (shown/trip "")
+print (shown/trip "kata")
+print (shown/trip "héllo, 世界 🌍")
+print (shown/trip shown/long)
+print (shown/trip [])
+print (shown/trip [1 "two" [3 false] true])
+print (shown/trip { "a":1 "b":["x" "y"] })
+print (shown/trip (wire/enclosed (wire/packed "inside")))
+
+# Bytes cut short, a tag nobody writes, a count past the end, text that is
+# not utf-8, and a value with a byte after it.
+print (shown/read [])
+print (shown/read [199 2 1])
+print (shown/read [255])
+print (shown/read [198 9 97])
+print (shown/read [130 195 40])
+print (shown/read [1 2])
+
+# A list of pairs written with no tags, as kata writes records, and read
+# with a reader of one pair.
+print (shown/pairs [[1 "one"] [2 "two"]])

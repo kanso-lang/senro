@@ -1,0 +1,44 @@
+import "../../../wire"
+import "std/list"
+import "std/text"
+
+# A string too long for its length to fit in the tag.
+tens = list/to_list (list/map (list/take list/naturals 7) ten)
+
+pub long = text/join tens ""
+
+fn ten i
+  "{i}123456789"
+
+# The value, its bytes, and whether reading them gives the value back.
+pub fn trip none
+  bytes = wire/packed none
+  "none {list/to_list bytes} {wire/unpacked bytes == none}"
+
+pub fn trip v
+  bytes = wire/packed v
+  "{v} {list/to_list bytes} {same? v (wire/unpacked bytes)}"
+
+fn same? v:wire/blob back:wire/blob
+  list/to_list v.bytes == list/to_list back.bytes
+
+fn same? v back
+  v == back
+
+pub fn read codes
+  wire/unpacked (text/to_bytes codes)
+
+# A pair as its two values in order, and a list of pairs as a count and the
+# pairs.
+pub fn pairs xs
+  written = list/fold xs (wire/add_count (text/bytes "") (length xs)) pair
+  back = wire/listed written 1 pair_at
+  "{list/to_list written} {back.value} {wire/whole? written back}"
+
+fn pair acc p
+  wire/add (wire/add acc p[1]) p[2]
+
+fn pair_at bs p
+  a = wire/at bs p
+  b = wire/at bs a.next
+  wire/got [a.value b.value] b.next
