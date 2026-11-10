@@ -1,3 +1,133 @@
+# How the page script runs an app's browser module, as JavaScript of its
+# own: a WASI host with the event in the environment and a page's bytes as
+# the one file there is to open. The page script holds it, and
+# spec/browser/module.mjs runs this same text under node, so the specs that
+# run a module without a browser run it the way a page does.
+runner = """
+    class Exit \{}
+
+    // One run of an app's module against a fresh runtime, both handed over
+    // compiled: the event in SENRO_EVENT, and what the module printed. A
+    // page's bytes are the one file the module can open, /senro/page, since
+    // an environment variable cannot hold them. What the module writes to
+    // its second stream goes to `told`, when there is one.
+    const module_run = async (runtime, app, event, page, told) => \{
+      const out = [];
+      let memory = null;
+      let read = 0;
+      const bytes = () => new Uint8Array(memory.buffer);
+      const view = () => new DataView(memory.buffer);
+      const env = [new TextEncoder().encode("SENRO_EVENT=" + event + "\\0")];
+      const calls = \{
+        fd_write(fd, iovs, n, written) \{
+          let total = 0;
+          for (let k = 0; k < n; k++) \{
+            const at = view().getUint32(iovs + k * 8, true);
+            const len = view().getUint32(iovs + k * 8 + 4, true);
+            const piece = bytes().slice(at, at + len);
+            if (fd === 1) out.push(piece);
+            else if (told) told(piece);
+            total += len;
+          }
+          view().setUint32(written, total, true);
+          return 0;
+        },
+        environ_sizes_get(count, size) \{
+          view().setUint32(count, env.length, true);
+          view().setUint32(size, env[0].length, true);
+          return 0;
+        },
+        environ_get(at, buf) \{
+          view().setUint32(at, buf, true);
+          bytes().set(env[0], buf);
+          return 0;
+        },
+        args_sizes_get(count, size) \{
+          view().setUint32(count, 0, true);
+          view().setUint32(size, 0, true);
+          return 0;
+        },
+        fd_fdstat_get(fd, stat) \{
+          bytes().fill(0, stat, stat + 24);
+          return 0;
+        },
+        fd_prestat_get(fd, stat) \{
+          if (fd !== 3 || !page) return 8;
+          view().setUint32(stat, 0, true);
+          view().setUint32(stat + 4, 1, true);
+          return 0;
+        },
+        fd_prestat_dir_name(fd, name) \{
+          bytes()[name] = 47;
+          return 0;
+        },
+        path_open(dir, flags, path, len, o, base, inheriting, f, opened) \{
+          const name = new TextDecoder().decode(bytes().slice(path, path + len));
+          if (!page || name !== "senro/page") return 44;
+          read = 0;
+          view().setUint32(opened, 4, true);
+          return 0;
+        },
+        fd_seek(fd, by, whence, place) \{
+          if (fd !== 4) return 8;
+          const from = whence === 0 ? 0 : whence === 1 ? read : page.length;
+          read = Math.max(0, Math.min(page.length, from + Number(by)));
+          view().setBigUint64(place, BigInt(read), true);
+          return 0;
+        },
+        fd_read(fd, iovs, n, got) \{
+          if (fd !== 4) return 8;
+          let total = 0;
+          for (let k = 0; k < n; k++) \{
+            const at = view().getUint32(iovs + k * 8, true);
+            const len = view().getUint32(iovs + k * 8 + 4, true);
+            const some = page.subarray(read, read + len);
+            bytes().set(some, at);
+            read += some.length;
+            total += some.length;
+          }
+          view().setUint32(got, total, true);
+          return 0;
+        },
+        proc_exit() \{ throw new Exit(); },
+      };
+      const quiet = (t, name) => t[name] || (() => 0);
+      const wasi = new Proxy(calls, \{ get: quiet });
+      const rt = (await WebAssembly.instantiate(runtime,
+        \{ wasi_snapshot_preview1: wasi })).exports;
+      memory = rt.memory;
+      const link = new DataView(
+        WebAssembly.Module.customSections(app, "kanso.link")[0]);
+      const table = rt.__indirect_function_table;
+      const imports = \{
+        memory: rt.memory,
+        __indirect_function_table: table,
+        __memory_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
+          rt.malloc(link.getUint32(0, true))),
+        __table_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
+          table.grow(link.getUint32(4, true))),
+      };
+      for (const imp of WebAssembly.Module.imports(app)) \{
+        if (!(imp.name in imports)) imports[imp.name] = rt[imp.name];
+      }
+      await WebAssembly.instantiate(app, \{ env: imports });
+      try \{
+        rt._start();
+      } catch (e) \{
+        if (!(e instanceof Exit)) throw e;
+      }
+      const all = new Uint8Array(out.reduce((n, c) => n + c.length, 0));
+      let at = 0;
+      for (const c of out) \{
+        all.set(c, at);
+        at += c.length;
+      }
+      return new TextDecoder().decode(all);
+    };
+"""
+
+pub module_runner = runner
+
 # The page script senro serves at /senro.js. A layout that loads it gets
 # pages that update in place: a link followed or a form sent on the app's own
 # origin is fetched, and the page it answers is morphed into the live one.
@@ -262,123 +392,8 @@ script = """
       document.documentElement.classList.add("senro-ready");
     })().catch(() => \{});
 
-    class Exit \{}
-
-    // One run of the app's module: a fresh runtime, the event in SENRO_EVENT,
-    // and what the module printed. A page's bytes are the one file the
-    // module can open, /senro/page, since an environment variable cannot
-    // hold them.
-    const ran = async (event, page) => \{
-      const out = [];
-      let memory = null;
-      let read = 0;
-      const bytes = () => new Uint8Array(memory.buffer);
-      const view = () => new DataView(memory.buffer);
-      const env = [new TextEncoder().encode("SENRO_EVENT=" + event + "\\0")];
-      const calls = \{
-        fd_write(fd, iovs, n, written) \{
-          let total = 0;
-          for (let k = 0; k < n; k++) \{
-            const at = view().getUint32(iovs + k * 8, true);
-            const len = view().getUint32(iovs + k * 8 + 4, true);
-            if (fd === 1) out.push(bytes().slice(at, at + len));
-            total += len;
-          }
-          view().setUint32(written, total, true);
-          return 0;
-        },
-        environ_sizes_get(count, size) \{
-          view().setUint32(count, env.length, true);
-          view().setUint32(size, env[0].length, true);
-          return 0;
-        },
-        environ_get(at, buf) \{
-          view().setUint32(at, buf, true);
-          bytes().set(env[0], buf);
-          return 0;
-        },
-        args_sizes_get(count, size) \{
-          view().setUint32(count, 0, true);
-          view().setUint32(size, 0, true);
-          return 0;
-        },
-        fd_fdstat_get(fd, stat) \{
-          bytes().fill(0, stat, stat + 24);
-          return 0;
-        },
-        fd_prestat_get(fd, stat) \{
-          if (fd !== 3 || !page) return 8;
-          view().setUint32(stat, 0, true);
-          view().setUint32(stat + 4, 1, true);
-          return 0;
-        },
-        fd_prestat_dir_name(fd, name) \{
-          bytes()[name] = 47;
-          return 0;
-        },
-        path_open(dir, flags, path, len, o, base, inheriting, f, opened) \{
-          const name = new TextDecoder().decode(bytes().slice(path, path + len));
-          if (!page || name !== "senro/page") return 44;
-          read = 0;
-          view().setUint32(opened, 4, true);
-          return 0;
-        },
-        fd_seek(fd, by, whence, place) \{
-          if (fd !== 4) return 8;
-          const from = whence === 0 ? 0 : whence === 1 ? read : page.length;
-          read = Math.max(0, Math.min(page.length, from + Number(by)));
-          view().setBigUint64(place, BigInt(read), true);
-          return 0;
-        },
-        fd_read(fd, iovs, n, got) \{
-          if (fd !== 4) return 8;
-          let total = 0;
-          for (let k = 0; k < n; k++) \{
-            const at = view().getUint32(iovs + k * 8, true);
-            const len = view().getUint32(iovs + k * 8 + 4, true);
-            const some = page.subarray(read, read + len);
-            bytes().set(some, at);
-            read += some.length;
-            total += some.length;
-          }
-          view().setUint32(got, total, true);
-          return 0;
-        },
-        proc_exit() \{ throw new Exit(); },
-      };
-      const quiet = (t, name) => t[name] || (() => 0);
-      const wasi = new Proxy(calls, \{ get: quiet });
-      const rt = (await WebAssembly.instantiate(runtime,
-        \{ wasi_snapshot_preview1: wasi })).exports;
-      memory = rt.memory;
-      const link = new DataView(
-        WebAssembly.Module.customSections(app, "kanso.link")[0]);
-      const table = rt.__indirect_function_table;
-      const imports = \{
-        memory: rt.memory,
-        __indirect_function_table: table,
-        __memory_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
-          rt.malloc(link.getUint32(0, true))),
-        __table_base: new WebAssembly.Global(\{ value: "i32", mutable: false },
-          table.grow(link.getUint32(4, true))),
-      };
-      for (const imp of WebAssembly.Module.imports(app)) \{
-        if (!(imp.name in imports)) imports[imp.name] = rt[imp.name];
-      }
-      await WebAssembly.instantiate(app, \{ env: imports });
-      try \{
-        rt._start();
-      } catch (e) \{
-        if (!(e instanceof Exit)) throw e;
-      }
-      const all = new Uint8Array(out.reduce((n, c) => n + c.length, 0));
-      let at = 0;
-      for (const c of out) \{
-        all.set(c, at);
-        at += c.length;
-      }
-      return new TextDecoder().decode(all);
-    };
+    {runner}
+    const ran = (event, page) => module_run(runtime, app, event, page);
 
     // A component whose actions need the server posts its state there, and
     // the server answers the same way the module does. What the action
