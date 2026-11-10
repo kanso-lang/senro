@@ -444,6 +444,16 @@ else
           bad "$name in $browser ($engine)"
           printf '%s\n' "$got" | diff "$want" -
           cat "$log"
+          # What a failure cannot say for itself (kanso#2397): whether the
+          # server still answers, and which kanso processes are alive, an
+          # earlier spec's among them.
+          echo "--- the server, asked for / after the failure"
+          curl -sS -m 10 -o /dev/null \
+            -w "GET /: %{http_code} in %{time_total}s\n" \
+            "http://127.0.0.1:$port/" || echo "no answer in 10s"
+          echo "--- kanso processes"
+          ps -eo pid,ppid,stat,etime,args \
+            | grep "[k]anso run\|[k]anso_run_" | cut -c1-160
         fi
         pkill -P "$server" 2>/dev/null
         kill "$server" 2>/dev/null
