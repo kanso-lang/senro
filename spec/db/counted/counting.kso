@@ -1,0 +1,51 @@
+import "../../../models"
+import "../../../pg"
+import "../../../web"
+import "./account"
+import "./tally"
+
+# The app makes an account for itself: no policy lets a viewer make one.
+pub fn opened db
+  account/create (models/as_app db) { "name":"ada" }
+    .> (a -> print "the app makes {a.name}: {a.failures} wrong")
+
+pub fn tried db label
+  account/create db { "name":"eve" } .> (w -> print "{label}: {said w}")
+
+pub fn missed db label
+  account/increment db 1 "failures" .> (w -> print "{label}: {said w}")
+
+pub fn cleared db label
+  account/update db 1 { "failures":"0" } .> (w -> print "{label}: {said w}")
+
+pub fn missed_in db field
+  account/increment (models/as_app db) 1 field
+
+fn said _:web/denied
+  "denied"
+
+fn said a
+  "{a.failures} wrong"
+
+# `n` requests count at once, each on a connection of its own, and each
+# writes down the count it saw. Postgres adds in the statement that answers,
+# so no two see the same count.
+pub fn raced db n
+  return settled db 0 if n == 0
+  counted_once
+  raced db (n - 1)
+
+counted_once = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (c -> pg/run c "set search_path to senro_spec" .> (_ -> c))
+  .> (c -> account/increment (models/as_app c) 1 "failures" .> (a -> noted c a))
+
+fn noted c a
+  tally/create (models/as_app c) { "seen":a.failures }
+
+fn settled db tries
+  tally/all (models/as_app db) .> (ts -> waited db tries ts)
+
+fn waited db tries ts
+  return print "eight at once saw: {tally/counts ts}" if length ts == 8
+  return err "the eight did not finish" if tries == 2000
+  settled db (tries + 1)

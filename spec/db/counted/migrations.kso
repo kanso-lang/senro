@@ -1,0 +1,15 @@
+import "../../../models"
+
+pub all = [accounts tallies]
+
+accounts = models/create_table "accounts" [id name failures]
+
+tallies = models/create_table "tallies" [id seen]
+
+id = models/column "id" "serial primary key"
+
+name = models/column "name" "text not null"
+
+failures = models/column "failures" "integer not null default 0"
+
+seen = models/column "seen" "integer not null"

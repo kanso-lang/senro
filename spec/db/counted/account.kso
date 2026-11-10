@@ -1,0 +1,4 @@
+# An account, and how many wrong passwords it has had. Its holder may change
+# it; nobody else may, and no policy lets a visitor make one.
+pub fn update? viewer a
+  viewer == a.name
