@@ -175,8 +175,9 @@ fn handed_only n p
 # holds templates: the escape that keeps a value from being read as markup, a
 # loop body joined once per element, and the join of a function's parts.
 # Most values hold none of the five characters that need escaping, so the
-# escape looks for them first, two bytes to a search (`&` `<`, `>` `"`, and
-# `'`), and hands a value with none back as it came.
+# escape looks for them first in three searches (`&`, the two angle brackets,
+# the two quotes), hands a value with none back as it came, and rewrites
+# only for a search that found something.
 leaned_on = """
   fn escape none
     ""
@@ -185,13 +186,21 @@ leaned_on = """
     s = "\{x}"
     cs = text/bytes s
     past = length cs
-    marks = text/find2 cs 1 38 60 <= past or text/find2 cs 1 62 34 <= past
-    return s if not marks and text/find2 cs 1 39 39 > past
-    amp = text/join (text/split s "&") "&amp;"
-    lt = text/join (text/split amp "<") "&lt;"
-    gt = text/join (text/split lt ">") "&gt;"
-    quot = text/join (text/split gt "\\"") "&quot;"
-    text/join (text/split quot "'") "&#39;"
+    amp = text/find2 cs 1 38 38 <= past
+    angle = text/find2 cs 1 60 62 <= past
+    quote = text/find2 cs 1 34 39 <= past
+    return s if not (amp or angle or quote)
+    a = swapped s amp "&" "&amp;"
+    b = swapped a angle "<" "&lt;"
+    c = swapped b angle ">" "&gt;"
+    d = swapped c quote "\\"" "&quot;"
+    swapped d quote "'" "&#39;"
+
+  fn swapped s false _ _
+    s
+
+  fn swapped s true from to
+    text/join (text/split s from) to
 
   fn each xs f
     text/join (list/to_list (list/map xs f)) ""

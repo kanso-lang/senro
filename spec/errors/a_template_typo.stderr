@@ -1,10 +1,10 @@
 error[unused]: unused binding `name`
-  --> ./views.derived.kso:32:14
-  32 | pub fn greet name
+  --> ./views.derived.kso:40:14
+  40 | pub fn greet name
                     ^
   = written from ./views/greet.kata:1
 error[name]: unknown name `nmae`
-  --> ./views.derived.kso:34:38
-  34 |   "<p class=\"hello\">Hello, {escape nmae}.</p>"
+  --> ./views.derived.kso:42:38
+  42 |   "<p class=\"hello\">Hello, {escape nmae}.</p>"
                                             ^
   = written from ./views/greet.kata:3

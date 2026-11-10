@@ -25,9 +25,9 @@
 # the runtime for wasm32, so they are taken from CI.
 page_bytes=9636
 state_bytes=36
-server_records_instructions=365099
-server_data_instructions=1151030
-server_html_instructions=3379495
-browser_start_instructions=13668
-browser_page_instructions=4315695
-browser_act_instructions=181808
+server_records_instructions=365735
+server_data_instructions=1151669
+server_html_instructions=3287502
+browser_start_instructions=13619
+browser_page_instructions=4257819
+browser_act_instructions=182607
