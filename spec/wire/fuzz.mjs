@@ -53,9 +53,10 @@ const float = () => {
 };
 
 // Code points from every length utf-8 has, with the ends of each range, a
-// zero byte, quotes and backslashes, and nothing from the surrogates.
+// zero byte, quotes and backslashes, the byte order mark a careless decoder
+// drops, and nothing from the surrogates.
 const points = [0, 9, 10, 13, 34, 92, 127, 128, 0x7ff, 0x800, 0xd7ff, 0xe000,
-  0xfffd, 0xffff, 0x10000, 0x1f30d, 0x10ffff];
+  0xfeff, 0xfffd, 0xffff, 0x10000, 0x1f30d, 0x10ffff];
 const point = () => {
   if (below(3) === 0) return pick(points);
   const p = below(pick([128, 0x800, 0x10000, 0x110000]));
@@ -137,6 +138,7 @@ while (done < cases) {
       console.error(`wire disagrees with its reference at case ${done + i}`);
       console.error(`  value   ${json(v)}`);
       console.error(`  kanso   ${out[i]}`);
+      console.error(`  read as ${back === undefined ? "nothing" : json(back)}`);
       console.error(`  seed    ${seeded || 20261110}`);
       process.exit(1);
     }

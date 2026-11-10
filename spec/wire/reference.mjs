@@ -4,7 +4,9 @@
 // Number, so the two never blur; a map is a Map, which keeps its order.
 
 const utf8 = new TextEncoder();
-const text = new TextDecoder("utf-8", { fatal: true });
+// ignoreBOM, or a string that begins with U+FEFF loses it on the way back:
+// the fuzzer's case 62,397 was that, the reference's fault and not wire's.
+const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const count = (out, n) => {
   let left = BigInt(n);
