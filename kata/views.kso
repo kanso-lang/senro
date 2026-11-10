@@ -61,7 +61,7 @@ fn component m server f name src
   runs = if server " data-runs=\\\"server\\\"" ""
   wrap = [
     "pub fn {name} {s}"
-    "  kata_state = base64/encode (wire/packed {s})"
+    "  kata_state = wire/as_text (wire/packed {s})"
     "  kata_inside = {name}_body {s}"
     "  kata_open = \"<div data-component=\\\"{m}\\\"{runs}\""
     "  \"\{kata_open} data-state=\\\"\{kata_state}\\\">\{kata_inside}</div>\""
@@ -218,9 +218,8 @@ fn named_in acc c
 fn head_of bound use
   paged = use != ""
   wired = if (bound or paged) ["../wire"] []
-  held = if bound ["std/base64"] []
   extra = if (use == "serve") ["std/net/http"] []
-  std = list/concat (list/concat held ["std/list"]) extra
+  std = list/concat ["std/list"] extra
   all = list/concat wired (push std "std/text")
   lines = list/to_list (list/map all (i -> "import \"{i}\""))
   body = if paged "{leaned_on}\n{splicing}" "{leaned_on}\n{plain_splice}"

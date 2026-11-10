@@ -36,3 +36,17 @@ print (shown/read [1 2])
 # A list of pairs written with no tags, as kata writes records, and read
 # with a reader of one pair.
 print (shown/pairs [[1 "one"] [2 "two"]])
+
+# Bytes as text and back, for one, two and three bytes left over, and text
+# that is not base64: a group cut short, padding in the middle, and a letter
+# outside the alphabet.
+print (shown/lettered [])
+print (shown/lettered [0])
+print (shown/lettered [255 254])
+print (shown/lettered [1 2 3])
+print (shown/lettered [104 0 255 10 195 7 9])
+print (shown/unlettered "QUJD")
+print (shown/unlettered "QUI")
+print (shown/unlettered "Q=JD")
+print (shown/unlettered "QUI=QUJD")
+print (shown/unlettered "QU*D")

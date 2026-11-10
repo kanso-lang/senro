@@ -24,3 +24,13 @@ wire/blob [134 105 110 115 105 100 101] [201 7 134 105 110 115 105 100 101] true
 <none>
 <none>
 [2 1 131 111 110 101 2 131 116 119 111] [[1 "one"] [2 "two"]] true
+ true true
+AA== true true
+//4= true true
+AQID true true
+aAD/CsMHCQ== true true
+[65 66 67]
+not base64
+not base64
+not base64
+not base64

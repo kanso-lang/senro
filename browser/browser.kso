@@ -1,6 +1,5 @@
 import "../data"
 import "../wire"
-import "std/base64"
 import "std/json"
 import "std/os"
 import "std/text"
@@ -66,7 +65,7 @@ fn said event
 
 fn answered components parts
   return "" if length parts < 3
-  decoded components parts (held (base64/decode (part parts 3)))
+  decoded components parts (held (wire/from_text (part parts 3)))
 
 fn held none
   none

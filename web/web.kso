@@ -937,7 +937,7 @@ fn acted c req db who
   return effect forbidden if req.headers["senro-page"] == none
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
-  stated c lines[1] (state_of (base64/decode lines[2])) req db who
+  stated c lines[1] (state_of (wire/from_text lines[2])) req db who
 
 forbidden = http/respond 403 [] "Forbidden\n"
 

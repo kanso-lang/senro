@@ -1,4 +1,5 @@
 import "../../../wire"
+import "std/base64"
 import "std/list"
 import "std/text"
 
@@ -42,3 +43,20 @@ fn pair_at bs p
   a = wire/at bs p
   b = wire/at bs a.next
   wire/got [a.value b.value] b.next
+
+# Bytes as the text a page holds them in: the text, whether std/base64
+# spells them the same way, and whether the text reads back as the bytes.
+pub fn lettered codes
+  bytes = text/to_bytes codes
+  spelt = wire/as_text bytes
+  back = codes_of (wire/from_text spelt)
+  "{spelt} {spelt == base64/encode bytes} {back == codes}"
+
+pub fn unlettered s
+  codes_of (wire/from_text s)
+
+fn codes_of none
+  "not base64"
+
+fn codes_of bytes
+  list/to_list bytes
