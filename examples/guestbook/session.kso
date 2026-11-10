@@ -1,7 +1,8 @@
+import "../../clock"
 import "../../models"
 import "../../passwords"
-import "../../pg"
 import "../../web"
+import "./account"
 import "./account_mailer"
 import "./entries"
 import "./views"
@@ -10,14 +11,16 @@ import "std/list"
 import "std/text"
 import "std/time"
 
-# What a sign-in checks of the account a name holds. A name with no account
-# holds the stand-in digest, which no password matches.
+# What a sign-in checks of the account a name holds, and the account as it
+# was read. A name with no account holds the stand-in digest, which no
+# password matches, and no account.
 type holder
   id
   digest
   email
   confirmed
   locked
+  was
 
 # One address may try to sign in ten times in three minutes, as Rails 8's
 # generated sessions controller allows. Past that, `over_limit` answers the
@@ -35,18 +38,16 @@ pub locked_minutes = 60
 
 # What a sign-in rests on: the digest the account keeps now. A new password
 # changes it, so a password reset signs out every session made before it.
-pub signed_against = (db name -> pg/query db digest_by [name] .> kept_of)
+pub signed_against = (db name -> account/find_by db "name" name .> kept_of)
 
-digest_by = "select digest from accounts where name = $1"
-
-fn kept_of r
-  effect (digest_in (list/first r.rows))
+fn kept_of a
+  effect (digest_in a)
 
 fn digest_in none
   ""
 
-fn digest_in row
-  models/cell row "digest"
+fn digest_in a
+  a.digest
 
 # Signing in and out. The session is the signed cookie `web` keeps, and
 # signing in writes the account's name into it as the viewer.
@@ -61,24 +62,21 @@ pub fn create req db
   name = text/trim (web/value f "name")
   password = web/value f "password"
   remember = web/value f "remember" == "yes"
-  pg/query db held_by [name]
-    .> (r -> held (list/first r.rows))
+  account/find_by db "name" name
+    .> (found -> held found)
     .> (a -> time/now .> (t -> entered req db name a password remember t))
 
-held_by = """
-  select id, digest, email, confirmed, locked
-  from accounts where name = $1
-"""
-
 fn held none
-  passwords/stand_in .> (d -> effect (holder "" d "" "" ""))
+  passwords/stand_in .> (d -> effect (holder "" d "" "" "" none))
 
-fn held row
-  id = "{models/cell row "id"}"
-  kept = models/cell row "digest"
-  email = models/cell row "email"
-  locked = models/cell row "locked"
-  effect (holder id kept email (models/cell row "confirmed") locked)
+fn held a
+  effect (holder "{a.id}" a.digest a.email (said a.confirmed) a.locked a)
+
+fn said none
+  ""
+
+fn said s
+  s
 
 # A locked account answers a wrong password as any other wrong password is
 # answered, and tells only the holder of the right one that it is locked.
@@ -87,23 +85,25 @@ fn entered req db name a password remember t
   return shut req name right if locked? a t
   return missed req db name a t if not right
   return unconfirmed req db name a if a.confirmed == ""
-  arrived = [a.id "{t}" (web/peer req)]
-  pg/query db cleared arrived .> (_ -> signed req name a remember)
+  arrived req db a.was t .> (_ -> signed req name a remember)
 
 # The right password ends a run of wrong ones, and the sign-in is counted and
-# stamped, the one before it kept beside it, in the same statement. The time
-# is the app's clock, written as UTC to the minute.
-cleared = """
-  update accounts set failures = 0, locked = '',
-    sign_in_count = sign_in_count + 1,
-    last_sign_in_at = current_sign_in_at,
-    current_sign_in_at = to_char(
-      to_timestamp($2::bigint / 1000) at time zone 'UTC',
-      'YYYY-MM-DD HH24:MI "UTC"'),
-    last_sign_in_ip = current_sign_in_ip,
-    current_sign_in_ip = $3
-  where id = $1
-"""
+# stamped, the one before it kept beside it. The app writes these on its own
+# account, and the time is the app's clock, written as UTC to the minute.
+fn arrived _ _ none _
+  effect none
+
+fn arrived req db was t
+  changes = {
+    "current_sign_in_at":(clock/utc_minute t)
+    "current_sign_in_ip":(web/peer req)
+    "failures":"0"
+    "last_sign_in_at":was.current_sign_in_at
+    "last_sign_in_ip":was.current_sign_in_ip
+    "locked":""
+  }
+  account/update (models/as_app db) was.id changes
+    .> (_ -> account/increment (models/as_app db) was.id "sign_in_count")
 
 fn locked? a t
   return false if a.locked == ""
@@ -124,29 +124,27 @@ fn shut req name false
 
 # A wrong password for an account counts against it, and the one that makes
 # the run long enough locks it and mails the link that unlocks it. A lock
-# that has run out counts as none, so the count starts again.
+# that has run out counts as none, so the count starts again. The count is
+# added in one statement, so of several wrong passwords at once exactly one
+# sees the run reach its length.
 fn missed req db name a t
   return refused req name if a.id == ""
-  pg/query db counted [a.id "{locks_after}" "{t}"]
-    .> (r -> locking req db name a (list/first r.rows))
+  reopened db a
+    .> (_ -> account/increment (models/as_app db) a.id "failures")
+    .> (counted -> locking req db name a counted t)
 
-counted = """
-  update accounts set
-    failures = case when locked = '' then failures + 1 else 1 end,
-    locked = case
-      when (case when locked = '' then failures + 1 else 1 end) >= $2::int
-      then $3 else '' end
-  where id = $1
-  returning locked
-"""
+fn reopened db a
+  return effect a if a.locked == ""
+  account/update (models/as_app db) a.id { "failures":"0" "locked":"" }
 
-fn locking req _ name _ none
+fn locking req _ name _ _:web/absent _
   refused req name
 
-fn locking req db name a row
-  stamp = models/cell row "locked"
-  return refused req name if stamp == ""
-  account_mailer/unlock db a.id a.email stamp
+fn locking req db name a counted t
+  return refused req name if counted.failures != locks_after
+  stamp = "{t}"
+  account/update (models/as_app db) a.id { "locked":stamp }
+    .> (_ -> account_mailer/unlock db a.id a.email stamp)
     .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
     .> (_ -> refused req name)
 

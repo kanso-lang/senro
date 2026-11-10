@@ -1,12 +1,11 @@
 import "../../models"
 import "../../passwords"
-import "../../pg"
 import "../../web"
+import "./account"
 import "./account_mailer"
 import "./entries"
 import "./views"
 import "std/io"
-import "std/list"
 import "std/text"
 import "std/time"
 
@@ -31,21 +30,18 @@ pub fn new req _
 pub fn create req db
   f = web/form req.body
   email = text/lowercase (text/trim (web/value f "email"))
-  pg/query db holder [email]
-    .> (r -> sent db (list/first r.rows) email)
+  account/find_by db "email" email
+    .> (a -> sent db a)
     .? (u -> io/write_err "guestbook: no reset mail: {u.reason}\n")
     .> (_ -> effect (told "/" on_its_way))
 
-holder = "select id, digest from accounts where email = $1"
-
 on_its_way = "If that address has an account, a link is on its way to it."
 
-fn sent _ none _
+fn sent _ none
   effect ""
 
-fn sent db row email
-  id = models/cell row "id"
-  account_mailer/reset db id email (models/cell row "digest")
+fn sent db a
+  account_mailer/reset db a.id a.email a.digest
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id
@@ -73,35 +69,47 @@ fn chose req db token password true
   return effect (chosen req token short 422) if length password < 8
   id = id_of (passwords/reset_id token)
   passwords/digested password
-    .> (d -> time/now .> (t -> pg/query db reset [d id "{t}"]))
+    .> (d -> time/now .> (t -> account/find db id .> (a -> renewed db a d t)))
     .> (_ -> effect (told "/" changed))
 
 # A reset link proves the address as well as a confirmation link does, so
 # setting a password through one confirms an address that was not yet, and
 # it unlocks an account that wrong passwords locked, as Devise's does.
-reset = """
-  update accounts set digest = $1,
-    confirmed = case when coalesce(confirmed, '') = '' then $3 else confirmed end,
-    failures = 0, locked = ''
-  where id = $2
-"""
+# Nobody is signed in, so the app writes it on its own account, to the
+# account the checked token names.
+fn renewed _ none _ _
+  effect web/absent
+
+fn renewed db a d t
+  changes = {
+    "confirmed":(first_of a.confirmed "{t}")
+    "digest":d
+    "failures":"0"
+    "locked":""
+  }
+  account/update (models/as_app db) a.id changes
+
+fn first_of none now
+  now
+
+fn first_of "" now
+  now
+
+fn first_of was _
+  was
 
 changed = "Your password is changed. Sign in with it."
 
 # Whether `token` is good now for the account it names.
 fn checked db token
   id = id_of (passwords/reset_id token)
-  pg/query db digest_by_id [id]
-    .> (r -> time/now .> (t -> effect (good? token (list/first r.rows) t)))
-
-digest_by_id = "select digest from accounts where id = $1"
+  account/find db id .> (a -> time/now .> (t -> effect (good? token a t)))
 
 fn good? _ none _
   false
 
-fn good? token row t
-  kept = models/cell row "digest"
-  passwords/reset_valid? entries/secret token kept t
+fn good? token a t
+  passwords/reset_valid? entries/secret token a.digest t
 
 fn id_of none
   "0"

@@ -2,12 +2,12 @@ import "../../models"
 import "std/text"
 
 # A signature is a row of the `signatures` table. This module is named for
-# the table, so senro/models declares `signature` here with a field for each
-# column, and writes `signature_from`, which builds one from a row.
+# the record, so the models derivation declares `signature` here with a
+# field for each column and answers for the table by this module's name.
 #
-# Only the person who signed an entry may remove it. The models derivation
-# reads this policy and writes `signature_destroyed`, which asks it before it
-# deletes anything, so there is no other way to remove a signature.
+# Only the person who signed an entry may remove it. `signature/destroy`
+# asks this policy before it deletes anything, and nothing else in the
+# guestbook removes a signature.
 pub fn destroy? viewer s
   s.name == viewer
 

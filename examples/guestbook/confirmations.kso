@@ -1,10 +1,9 @@
 import "../../models"
-import "../../pg"
 import "../../tokens"
 import "../../web"
+import "./account"
 import "./account_mailer"
 import "./views"
-import "std/list"
 import "std/time"
 
 # An account whose address a good token would confirm.
@@ -39,28 +38,28 @@ fn confirmed _ _ none
 
 fn confirmed _ db a
   time/now
-    .> (t -> pg/query db stamped ["{t}" a.id])
+    .> (t -> account/update (models/as_app db) a.id { "confirmed":"{t}" })
     .> (_ -> effect (told "Your address is confirmed. Sign in with it."))
-
-stamped = "update accounts set confirmed = $1 where id = $2"
 
 # The account a token confirms now, or none when the token is no good for
 # the account it names.
 fn held db token
   id = id_text (tokens/id_of token)
-  pg/query db looked [id]
-    .> (r -> time/now .> (t -> effect (checked token id (list/first r.rows) t)))
-
-looked = "select email, confirmed from accounts where id = $1"
+  account/find db id .> (a -> time/now .> (t -> effect (checked token id a t)))
 
 fn checked _ _ none _
   none
 
-fn checked token id row t
-  email = models/cell row "email"
-  was = models/cell row "confirmed"
-  good = account_mailer/confirms? token email was t
+fn checked token id a t
+  email = a.email
+  good = account_mailer/confirms? token email (said a.confirmed) t
   if good (unconfirmed id email) none
+
+fn said none
+  ""
+
+fn said s
+  s
 
 fn id_text none
   "0"

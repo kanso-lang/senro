@@ -30,7 +30,7 @@ const at = (path) => `http://127.0.0.1:${port}${path}`;
 async function joined(p, name, password, remember = false) {
   const email = `${name.toLowerCase()}@guestbook.test`;
   await p.goto(at("/"));
-  await p.click("a[href='/account/new']");
+  await p.click("a[href='/registration/new']");
   await p.waitForSelector("input[type=password]");
   await p.fill("input[name=name]", name);
   await p.fill("input[name=email]", email);
@@ -116,7 +116,7 @@ console.log(`a name with no account: ${await refused("Nobody")}`);
 
 // A name and an address already taken and a short password are all turned
 // back.
-await visitor.goto(at("/account/new"));
+await visitor.goto(at("/registration/new"));
 await visitor.fill("input[name=name]", "Bob");
 await visitor.fill("input[name=email]", "BOB@guestbook.test");
 await visitor.fill("input[name=password]", "short");
@@ -130,7 +130,7 @@ console.log(`taking Bob's name and address with a short password: ${taken}`);
 // Her right password is answered by a request to confirm first, and the
 // link is sent again.
 const di = await (await browser.newContext()).newPage();
-await di.goto(at("/account/new"));
+await di.goto(at("/registration/new"));
 await di.fill("input[name=name]", "Di");
 await di.fill("input[name=email]", "di@guestbook.test");
 await di.fill("input[name=password]", "dis password");
@@ -154,7 +154,7 @@ console.log(`Di, not yet confirmed: ${unconfirmed}; mail sent: ${mails().length 
 // with, and it works only once. A run that finds her account already made
 // resets it all the same.
 const cy = await (await browser.newContext()).newPage();
-await cy.goto(at("/account/new"));
+await cy.goto(at("/registration/new"));
 await cy.fill("input[name=name]", "Cy");
 await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.fill("input[name=password]", "cys first password");
@@ -201,7 +201,7 @@ console.log(`the link again: ${await cy.evaluate(() => document.querySelector("p
 // no longer counts as her current password.
 async function changed(current, password) {
   await cy.goto(at("/"));
-  await cy.click("a[href='/account/edit']");
+  await cy.click("a[href='/password/edit']");
   await cy.waitForSelector("input[name=current]");
   await cy.fill("input[name=current]", current);
   await cy.fill("input[name=password]", password);
@@ -211,7 +211,7 @@ async function changed(current, password) {
 }
 console.log(`changing with a wrong password: ${await changed("not hers", "cys third password")}`);
 console.log(`changing with hers: ${await changed("cys second password", "cys third password")}`);
-await cy.goto(at("/account/edit"));
+await cy.goto(at("/password/edit"));
 console.log(`and then her account page: ${new URL(cy.url()).pathname}`);
 // The page counts her sign-ins and, from the second on, says when and from
 // where the one before this came. The database outlives a run, so whether
@@ -230,7 +230,7 @@ console.log(`the old one again: ${await changed("cys second password", "cys four
 // unlocks it. Signing in is limited to ten tries in three minutes from one
 // address, and these four bring this run's to ten.
 const fay = await (await browser.newContext()).newPage();
-await fay.goto(at("/account/new"));
+await fay.goto(at("/registration/new"));
 await fay.fill("input[name=name]", "Fay");
 await fay.fill("input[name=email]", "fay@guestbook.test");
 await fay.fill("input[name=password]", "fays password");

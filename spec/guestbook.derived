@@ -240,7 +240,7 @@ pub fn reset_chosen path problems
 # in views, by kata/views
 signed_5 = joined [
   "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
-  "href=\"/account/new\">Make an account</a></nav>"
+  "href=\"/registration/new\">Make an account</a></nav>"
 ]
 
 fn signed_9 viewer
@@ -248,7 +248,7 @@ fn signed_9 viewer
     "<form method=\"post\" action=\"/session\" class=\"out\"><input "
     "type=\"hidden\" name=\"_method\" value=\"DELETE\"><span>Signed in as "
     # from signed.kata:12
-    "{escape viewer}.</span><a href=\"/account/edit\">Your account</a>"
+    "{escape viewer}.</span><a href=\"/password/edit\">Your account</a>"
     "<button>Sign out</button></form>"
   ]
 
@@ -467,7 +467,7 @@ fn reset_chosen_keyed path problems
 # in views, by kata/views
 signed_k_5 = joined [
   "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
-  "href=\"/account/new\">Make an account</a></nav>"
+  "href=\"/registration/new\">Make an account</a></nav>"
 ]
 
 fn signed_k_9 viewer
@@ -475,7 +475,7 @@ fn signed_k_9 viewer
     "<form method=\"post\" action=\"/session\" class=\"out\"><input "
     "type=\"hidden\" name=\"_method\" value=\"DELETE\"><span>Signed in as "
     # from signed.kata:12
-    "{escape viewer}.</span><a href=\"/account/edit\">Your account</a>"
+    "{escape viewer}.</span><a href=\"/password/edit\">Your account</a>"
     "<button>Sign out</button></form>"
   ]
 
@@ -685,6 +685,20 @@ fn kata_answered _ code node
   ]
   http/respond code heard (json/encode node)
 schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # models/tables
+# in account, by models/tables
+pub type account
+  id
+  name
+  digest
+  email
+  confirmed
+  failures
+  locked
+  sign_in_count
+  current_sign_in_at
+  last_sign_in_at
+  current_sign_in_ip
+  last_sign_in_ip
 # in signature, by models/tables
 pub type signature
   id
@@ -698,7 +712,26 @@ pub fn account_from row
   digest = account_cell row["digest"]
   email = account_cell row["email"]
   confirmed = account_cell row["confirmed"]
-  account id name digest email confirmed
+  failures = account_cell row["failures"]
+  locked = account_cell row["locked"]
+  sign_in_count = account_cell row["sign_in_count"]
+  current_sign_in_at = account_cell row["current_sign_in_at"]
+  last_sign_in_at = account_cell row["last_sign_in_at"]
+  current_sign_in_ip = account_cell row["current_sign_in_ip"]
+  last_sign_in_ip = account_cell row["last_sign_in_ip"]
+  account
+    id
+    name
+    digest
+    email
+    confirmed
+    failures
+    locked
+    sign_in_count
+    current_sign_in_at
+    last_sign_in_at
+    current_sign_in_ip
+    last_sign_in_ip
 # in account, by models/tables
 fn account_cell none
   ""
@@ -709,10 +742,17 @@ fn account_cell v
 pub fn account_attributes v
   {
     "confirmed":v.confirmed
+    "current_sign_in_at":v.current_sign_in_at
+    "current_sign_in_ip":v.current_sign_in_ip
     "digest":v.digest
     "email":v.email
+    "failures":v.failures
     "id":v.id
+    "last_sign_in_at":v.last_sign_in_at
+    "last_sign_in_ip":v.last_sign_in_ip
+    "locked":v.locked
     "name":v.name
+    "sign_in_count":v.sign_in_count
   }
 # in account, by models/tables
 pub account_model = {
@@ -720,9 +760,23 @@ pub account_model = {
   "create":create?
   "read":account_from
   "table":"accounts"
+  "update":update?
 }
 # in account, by models/tables
-pub account_columns = ["id" "name" "digest" "email" "confirmed"]
+pub account_columns = [
+  "id"
+  "name"
+  "digest"
+  "email"
+  "confirmed"
+  "failures"
+  "locked"
+  "sign_in_count"
+  "current_sign_in_at"
+  "last_sign_in_at"
+  "current_sign_in_ip"
+  "last_sign_in_ip"
+]
 # in account, by models/tables
 import "../models"
 
@@ -749,6 +803,12 @@ pub fn paged db number per
 
 pub fn paged db field value number per
   models/paged db account_model field value number per
+
+pub fn create db fields
+  models/create db account_model fields
+
+pub fn update db id changes
+  models/update db account_model id changes
 
 pub fn destroy db id
   models/destroy db account_model id
@@ -820,4 +880,4 @@ pub fn destroy db id
 
 pub fn increment db id field
   models/increment db signature_model id field
-routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /account/edit":{ "action":account/edit "id":"" } "GET /account/new":{ "action":account/new "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /account":{ "action":account/update "id":"" "limit":{ "count":10 "key":"account/update" "over":account/over_limit "within":180000 } } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /account":{ "action":account/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /password/edit":{ "action":password/edit "id":"" } "GET /registration/new":{ "action":registration/new "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /password":{ "action":password/update "id":"" "limit":{ "count":10 "key":"password/update" "over":password/over_limit "within":180000 } } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /registration":{ "action":registration/create "id":"" "open":true } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest

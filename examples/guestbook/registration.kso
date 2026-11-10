@@ -1,0 +1,73 @@
+import "../../models"
+import "../../passwords"
+import "../../web"
+import "./account"
+import "./account_mailer"
+import "./views"
+import "std/io"
+import "std/text"
+
+# What a sign-up form asked for.
+type signup
+  name
+  email
+  password
+
+# Anyone may make an account.
+pub without_sign_in = ["create" "new"]
+
+pub fn new req _
+  effect (opened req "" "" {} 200)
+
+# An account needs a name and an address nobody holds, and a password of
+# eight characters or more. Both are looked up before the password is
+# stretched, so a sign-up that cannot succeed costs no hashing.
+pub fn create req db
+  f = web/form req.body
+  name = text/trim (web/value f "name")
+  email = text/lowercase (text/trim (web/value f "email"))
+  asked = signup name email (web/value f "password")
+  account/find_by db "name" name
+    .> (n -> account/find_by db "email" email .> (m -> joined req db asked n m))
+
+fn joined req db asked by_name by_email
+  name = asked.name
+  email = asked.email
+  password = asked.password
+  short = "Use eight characters or more."
+  taken = "That address has an account."
+  found = models/problems [
+    (models/rule "name" (name == "") "Choose a name.")
+    (models/rule "name" (by_name != none) "That name is taken.")
+    (models/email_address "email" email)
+    (models/rule "email" (by_email != none) taken)
+    (models/rule "password" (length password < 8) short)
+  ]
+  return effect (opened req name email found 422) if models/problems? found
+  fields = { "email":email "name":name }
+  passwords/digested password
+    .> (d -> account/create db (put fields "digest" d))
+    .> (w -> made db w)
+
+# A new account is not signed in: its holder confirms the address first,
+# through the link the mail carries, as Devise's `confirmable` asks. A mail
+# that cannot be queued is logged, as the worker logs one it cannot send,
+# and the account can ask again by signing in.
+fn made db kept:account/account
+  told = "Welcome, {kept.name}. Confirm your address with the link we sent."
+  welcomed = web/noticed (web/redirect "/") told
+  account_mailer/confirmation db kept.id kept.email
+    .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
+    .> (_ -> effect welcomed)
+
+fn made _ _
+  effect web/denied
+
+# The sign-up form shows the name and address as typed and the problem with
+# each field, if any. A password is never sent back.
+fn opened req name email problems code
+  heading = "Make an account"
+  to = "/registration"
+  page = views/door_view heading to "Make it" name email problems true false
+  framed = views/layout_view "Make an account · Guestbook" page
+  views/answer_as req code framed

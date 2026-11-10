@@ -1,0 +1,9 @@
+import "../../../clock"
+
+# A moment written as UTC to the minute: the start of 1970, either side of
+# a leap day, the last minute of a year, and a morning in November.
+print (clock/utc_minute 0)
+print (clock/utc_minute 1709164740000)
+print (clock/utc_minute 1709251199999)
+print (clock/utc_minute 1798761599000)
+print (clock/utc_minute 1794025622000)
