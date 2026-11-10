@@ -1,0 +1,3 @@
+# An action that answers its page's words, where a response belongs.
+pub fn index _ _
+  effect "the words of a page"

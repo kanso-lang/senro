@@ -172,8 +172,9 @@ fi
 note "== each app under spec/serve answers its golden, natively and interpreted"
 # Each is served and asked for /nested with curl. Its answer is another
 # request to the same server, made while the first waits, so a server that
-# answers one connection at a time hangs and the request times out. One of
-# them, spec/serve/logged, is also held to the log the server wrote. These
+# answers one connection at a time hangs and the request times out. Two of
+# them, spec/serve/logged and spec/serve/answered, are also held to the log
+# the server wrote. These
 # use Postgres for their sessions, so SENRO_NO_DB=1 skips them too.
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/serve (SENRO_NO_DB=1)"
@@ -193,7 +194,10 @@ else
       flag=""
       [ "$engine" = interp ] && flag=--interp
       log=$(mktemp)
-      (cd "$d" && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+      # The server may hold 256 files open, so one that keeps a connection
+      # after its client has gone runs out within a spec
+      # (spec/serve/hung_up).
+      (cd "$d" && ulimit -n 256 && exec "$KANSO" run . $flag) > "$log" 2>&1 &
       server=$!
       tries=0
       while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
@@ -201,6 +205,10 @@ else
         tries=$((tries + 1))
       done
       got=$(curl -s -m 10 "http://127.0.0.1:$port/nested")
+      # What the server wrote is read before it is stopped. A request's line
+      # is written before its answer, so every line is there by now, and a
+      # server being ended may add a word about the signal that ended it.
+      lines=$(sed 's/ in [0-9]*ms$/ in Nms/' "$log")
       pkill -P "$server" 2>/dev/null
       kill "$server" 2>/dev/null
       wait "$server" 2>/dev/null
@@ -219,7 +227,6 @@ else
       # request it answered, the milliseconds each took read as N.
       wrote="spec/serve/$name.log"
       if [ -f "$wrote" ]; then
-        lines=$(sed 's/ in [0-9]*ms$/ in Nms/' "$log")
         if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
           printf '%s\n' "$lines" > "$wrote"
         fi

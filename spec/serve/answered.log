@@ -1,0 +1,7 @@
+senro on port 24418
+senro: a request failed: an action answered `the words of a page`, which is no response
+GET /words 500 in Nms
+GET /refused 403 in Nms
+GET /gone 404 in Nms
+GET /plain 200 in Nms
+GET /nested 200 in Nms
