@@ -1,28 +1,10 @@
 import "../../models"
-import "../../pg"
 import "../../web"
+import "./note"
+import "./page"
 import "./views"
 import "std/list"
 import "std/net/http"
-import "std/text"
-
-# A page is a row of the `pages` table. This module is named for the table,
-# so the models derivation declares `page` here with a field for each
-# column, and writes `page_from`, which builds one from a row, and
-# `page_model`, which the writes below go through.
-#
-# Anyone may make, change and remove a page. The models module asks these
-# before it writes; narrow them to the visitors who should.
-pub fn create? _ _
-  true
-
-pub fn update? _ _
-  true
-
-pub fn destroy? _ _
-  true
-
-model = page_model
 
 # A row of `pages` belongs to a note, so each action takes the note's id and
 # the routes nest under it: `index` answers GET /notes/:note_id/pages. A row
@@ -30,30 +12,15 @@ model = page_model
 # list or make.
 pub fn index req db note_id:int
   number = models/page_number (web/value (web/query req) "page")
-  asked = models/paged db listed ["{note_id}"] number per_page
+  asked = page/paged db "note_id" note_id number per_page
   listing_of = (p -> effect (listing req note_id p))
   within db note_id (asked .> listing_of)
 
 # How many rows a page of the list shows.
 per_page = 25
 
-columns = text/join page_columns ", "
-
-listed = """
-  select {columns} from pages
-  where note_id = $1::integer order by id
-"""
-
-found = """
-  select {columns} from pages
-  where id = $1::integer and note_id = $2::integer
-"""
-
-parent = "select id from notes where id = $1::integer"
-
 pub fn show req db note_id:int id:int
-  pg/query db found ["{id}" "{note_id}"]
-    .> (r -> effect (shown req (list/first r.rows)))
+  under db note_id id .> (r -> effect (shown req r))
 
 pub fn new req db note_id:int
   path = listed_path note_id
@@ -61,28 +28,27 @@ pub fn new req db note_id:int
 
 pub fn create req db note_id:int
   given = put (picked (web/form req.body)) "note_id" "{note_id}"
-  making = models/created "" db model given
+  making = page/create db given
   made_of = (w -> effect (made req note_id w))
   within db note_id (making .> made_of)
 
 pub fn edit req db note_id:int id:int
-  pg/query db found ["{id}" "{note_id}"]
-    .> (r -> effect (editing req note_id id (list/first r.rows)))
+  under db note_id id .> (r -> effect (editing req note_id id r))
 
 pub fn update req db note_id:int id:int
   given = picked (web/form req.body)
-  pg/query db found ["{id}" "{note_id}"]
-    .> (r -> updating db id given (list/first r.rows))
+  under db note_id id
+    .> (r -> updating db id given r)
     .> (w -> effect (changed req note_id id w))
 
 pub fn destroy _ db note_id:int id:int
-  pg/query db found ["{id}" "{note_id}"]
-    .> (r -> removing db id (list/first r.rows))
+  under db note_id id
+    .> (r -> removing db id r)
     .> (w -> effect (gone note_id w))
 
 # `then` when the note is there, and a 404 when it is not.
 fn within db id then
-  pg/query db parent ["{id}"] .> (r -> held (list/first r.rows) then)
+  note/find db id .> (found -> held found then)
 
 fn held none _
   effect http/not_found
@@ -90,18 +56,28 @@ fn held none _
 fn held _ then
   then
 
+# The row with this id under this note, or none.
+fn under db note_id id
+  page/find db id .> (r -> effect (owned note_id r))
+
+fn owned _ none
+  none
+
+fn owned note_id r
+  if ("{r.note_id}" == "{note_id}") r none
+
 # A write to a row under another note finds nothing.
 fn updating _ _ _ none
   effect web/absent
 
 fn updating db id given _
-  models/updated "" db model "{id}" given
+  page/update db id given
 
 fn removing _ _ none
   effect web/absent
 
 fn removing db id _
-  models/destroyed "" db model "{id}"
+  page/destroy db id
 
 fn listed_path note_id
   "/notes/{note_id}/pages"
@@ -110,18 +86,17 @@ fn shown_path note_id id
   "{listed_path note_id}/{id}"
 
 fn listing req note_id p
-  every = list/to_list (list/map p.rows page_from)
-  mapped = list/to_list (list/map every page_attributes)
+  as_json = page/page_attributes
+  mapped = list/to_list (list/map p.rows as_json)
   return web/json 200 mapped if web/wants_json? req
-  page = views/pages_index_view note_id every p.number p.more
+  page = views/pages_index_view note_id p.rows p.number p.more
   views/answer_as req 200 (views/layout_view "Pages" page)
 
 fn shown _ none
   http/not_found
 
-fn shown req row
-  record = page_from row
-  attributes = page_attributes record
+fn shown req record
+  attributes = page/page_attributes record
   return web/json 200 attributes if web/wants_json? req
   page = views/page_shown_view record
   views/answer_as req 200 (views/layout_view "Page" page)
@@ -129,9 +104,8 @@ fn shown req row
 fn editing _ _ _ none
   http/not_found
 
-fn editing req note_id id row
-  kept = filled (page_from row)
-  form req (shown_path note_id id) "PATCH" kept {} 200
+fn editing req note_id id record
+  form req (shown_path note_id id) "PATCH" (filled record) {} 200
 
 fn made req note_id w:models/invalid
   path = listed_path note_id

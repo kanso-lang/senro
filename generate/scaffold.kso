@@ -289,15 +289,24 @@ pub fn migrations_new senro plural fields
   ]
   "{text/join head "\n"}{migration plural fields}\n"
 
-# The resource's module: the model's record and its policies, and the seven
-# actions Rails' scaffold writes.
+# The model's module, named for the record: its policies and its rules.
+# The models derivation declares the record in it and answers for the table
+# by the module's name.
+pub fn model senro singular fields
+  plural = models/plural singular
+  rules = problems_of singular fields
+  head = if (length rules == 0) [] ["import \"{senro}/models\"" ""]
+  parts = [(record singular plural) (policies singular)]
+  lines = list/concat (list/concat head parts) rules
+  "{text/join lines "\n"}"
+
+# The resource's module: the seven actions Rails' scaffold writes, each
+# reading and writing through the model.
 pub fn resource senro singular fields
   plural = models/plural singular
   parts = [
-    (imports senro)
-    (record singular plural)
-    (policies singular fields)
-    (actions_of plural fields (parent_of fields))
+    (imports senro singular (parent_of fields))
+    (actions_of singular plural fields (parent_of fields))
     (helpers_of singular plural fields (parent_of fields))
   ]
   "{text/join parts "\n"}\n"
@@ -305,18 +314,26 @@ pub fn resource senro singular fields
 fn names_of fields
   list/to_list (list/map fields (f -> f.name))
 
-fn imports senro
+fn imports senro singular parent
   lines = [
     "import \"{senro}/models\""
-    "import \"{senro}/pg\""
     "import \"{senro}/web\""
+    (model_imports singular parent)
     "import \"./views\""
     "import \"std/list\""
     "import \"std/net/http\""
-    "import \"std/text\""
     ""
   ]
   text/join lines "\n"
+
+# The models an action reads: its own, and its parent's when it is nested,
+# in the order kanso sorts imports.
+fn model_imports singular none
+  "import \"./{singular}\""
+
+fn model_imports singular parent
+  both = list/sort [singular (parent_name parent)]
+  text/join (list/to_list (list/map both (n -> "import \"./{n}\""))) "\n"
 
 # Words as `# ` lines of at most 76 columns, as a person would wrap them.
 fn comment words
@@ -335,18 +352,19 @@ fn wrapped acc word
 fn record singular plural
   about = [
     "A {singular} is a row of the `{plural}` table. This module is named for"
-    "the table, so the models derivation declares `{singular}` here with a"
-    "field for each column, and writes `{singular}_from`, which builds one"
-    "from a row, and `{singular}_model`, which the writes below go through."
+    "it, so the models derivation declares `{singular}` here with a field"
+    "for each column and answers for the table by this module's name:"
+    "`{singular}/find db id`, `{singular}/paged db number per`,"
+    "`{singular}/create db fields` and the rest."
   ]
   "{comment (text/join about " ")}\n#"
 
-fn policies singular fields
+fn policies singular
   about = [
     "Anyone may make, change and remove a {singular}. The models module asks"
     "these before it writes; narrow them to the visitors who should."
   ]
-  head = [
+  lines = [
     (comment (text/join about " "))
     "pub fn create? _ _"
     "  true"
@@ -358,8 +376,6 @@ fn policies singular fields
     "  true"
     ""
   ]
-  tail = ["model = {singular}_model" ""]
-  lines = list/concat (list/concat head (problems_of singular fields)) tail
   text/join lines "\n"
 
 # The lines of the rules a record breaks when a number is not one its column
@@ -383,11 +399,11 @@ fn list_line head indent items
   each = list/to_list (list/map items (i -> "{indent}  {i}"))
   "{head} [\n{text/join each "\n"}\n{indent}]"
 
-fn actions_of plural fields none
-  actions plural fields
+fn actions_of singular plural fields none
+  actions singular plural fields
 
-fn actions_of plural fields parent
-  nested_actions plural fields parent
+fn actions_of singular plural fields parent
+  nested_actions singular plural fields parent
 
 fn helpers_of singular plural fields none
   helpers singular plural fields
@@ -395,44 +411,35 @@ fn helpers_of singular plural fields none
 fn helpers_of singular plural fields parent
   nested_helpers singular plural fields parent
 
-fn actions plural fields
-  shown_then = ".> (r -> effect (shown req (list/first r.rows)))"
+fn actions singular plural fields
   changed_then = ".> (w -> effect (changed req id w))"
   lines = [
     "pub fn index req db"
     "  number = models/page_number (web/value (web/query req) \"page\")"
-    "  asked = models/paged db listed [] number per_page"
-    "  asked .> (p -> effect (listing req p))"
+    "  {singular}/paged db number per_page .> (p -> effect (listing req p))"
     ""
     (comment per_page_about)
     "per_page = 25"
     ""
-    "columns = text/join {models/singular plural}_columns \", \""
-    ""
-    "listed = \"select \{columns} from {plural} order by id\""
-    ""
-    "found = \"select \{columns} from {plural} where id = $1::integer\""
-    ""
     "pub fn show req db id:int"
-    "  pg/query db found [\"\{id}\"] {shown_then}"
+    "  {singular}/find db id .> (r -> effect (shown req r))"
     ""
     "pub fn new req _"
     "  effect (form req \"/{plural}\" \"POST\" blank \{} 200)"
     ""
     "pub fn create req db"
     "  given = {made_with fields} (web/form req.body)"
-    "  models/created \"\" db model given .> (w -> effect (made req w))"
+    "  {singular}/create db given .> (w -> effect (made req w))"
     ""
     "pub fn edit req db id:int"
-    "  pg/query db found [\"\{id}\"]"
-    "    .> (r -> effect (editing req id (list/first r.rows)))"
+    "  {singular}/find db id .> (r -> effect (editing req id r))"
     ""
     "pub fn update req db id:int"
     "  given = picked (web/form req.body)"
-    "  models/updated \"\" db model \"\{id}\" given {changed_then}"
+    "  {singular}/update db id given {changed_then}"
     ""
     "pub fn destroy _ db id:int"
-    "  models/destroyed \"\" db model \"\{id}\" .> (w -> effect (gone w))"
+    "  {singular}/destroy db id .> (w -> effect (gone w))"
     ""
   ]
   text/join lines "\n"
@@ -443,18 +450,17 @@ fn helpers singular plural fields
   path = "\"/{plural}/\{id}\""
   lines = [
     "fn listing req p"
-    "  every = list/to_list (list/map p.rows {singular}_from)"
-    "  mapped = list/to_list (list/map every {singular}_attributes)"
+    "  as_json = {singular}/{singular}_attributes"
+    "  mapped = list/to_list (list/map p.rows as_json)"
     "  return web/json 200 mapped if web/wants_json? req"
-    "  page = views/{plural}_index_view every p.number p.more"
+    "  page = views/{plural}_index_view p.rows p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
     "  http/not_found"
     ""
-    "fn shown req row"
-    "  record = {singular}_from row"
-    "  attributes = {singular}_attributes record"
+    "fn shown req record"
+    "  attributes = {singular}/{singular}_attributes record"
     "  return web/json 200 attributes if web/wants_json? req"
     "  page = views/{singular}_shown_view record"
     "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
@@ -462,9 +468,8 @@ fn helpers singular plural fields
     "fn editing _ _ none"
     "  http/not_found"
     ""
-    "fn editing req id row"
-    "  kept = filled ({singular}_from row)"
-    "  form req {path} \"PATCH\" kept \{} 200"
+    "fn editing req id record"
+    "  form req {path} \"PATCH\" (filled record) \{} 200"
     ""
     "fn made req w:models/invalid"
     "  form req \"/{plural}\" \"POST\" (filled w.record) w.problems 422"
@@ -513,7 +518,7 @@ fn helpers singular plural fields
 # and the database, which places their routes under the parent's. A row is
 # found only under its own parent, and a parent that is not there has none
 # to list or make.
-fn nested_actions plural fields parent
+fn nested_actions singular plural fields parent
   k = parent.name
   name = parent_name parent
   parents = models/plural name
@@ -527,30 +532,15 @@ fn nested_actions plural fields parent
     (comment (text/join about " "))
     "pub fn index req db {k}:int"
     "  number = models/page_number (web/value (web/query req) \"page\")"
-    "  asked = models/paged db listed [\"\{{k}}\"] number per_page"
+    "  asked = {singular}/paged db \"{k}\" {k} number per_page"
     "  listing_of = (p -> effect (listing req {k} p))"
     "  within db {k} (asked .> listing_of)"
     ""
     (comment per_page_about)
     "per_page = 25"
     ""
-    "columns = text/join {models/singular plural}_columns \", \""
-    ""
-    "listed = \"\"\""
-    "  select \{columns} from {plural}"
-    "  where {k} = $1::integer order by id"
-    "\"\"\""
-    ""
-    "found = \"\"\""
-    "  select \{columns} from {plural}"
-    "  where id = $1::integer and {k} = $2::integer"
-    "\"\"\""
-    ""
-    "parent = \"select id from {parents} where id = $1::integer\""
-    ""
     "pub fn show req db {k}:int id:int"
-    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
-    "    .> (r -> effect (shown req (list/first r.rows)))"
+    "  under db {k} id .> (r -> effect (shown req r))"
     ""
     "pub fn new req db {k}:int"
     "  path = listed_path {k}"
@@ -558,28 +548,27 @@ fn nested_actions plural fields parent
     ""
     "pub fn create req db {k}:int"
     "  given = put ({made_with fields} (web/form req.body)) \"{k}\" \"\{{k}}\""
-    "  making = models/created \"\" db model given"
+    "  making = {singular}/create db given"
     "  made_of = (w -> effect (made req {k} w))"
     "  within db {k} (making .> made_of)"
     ""
     "pub fn edit req db {k}:int id:int"
-    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
-    "    .> (r -> effect (editing req {k} id (list/first r.rows)))"
+    "  under db {k} id .> (r -> effect (editing req {k} id r))"
     ""
     "pub fn update req db {k}:int id:int"
     "  given = picked (web/form req.body)"
-    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
-    "    .> (r -> updating db id given (list/first r.rows))"
+    "  under db {k} id"
+    "    .> (r -> updating db id given r)"
     "    .> (w -> effect (changed req {k} id w))"
     ""
     "pub fn destroy _ db {k}:int id:int"
-    "  pg/query db found [\"\{id}\" \"\{{k}}\"]"
-    "    .> (r -> removing db id (list/first r.rows))"
+    "  under db {k} id"
+    "    .> (r -> removing db id r)"
     "    .> (w -> effect (gone {k} w))"
     ""
     (comment "`then` when the {name} is there, and a 404 when it is not.")
     "fn within db id then"
-    "  pg/query db parent [\"\{id}\"] .> (r -> held (list/first r.rows) then)"
+    "  {name}/find db id .> (found -> held found then)"
     ""
     "fn held none _"
     "  effect http/not_found"
@@ -587,18 +576,28 @@ fn nested_actions plural fields parent
     "fn held _ then"
     "  then"
     ""
+    (comment "The row with this id under this {name}, or none.")
+    "fn under db {k} id"
+    "  {singular}/find db id .> (r -> effect (owned {k} r))"
+    ""
+    "fn owned _ none"
+    "  none"
+    ""
+    "fn owned {k} r"
+    "  if (\"\{r.{k}}\" == \"\{{k}}\") r none"
+    ""
     (comment "A write to a row under another {name} finds nothing.")
     "fn updating _ _ _ none"
     "  effect web/absent"
     ""
     "fn updating db id given _"
-    "  models/updated \"\" db model \"\{id}\" given"
+    "  {singular}/update db id given"
     ""
     "fn removing _ _ none"
     "  effect web/absent"
     ""
     "fn removing db id _"
-    "  models/destroyed \"\" db model \"\{id}\""
+    "  {singular}/destroy db id"
     ""
     "fn listed_path {k}"
     "  \"/{parents}/\{{k}}/{plural}\""
@@ -616,18 +615,17 @@ fn nested_helpers singular plural fields parent
   mine = own fields
   lines = [
     "fn listing req {k} p"
-    "  every = list/to_list (list/map p.rows {singular}_from)"
-    "  mapped = list/to_list (list/map every {singular}_attributes)"
+    "  as_json = {singular}/{singular}_attributes"
+    "  mapped = list/to_list (list/map p.rows as_json)"
     "  return web/json 200 mapped if web/wants_json? req"
-    "  page = views/{plural}_index_view {k} every p.number p.more"
+    "  page = views/{plural}_index_view {k} p.rows p.number p.more"
     "  views/answer_as req 200 (views/layout_view \"{every_title}\" page)"
     ""
     "fn shown _ none"
     "  http/not_found"
     ""
-    "fn shown req row"
-    "  record = {singular}_from row"
-    "  attributes = {singular}_attributes record"
+    "fn shown req record"
+    "  attributes = {singular}/{singular}_attributes record"
     "  return web/json 200 attributes if web/wants_json? req"
     "  page = views/{singular}_shown_view record"
     "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
@@ -635,9 +633,8 @@ fn nested_helpers singular plural fields parent
     "fn editing _ _ _ none"
     "  http/not_found"
     ""
-    "fn editing req {k} id row"
-    "  kept = filled ({singular}_from row)"
-    "  form req (shown_path {k} id) \"PATCH\" kept \{} 200"
+    "fn editing req {k} id record"
+    "  form req (shown_path {k} id) \"PATCH\" (filled record) \{} 200"
     ""
     "fn made req {k} w:models/invalid"
     "  path = listed_path {k}"

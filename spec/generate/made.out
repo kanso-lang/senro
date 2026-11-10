@@ -3,12 +3,14 @@
   create spec/notebook/migrations.kso
   create spec/notebook/views/layout.kata
   create spec/notebook/views/home.kata
+  create spec/notebook/note.kso
   create spec/notebook/notes.kso
   create spec/notebook/views/notes_index.kata
   create spec/notebook/views/note_shown.kata
   create spec/notebook/views/note_form.kata
   change spec/notebook/migrations.kso
   change spec/notebook/main.kso
+  create spec/notebook/page.kso
   create spec/notebook/pages.kso
   create spec/notebook/views/pages_index.kata
   create spec/notebook/views/page_shown.kata

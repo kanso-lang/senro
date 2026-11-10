@@ -36,6 +36,8 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> reading/picked db .> (_ -> db))
   .> (db -> reading/leafed db 1 .> (_ -> db))
   .> (db -> reading/leafed db 2 .> (_ -> db))
+  .> (db -> reading/leafed_by db "ada" .> (_ -> db))
+  .> (db -> reading/leafed_by db "bob" .> (_ -> db))
   .> (db -> reading/first_of db "bob" .> (_ -> db))
   .> (db -> reading/first_of db "ada" .> (_ -> db))
   .> (db -> reading/wrote db "bob" "ada" .> (_ -> db))

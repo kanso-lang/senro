@@ -1,15 +1,15 @@
 import "../../../models"
 import "./migrations"
-import "./notes"
-import "./tags"
+import "./note"
+import "./tag"
 import "std/list"
 
 derive models/tables
 
 # The dump's foreign key writes a reader each way, so both names resolve.
-tags_of_a_note = &tags/of_note
+tags_of_a_note = &tag/of_note
 
-note_of_a_tag = &notes/of_tag
+note_of_a_tag = &note/of_tag
 
 print "{schema["notes"]}"
 print "{schema["tags"]}"
@@ -18,4 +18,4 @@ print (list/to_list (list/map [tags_of_a_note note_of_a_tag] (_ -> "written")))
 
 # The dump's unique index and unique constraint each name a table's unique
 # column. The index over two columns names none.
-print "{notes/note_model["unique"]} {tags/tag_model["unique"]}"
+print "{note/note_model["unique"]} {tag/tag_model["unique"]}"

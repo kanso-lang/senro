@@ -14,7 +14,7 @@ import "./migrations"
 import "./removal"
 import "./resets"
 import "./session"
-import "./signatures"
+import "./signature"
 import "./unlocks"
 import "./views"
 

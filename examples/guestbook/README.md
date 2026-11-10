@@ -110,13 +110,13 @@ place, rendered on the server.
   to the sign-in form. After a signature is stored it answers a redirect to
   the list, so reloading the page does not post the form again, and carries
   a one-time notice across it in the session.
-- `signatures.kso` declares the `signature` model, its policies and its
+- `signature.kso` declares the `signature` model, its policies and its
   rules: a name and a message, and a message under 280 characters. Only
   the account that signed an entry may remove it. A signer may add a photo:
   the form is multipart, senro stores the file and hands the action its key,
   and the `photo` column keeps the key, which the page shows through
   `/senro/blobs/<key>`.
-  `entries.kso` makes a signature through the model (`signatures/create`),
+  `entries.kso` makes a signature through the model (`signature/create`),
   which stores it with a parameterized insert, so what a visitor types is
   stored as text and never read as SQL. A signature that breaks a rule is
   not stored: the page comes back with a 422, the form as the visitor

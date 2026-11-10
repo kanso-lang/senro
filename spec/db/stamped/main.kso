@@ -1,7 +1,7 @@
 import "../../../models"
 import "../../../pg"
 import "./migrations"
-import "./notes"
+import "./note"
 import "./stamping"
 
 derive models/tables

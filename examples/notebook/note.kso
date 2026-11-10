@@ -1,0 +1,21 @@
+import "../../models"
+
+# A note is a row of the `notes` table. This module is named for it, so the
+# models derivation declares `note` here with a field for each column and
+# answers for the table by this module's name: `note/find db id`,
+# `note/paged db number per`, `note/create db fields` and the rest.
+#
+# Anyone may make, change and remove a note. The models module asks these
+# before it writes; narrow them to the visitors who should.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
+
+pub fn destroy? _ _
+  true
+
+# What makes a note fit to keep: each number is one its column takes.
+pub fn problems r
+  models/problems [(models/whole_number "pages" r.pages)]
