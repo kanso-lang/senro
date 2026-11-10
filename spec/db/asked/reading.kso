@@ -36,6 +36,12 @@ pub fn latest db
   notes/newest (pg/asked_by db "ada")
     .> (ns -> print "ada, newest first: {bodies ns}")
 
+# A page holds the rows of that page the viewer may see, so ada's first
+# page of two rows, which are hers and bob's, shows one.
+pub fn leafed db number
+  notes/paged (pg/asked_by db "ada") number 2
+    .> (p -> print "ada, page {number} of two rows: {bodies p.rows}")
+
 pub fn first_of db who
   notes/find_by (pg/asked_by db who) "body" "second"
     .> (n -> print "{who}, the note whose body is second: {body_of n}")
