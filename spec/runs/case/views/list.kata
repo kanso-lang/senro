@@ -5,7 +5,7 @@ case length posts
   when 1
     p One post.
 ul
-  for p in posts
+  each posts p ->
     li
       case p.state
         when "draft"

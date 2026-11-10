@@ -1,0 +1,4 @@
+takes things
+ul
+  for t in things
+    li = t

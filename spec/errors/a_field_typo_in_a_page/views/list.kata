@@ -1,6 +1,6 @@
 takes posts
 ul
-  for p in posts
+  each posts p ->
     li
       h2 = p.titel
       p = p.body

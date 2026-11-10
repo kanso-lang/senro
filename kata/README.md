@@ -3,8 +3,8 @@
 kata is senro's view layer (kanso#2178). A view is a `.kata` file, and kata
 compiles it to a kanso function while the app compiles. The syntax borrows
 Slim's indentation and tag shorthand and otherwise follows kanso: holes are
-written `{expr}` as in a kanso string, control lines are bare `if` and `for`,
-and a comment starts with `#`.
+written `{expr}` as in a kanso string, a test is a bare `if`, a list is walked
+with `each`, and a comment starts with `#`.
 
 ## Using it
 
@@ -36,7 +36,7 @@ form method="post" action="/entries"
   input name="name" value=name
   button Sign
 ol.entries
-  for e in signatures
+  each signatures e ->
     li
       p.message = e.message
       p.who By {e.name}
@@ -52,8 +52,11 @@ ol.entries
 - `= expr` writes a value escaped and `== expr` writes it raw. Text after a
   tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace. A value
   that may be none, such as a map's entry, writes nothing under `=`.
-- `if expr`, any number of `else if expr`, an optional `else`, and
-  `for x in xs`.
+- `if expr`, any number of `else if expr` and an optional `else`.
+- `each xs x ->` writes the rows under it once for each element of `xs`,
+  with `x` in scope. It is kanso's `each xs (x -> ...)` with the rows as
+  the function's body. Kata has no `for`, as kanso has none, and a `for` row
+  is refused at its line (`spec/errors/a_for_row_in_a_template`).
 - `case expr` with `when value` rows under it and an optional `else` last.
   A value is matched as a function's argument is: a string, a number,
   `true`, `false` or `none`. A value no `when` names writes the `else` rows,
@@ -64,7 +67,7 @@ ol.entries
 ## What it writes
 
 The template becomes a `pub fn` named after the file. Each `if` branch and
-each `for` body becomes a helper function of exactly the names in scope it
+each `each` body becomes a helper function of exactly the names in scope it
 mentions, because kanso refuses an unused parameter; a body that mentions none
 becomes a constant. A `case` becomes a function with an arm for each `when`,
 each binding only the names its own rows read. Markup and holes are packed into string literals that fit
@@ -139,7 +142,7 @@ more functions for each page in the module:
 
 - `signed_view` takes what `signed` takes and answers the page as data: the
   template's name and its values. A record goes in cut down to a map of the
-  fields the template reads. `for e in signatures` followed by `e.name`
+  fields the template reads. `each signatures e ->` followed by `e.name`
   reads `name` from each record in `signatures`, so each record becomes a
   map of `name` and the other fields read beside it. A value the template
   reads no field of goes in whole. A page may hold another page as a value,
