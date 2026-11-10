@@ -75,14 +75,6 @@ type origin
   name
   file
 
-# What a scan of an expression found: each chain of reads in it, such as
-# `post.author.name`, which is what `reads` is after, and its text with
-# every field read written as a call. Only code is read; the text of a
-# string literal is copied, though the code in its `{}` holes is not.
-type reading
-  text
-  chains
-
 # The template line each path is first read on, while the compiled source is
 # scanned: the paths so far and the line the last `# from` comment named.
 type sited
@@ -680,8 +672,11 @@ fn name_char? c
   letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_?!"
   length (text/split letters c) > 1
 
+# Each chain of reads in an expression, such as `post.author.name`. Only
+# code is read: the text of a string literal is passed over, and the code in
+# its `{}` holes is not.
 fn scanned_reads s
-  rewritten (text/chars s) 1 ["code"] (reading "" [])
+  rewritten (text/chars s) 1 ["code"] []
 
 fn rewritten cs i modes acc
   return acc if i < 1 or length cs < i
@@ -689,10 +684,10 @@ fn rewritten cs i modes acc
   next = i + 1
   return in_literal cs i modes acc if top modes == "text"
   return chained cs i modes acc if starts_name? c and not after_name? cs i
-  return rewritten cs next (push modes "code") (on acc c) if c == "\{"
-  return rewritten cs next (popped modes) (on acc c) if c == "}"
-  return rewritten cs next (push modes "text") (on acc c) if c == "\""
-  rewritten cs next modes (on acc c)
+  return rewritten cs next (push modes "code") acc if c == "\{"
+  return rewritten cs next (popped modes) acc if c == "}"
+  return rewritten cs next (push modes "text") acc if c == "\""
+  rewritten cs next modes acc
 
 # Inside a string literal a `\` escapes the character after it, `{` opens
 # code, and `"` closes the literal.
@@ -700,67 +695,23 @@ fn in_literal cs i modes acc
   return acc if i < 1 or length cs < i
   c = cs[i]
   next = i + 1
-  pair = "{c}{char_at cs next}"
-  return rewritten cs (i + 2) modes (on acc pair) if c == "\\"
-  return rewritten cs next (push modes "code") (on acc c) if c == "\{"
-  return rewritten cs next (popped modes) (on acc c) if c == "\""
-  rewritten cs next modes (on acc c)
-
-fn on acc s
-  reading "{acc.text}{s}" acc.chains
+  return rewritten cs (i + 2) modes acc if c == "\\"
+  return rewritten cs next (push modes "code") acc if c == "\{"
+  return rewritten cs next (popped modes) acc if c == "\""
+  rewritten cs next modes acc
 
 fn chained cs i modes acc
   j = name_end cs i
-  name = word_from cs i j
-  fields_after cs i j modes acc name name
+  fields_after cs j modes acc (word_from cs i j) false
 
-# A read stands bare where it is the whole of a hole, a bracket or a group,
-# or an operand of a binary operator there, since a call binds tighter than
-# any operator. Anywhere else, such as an argument, it is in parentheses.
-fn fields_after cs i j modes acc expr chain
+# A name with no field read after it is not a chain. One with fields is
+# kept whole once the last of them is passed.
+fn fields_after cs j modes acc chain read
   more = char_at cs j == "." and starts_name? (char_at cs (j + 1))
-  return rewritten cs j modes (on acc expr) if not more and chain == expr
-  whole = alone? cs i j
-  shown = if whole expr "({expr})"
-  ended_here = reading "{acc.text}{shown}" (push acc.chains chain)
-  return rewritten cs j modes ended_here if not more
+  return rewritten cs j modes acc if not more and not read
+  return rewritten cs j modes (push acc chain) if not more
   k = name_end cs (j + 1)
-  f = word_from cs (j + 1) k
-  read = "kata_at {wrapped expr} \"{f}\""
-  fields_after cs i k modes acc read "{chain}.{f}"
-
-fn alone? cs i j
-  before = char_at cs (i - 1)
-  opened = list/any? ["" "\{" "(" "["] (c -> c == before)
-  closed = list/any? ["" "}" ")" "]"] (c -> c == char_at cs j)
-  left = opened or operator? (word_before cs (i - 2))
-  left and (closed or operator? (word_after cs (j + 1)))
-
-binary_operators = ["==" "!=" "<" "<=" ">" ">=" "+" "-" "*" "/" "and" "or"]
-
-fn operator? word
-  list/any? binary_operators (o -> o == word)
-
-# The word that ends at `i`, after a space, or "" when the space is missing.
-fn word_before cs i
-  return "" if char_at cs (i + 1) != " "
-  word_from cs (spaced_from cs i) (i + 1)
-
-fn spaced_from cs i
-  return i + 1 if i < 1 or cs[i] == " "
-  spaced_from cs (i - 1)
-
-# The word that starts at `j`, before a space, or "" when the space is
-# missing.
-fn word_after cs j
-  return "" if char_at cs (j - 1) != " "
-  ends = spaced_to cs j
-  return "" if char_at cs ends != " "
-  word_from cs j ends
-
-fn spaced_to cs j
-  return j if length cs < j or cs[j] == " "
-  spaced_to cs (j + 1)
+  fields_after cs k modes acc "{chain}.{word_from cs (j + 1) k}" true
 
 fn name_end cs i
   return i if i < 1 or length cs < i
@@ -793,7 +744,7 @@ pub fn reads src
   declared = takes_of rows
   loops = list/fold rows {} looped_over
   code = list/reject (text/split (compiled "kata" "" src) "\n") commented?
-  found = (scanned_reads (text/join (list/to_list code) "\n")).chains
+  found = scanned_reads (text/join (list/to_list code) "\n")
   paths = list/map found (c -> resolved c loops declared 0)
   distinct (list/to_list (list/reject paths (p -> p == ""))) []
 
@@ -814,7 +765,7 @@ fn sited_on s l loops declared
   t = text/trim l
   return sited s.lines (cited_line t) if text/starts_with? t "# from "
   return s if commented? l
-  found = (scanned_reads l).chains
+  found = scanned_reads l
   paths = list/map found (c -> resolved c loops declared 0)
   sited (list/fold paths s.lines (m p -> first_at m p s.at)) s.at
 
