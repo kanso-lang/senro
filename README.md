@@ -337,7 +337,10 @@ when they are given that path. The specs write it again and compare the two.
   server keeps serving. An action that answers something other than a
   response, such as a page's text on its own, is answered the same way. A
   model's refusal is the exception: an action may hand it on as it got it,
-  and it goes out as the 403 or 404 `web/refusal` makes of it. The server
+  and it goes out as the 403 or 404 `web/refusal` makes of it. A connection
+  is closed once its request is answered, and also when its client hangs
+  up first or never sends one, so a client that leaves costs the server
+  nothing it keeps. The server
   writes a line on standard output for each
   request as it answers it: the method the request stands for, the path, the
   status and the milliseconds it took, as in `PATCH /entries/3 303 in 9ms`.

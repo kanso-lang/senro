@@ -109,10 +109,24 @@ fn forked l c s
   answered c s
   served l s
 
+# Every connection the server accepts is closed here, once, whatever became
+# of its request: answered, refused, never sent, or cut off by a client that
+# hung up while it was being read or written to. A connection left open
+# holds one of the sockets the process may have, and a server that runs out
+# of them stops. A client that connects and sends nothing, as a browser
+# does with a connection it opened to have one ready, is closed without a
+# word. Any other failure that ends a request early is written to standard
+# error, since nothing else will say it happened.
 fn answered c s
-  gathered c (text/to_bytes []) -1
-    .> (raw -> request_text raw)
-    .> (got -> handed_on c s got)
+  heard_out = gathered c (text/to_bytes []) -1 .> (raw -> taken_up c s raw)
+  heard_out .? cut_short .> (_ -> net/close_conn c)
+
+fn taken_up c s raw
+  return effect 0 if length raw == 0
+  request_text raw .> (got -> handed_on c s got)
+
+fn cut_short u
+  io/write_err "senro: a connection ended early: {u.reason}\n"
 
 # A refusal is written as it stands: std/net/http has no reason phrase for
 # every status the server refuses with.
@@ -120,7 +134,6 @@ fn handed_on c _ r:refused_with
   phrase = "{r.reason}\n"
   line = "HTTP/1.1 {r.status} {r.reason}\r\ncontent-length: {length phrase}"
   net/write c "{line}\r\nconnection: close\r\n\r\n{phrase}"
-    .> (_ -> net/close_conn c)
 
 fn handed_on c s raw
   time/now
@@ -172,9 +185,7 @@ fn heard c s req
   answer = (db -> answered_by action req db)
   answering = pool/with s.dbs (db -> responded c db req method by (answer db))
   turned = turned_away action req .> (r -> logged_as req method r)
-  allowed s.calls action req
-    .> (fine -> let_in fine c answering turned)
-    .> (_ -> net/close_conn c)
+  allowed s.calls action req .> (fine -> let_in fine c answering turned)
 
 # A request that would change something, sent by a page on another site, as
 # Rails' `protect_from_forgery` refuses one. The session cookie is
@@ -208,7 +219,7 @@ fn foreign? origin host
 
 fn crossed c req method
   r = http/respond 403 [] "Forbidden: a request from another site\n"
-  logged_as req method r .> (_ -> sent c r) .> (_ -> net/close_conn c)
+  logged_as req method r .> (_ -> sent c r)
 
 fn let_in true _ answering _
   answering
@@ -505,7 +516,7 @@ fn listening c db
   heard_all = net/write c stream_head
     .> (_ -> pg/run db "listen senro")
     .> (_ -> relayed c db)
-  heard_all .? (_ -> effect 0) .> (_ -> pg/close db) .> (_ -> net/close_conn c)
+  heard_all .? (_ -> effect 0) .> (_ -> pg/close db)
 
 fn relayed c db
   pg/notified db

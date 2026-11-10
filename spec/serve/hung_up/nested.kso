@@ -1,0 +1,42 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+import "std/time"
+
+# Twice this many clients come and go, which is more than the files the
+# spec lets the server hold open (spec.sh sets the limit).
+clients = 160
+
+# That many clients connect and hang up without a word, and as many more
+# hang up halfway through a request line. Then one asks for a page. A
+# server that kept a connection for each client that left has none to give
+# by then, and answers nobody.
+pub fn index _ _
+  left (c -> effect c) clients
+    .> (_ -> left (c -> net/write c "GET /plain HTT") clients)
+    .> (_ -> asked "/plain")
+    .> (raw -> effect (http/text_page "after they left: {status raw}"))
+
+fn left _ 0
+  effect 0
+
+# The pause lets the server take the connection before the next client
+# comes: this client runs in the server's own process, and one that never
+# waited would fill the queue of connections not yet accepted.
+fn left said n
+  net/dial "127.0.0.1" 24419
+    .> (c -> said c .> (_ -> net/close_conn c))
+    .> (_ -> time/sleep 1)
+    .> (_ -> left said (n - 1))
+
+fn asked path
+  net/dial "127.0.0.1" 24419 .> (c -> sent c path)
+
+fn sent c path
+  net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn status raw
+  list/first (text/split raw "\r\n")

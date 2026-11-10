@@ -194,7 +194,10 @@ else
       flag=""
       [ "$engine" = interp ] && flag=--interp
       log=$(mktemp)
-      (cd "$d" && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+      # The server may hold 256 files open, so one that keeps a connection
+      # after its client has gone runs out within a spec
+      # (spec/serve/hung_up).
+      (cd "$d" && ulimit -n 256 && exec "$KANSO" run . $flag) > "$log" 2>&1 &
       server=$!
       tries=0
       while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
