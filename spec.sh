@@ -16,8 +16,9 @@
 # guestbook account runs out by the clock (spec/lapsed); pages listening for
 # changes cost the server a connection each and Postgres nothing
 # (spec/live); each app under spec/errors is refused with the message its
-# golden holds; and the benchmark page costs what bench/pages.golden pins
-# (bench/pages.sh).
+# golden holds; wire and a second writing of its format read each other's
+# bytes (spec/wire); and the benchmark page costs what bench/pages.golden
+# pins (bench/pages.sh).
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -32,7 +33,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata wire data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
+for d in routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -76,7 +77,9 @@ for d in spec/runs/*/; do
 done
 
 if [ "${SPEC_WRITE:-}" = 1 ]; then
-  printf '\t\t%s\n' "$(sed -n 1p spec/runs/pages.stdout)" > spec/runs/pages.events
+  for n in 1 5 6; do
+    printf '\t\t%s\n' "$(sed -n ${n}p spec/runs/pages.stdout)"
+  done > spec/runs/pages.events
 fi
 
 note "== each browser module answers its events on every engine"
@@ -151,8 +154,10 @@ done
 note "== the browser renders a page as the server rendered it"
 # spec/runs/pages prints a page as the bytes a browser is sent, then the page
 # drawn by the server from the records, drawn from those bytes, and drawn by
-# its templates called directly. Its one event is those bytes, and the
-# browser module's answer to it is the same page, byte for byte.
+# its templates called directly. Its first event is those bytes, and the
+# browser module's answer to it is the same page, byte for byte. Its other
+# two are the bytes as another compile would mark them and the bytes cut
+# short, and the module draws nothing from either.
 server_page=$(sed -n 2p spec/runs/pages.stdout)
 bytes_page=$(sed -n 3p spec/runs/pages.stdout)
 template_page=$(sed -n 4p spec/runs/pages.stdout)
@@ -583,6 +588,23 @@ for d in spec/errors/*/; do
 done
 
 cd "$here"
+# wire/wire.kso and a second writing of its format in JavaScript
+# (spec/wire/reference.mjs) each read what the other wrote for twenty
+# thousand random values: every length a string's count turns over at, code
+# points from each length utf-8 has, integers at the ends of 64 bits, floats,
+# and lists and maps of those. spec/wire/fuzz.mjs runs longer when asked.
+note "== wire agrees with its reference"
+if command -v node > /dev/null 2>&1; then
+  if node spec/wire/fuzz.mjs "$KANSO" 20000 > /dev/null 2>&1; then
+    note "ok: wire reads what its reference writes, and is read by it"
+  else
+    bad "wire and its reference disagree"
+    node spec/wire/fuzz.mjs "$KANSO" 20000 2>&1 | grep -v '^ *[0-9]' | head -6
+  fi
+else
+  note "SKIPPED: wire against its reference (no node)"
+fi
+
 # The benchmark's rows are counted in wasm, so it wants the runtime built for
 # wasm32 and kanso's count_module, and is skipped without them.
 note "== the benchmark page costs what its golden pins"

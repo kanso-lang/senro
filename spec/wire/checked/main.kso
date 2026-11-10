@@ -1,0 +1,9 @@
+import "./checked"
+import "std/os"
+
+# The fuzzer's other half (spec/wire/fuzz.mjs). The file SENRO_WIRE_CASES
+# names holds a case to a line: the reference's bytes for a value, in base64,
+# a tab, and the value as JSON. Each is answered on a line of its own.
+os/env "SENRO_WIRE_CASES"
+  .> (named -> os/read_file! (checked/path named))
+  .> (cases -> print (checked/answers cases))

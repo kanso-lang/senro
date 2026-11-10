@@ -1,5 +1,6 @@
 import "../../../kata"
 import "../../../wire"
+import "./mangled"
 import "./posts"
 import "./views"
 
@@ -10,7 +11,15 @@ derive kata/views
 # templates called directly. The three drawings are the same.
 listed = views/list_view posts/all "<saved>" posts/marks
 page = views/layout_view "Posts" listed
-print (wire/as_text (views/packed page))
+bytes = views/packed page
+print (wire/as_text bytes)
 print (views/rendered page)
-print (views/rendered (views/packed page))
+print (views/rendered bytes)
 print (views/layout "Posts" (views/list posts/all "<saved>" posts/marks))
+
+# The same bytes as another compile would mark them, and cut short. Neither
+# draws anything: a page is read only from its own compile's bytes, whole.
+print (wire/as_text (mangled/remarked bytes))
+print (wire/as_text (mangled/cut_short bytes))
+print "[{views/rendered (mangled/remarked bytes)}]"
+print "[{views/rendered (mangled/cut_short bytes)}]"
