@@ -1,0 +1,5 @@
+import "../../../web"
+
+# An action that hands on a row that is not there.
+pub fn index _ _
+  effect web/absent

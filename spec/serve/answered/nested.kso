@@ -1,0 +1,28 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Asks the same server for a page whose action answers words where a
+# response belongs, for one that hands on a model's no, for one that hands
+# on a missing row, and then for a plain page: a server that died of the
+# first answers none of the rest.
+paths = ["/words" "/refused" "/gone" "/plain"]
+
+pub fn index _ _
+  list/fold paths (effect []) (acc p -> acc .> (got -> more got p))
+    .> (got -> effect (http/text_page (text/join got "; ")))
+
+fn more got path
+  asked path .> (raw -> effect (push got "{path}: {status raw}"))
+
+fn asked path
+  net/dial "127.0.0.1" 24418 .> (c -> sent c path)
+
+fn sent c path
+  net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn status raw
+  list/first (text/split raw "\r\n")

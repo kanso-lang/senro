@@ -1,0 +1,14 @@
+import "../../../pg"
+import "../../../routes"
+import "../../../web"
+import "./gone"
+import "./nested"
+import "./plain"
+import "./refused"
+import "./words"
+
+derive routes/rest
+
+connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+
+web/serve 24418 routes connected

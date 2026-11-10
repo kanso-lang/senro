@@ -1,0 +1,5 @@
+import "../../../web"
+
+# An action that hands on a policy's no, as a checked write answers it.
+pub fn index _ _
+  effect web/denied

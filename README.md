@@ -334,7 +334,11 @@ when they are given that path. The specs write it again and compare the two.
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
   when it has answered, and a request that finds them all lent waits. An action
   that fails is answered with a 500, its reason goes to standard error, and the
-  server keeps serving. The server writes a line on standard output for each
+  server keeps serving. An action that answers something other than a
+  response, such as a page's text on its own, is answered the same way. A
+  model's refusal is the exception: an action may hand it on as it got it,
+  and it goes out as the 403 or 404 `web/refusal` makes of it. The server
+  writes a line on standard output for each
   request as it answers it: the method the request stands for, the path, the
   status and the milliseconds it took, as in `PATCH /entries/3 303 in 9ms`.
   The query string is left out, a signed token in the path is written

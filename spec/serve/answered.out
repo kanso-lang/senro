@@ -1,0 +1,1 @@
+/words: HTTP/1.1 500 Internal Server Error; /refused: HTTP/1.1 403 Forbidden; /gone: HTTP/1.1 404 Not Found; /plain: HTTP/1.1 200 OK

@@ -527,10 +527,31 @@ fn answered_by none req db
   routed none req db
 
 fn answered_by action req db
-  routed action req db .? failed
+  routed action req db .> (r -> answer_of r) .? failed
+
+# What an action answered, as a response. A model's refusal goes out as
+# `refusal` writes it, so an action may hand on what a checked write
+# answered. Anything else that is no response is the app's mistake, and is
+# reported as a failure is: a 500, and the reason on standard error. The
+# server says so itself, since a failure it made here would be its own,
+# which nothing in this hako may rescue.
+fn answer_of r:http/response
+  effect r
+
+fn answer_of denied
+  effect (refusal denied)
+
+fn answer_of absent
+  effect (refusal absent)
+
+fn answer_of r
+  reported "an action answered `{r}`, which is no response"
 
 fn failed u
-  io/write_err "senro: a request failed: {u.reason}\n"
+  reported u.reason
+
+fn reported reason
+  io/write_err "senro: a request failed: {reason}\n"
     .> (_ -> effect (http/respond 500 [] "Internal Server Error\n"))
 
 # Every answer says the connection closes after it, since the server closes

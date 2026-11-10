@@ -172,8 +172,9 @@ fi
 note "== each app under spec/serve answers its golden, natively and interpreted"
 # Each is served and asked for /nested with curl. Its answer is another
 # request to the same server, made while the first waits, so a server that
-# answers one connection at a time hangs and the request times out. One of
-# them, spec/serve/logged, is also held to the log the server wrote. These
+# answers one connection at a time hangs and the request times out. Two of
+# them, spec/serve/logged and spec/serve/answered, are also held to the log
+# the server wrote. These
 # use Postgres for their sessions, so SENRO_NO_DB=1 skips them too.
 if [ "${SENRO_NO_DB:-}" = 1 ]; then
   note "SKIPPED: spec/serve (SENRO_NO_DB=1)"
