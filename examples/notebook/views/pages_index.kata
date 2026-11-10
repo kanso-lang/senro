@@ -5,7 +5,7 @@ header
     a href="/notes/{note_id}/pages/new" New page
     a href="/notes/{note_id}" Back to the note
 ul.pages
-  for r in rows
+  each rows r ->
     li
       a href="/notes/{note_id}/pages/{r.id}" = r.body
 nav.pages

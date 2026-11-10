@@ -4,7 +4,7 @@ header
   p.lede
     a href="/notes/new" New note
 ul.notes
-  for r in rows
+  each rows r ->
     li
       a href="/notes/{r.id}" = r.title
 nav.pages

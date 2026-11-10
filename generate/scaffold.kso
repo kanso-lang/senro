@@ -765,7 +765,7 @@ fn index_of singular fields none
     "  p.lede"
     "    a href=\"/{plural}/new\" New {singular}"
     "ul.{plural}"
-    "  for r in rows"
+    "  each rows r ->"
     "    li"
     "      a href=\"/{plural}/\{r.id}\" = r.{first}"
   ]
@@ -786,7 +786,7 @@ fn index_of singular fields parent
     "    a href=\"{at}/{plural}/new\" New {singular}"
     "    a href=\"{at}\" Back to the {name}"
     "ul.{plural}"
-    "  for r in rows"
+    "  each rows r ->"
     "    li"
     "      a href=\"{at}/{plural}/\{r.id}\" = r.{first}"
   ]
