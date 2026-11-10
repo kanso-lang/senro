@@ -522,3 +522,9 @@ KANSO=/path/to/kanso sh spec.sh
 `spec.sh` lists what the specs check. `SENRO_NO_DB=1` skips those that need
 Postgres, `KANSO_RUNTIME_WASM` names the runtime the browser specs load,
 and `SPEC_WRITE=1` rewrites the goldens.
+
+`bench/pages` is a page with a component on it, and `bench/pages.golden`
+pins what it costs: the bytes its data takes on the wire, and the wasm
+instructions the server and the browser module each execute for it.
+`KANSO_COUNT` names kanso's `count_module`, which does the counting, and
+the benchmark is skipped without it.

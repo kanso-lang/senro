@@ -1,0 +1,11 @@
+takes state
+div.reading
+  span.label Reading list
+  button.save on-click=saved_next Save the next
+  button.clear on-click=cleared Clear
+  span.count {length (ids state)} saved
+  ul.saved
+    each (ids state) id ->
+      li = id
+  if note state != ""
+    p.note = note state

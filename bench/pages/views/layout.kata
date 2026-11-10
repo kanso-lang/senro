@@ -1,0 +1,8 @@
+takes title body
+doctype html
+html
+  head
+    title = title
+  body
+    h1 = title
+    == body

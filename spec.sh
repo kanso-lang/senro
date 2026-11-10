@@ -15,8 +15,9 @@
 # examples/notebook, which checks and serves its resource; a lock on a
 # guestbook account runs out by the clock (spec/lapsed); pages listening for
 # changes cost the server a connection each and Postgres nothing
-# (spec/live); and each app under spec/errors is refused with the message
-# its golden holds.
+# (spec/live); each app under spec/errors is refused with the message its
+# golden holds; and the benchmark page costs what bench/pages.golden pins
+# (bench/pages.sh).
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
 KANSO=${KANSO:-kanso}
@@ -31,7 +32,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions; do
+for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -557,6 +558,19 @@ for d in spec/errors/*/; do
 done
 
 cd "$here"
+# The benchmark's rows are counted in wasm, so it wants the runtime built for
+# wasm32 and kanso's count_module, and is skipped without them.
+note "== the benchmark page costs what its golden pins"
+if [ -z "${KANSO_RUNTIME_WASM:-}" ] || [ -z "${KANSO_COUNT:-}" ]; then
+  note "SKIPPED: bench/pages (no KANSO_RUNTIME_WASM or no KANSO_COUNT)"
+elif [ "${SPEC_WRITE:-}" = 1 ]; then
+  KANSO="$KANSO" sh bench/pages.sh --write || bad "bench/pages"
+elif KANSO="$KANSO" sh bench/pages.sh; then
+  note "ok: bench/pages"
+else
+  bad "bench/pages"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "senro specs: failures above"
   exit 1
