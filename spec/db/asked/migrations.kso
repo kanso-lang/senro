@@ -1,0 +1,11 @@
+import "../../../models"
+
+pub all = [notes]
+
+notes = models/create_table "notes" [id owner body]
+
+id = models/column "id" "serial"
+
+owner = models/column "owner" "text not null"
+
+body = models/column "body" "text not null"

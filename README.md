@@ -197,7 +197,40 @@ when they are given that path. The specs write it again and compare the two.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. `models/found viewer db model id`
+  such policy cannot be written this way.
+
+  An action reads and writes through its models by name and writes no SQL.
+  The `db` senro hands an action already knows who is signed in: the web
+  layer names the viewer on the session (`pg/asked_by`) before an action, a
+  server component or a provider sees it, and a session nobody named asks
+  as a visitor. A module that holds one model answers for it, as a Rails
+  model answers its class methods:
+
+  | call | answers |
+  |---|---|
+  | `notes/find db id` | the record, or none |
+  | `notes/find_by db "title" t` | the first record whose field holds the value, or none |
+  | `notes/all db` | every record, oldest first |
+  | `notes/newest db` | every record, the one made last first |
+  | `notes/ordered db "title"` | every record in the order of a column |
+  | `notes/where db "title" t` | the records whose field holds the value |
+  | `notes/paged db number per` | one page of the records, oldest first |
+  | `notes/create db fields` | the record as stored, or `models/invalid` |
+  | `notes/update db id changes` | the record as changed, or `models/invalid` |
+  | `notes/destroy db id` | the record as it was |
+
+  A read shows only what the viewer's read policy allows. A write asks the
+  model's `create?`, `update?` or `destroy?` about the same viewer and
+  answers `web/denied` on a no, and `update` and `destroy` answer
+  `web/absent` for an id no row has. A field or an order written out in
+  the call is checked against the table's columns when the app is checked
+  (`spec/errors/order_not_a_column`), and one that arrives in a variable
+  is checked before any SQL is sent (`spec/db/asked`,
+  `examples/pantry/items.kso`). A module that declares a function of one
+  of these names keeps its own, and a module with two models gets none,
+  since a bare `find` would not say which.
+
+  Underneath, `models/found viewer db model id`
   reads a record by its id, or answers none when there is no such row or
   the viewer may not see it, and `models/where viewer db model field value`
   answers the records whose field holds the value, oldest first, that the

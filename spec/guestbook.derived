@@ -723,6 +723,32 @@ pub account_model = {
 }
 # in account, by models/tables
 pub account_columns = ["id" "name" "digest" "email" "confirmed"]
+# in account, by models/tables
+import "../models"
+
+pub fn find db id
+  models/find db account_model id
+
+pub fn find_by db field value
+  models/find_by db account_model field value
+
+pub fn all db
+  models/all db account_model
+
+pub fn newest db
+  models/newest db account_model
+
+pub fn ordered db by
+  models/ordered db account_model by
+
+pub fn where db field value
+  models/matching db account_model field value
+
+pub fn paged db number per
+  models/paged db account_model number per
+
+pub fn destroy db id
+  models/destroy db account_model id
 # in signatures, by models/tables
 pub fn signature_from row
   id = signature_cell row["id"]
@@ -750,4 +776,36 @@ pub signature_model = {
 }
 # in signatures, by models/tables
 pub signature_columns = ["id" "name" "message" "photo"]
+# in signatures, by models/tables
+import "../models"
+
+pub fn find db id
+  models/find db signature_model id
+
+pub fn find_by db field value
+  models/find_by db signature_model field value
+
+pub fn all db
+  models/all db signature_model
+
+pub fn newest db
+  models/newest db signature_model
+
+pub fn ordered db by
+  models/ordered db signature_model by
+
+pub fn where db field value
+  models/matching db signature_model field value
+
+pub fn paged db number per
+  models/paged db signature_model number per
+
+pub fn create db fields
+  models/create db signature_model fields
+
+pub fn update db id changes
+  models/update db signature_model id changes
+
+pub fn destroy db id
+  models/destroy db signature_model id
 routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /account/edit":{ "action":account/edit "id":"" } "GET /account/new":{ "action":account/new "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /account":{ "action":account/update "id":"" "limit":{ "count":10 "key":"account/update" "over":account/over_limit "within":180000 } } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /account":{ "action":account/create "id":"" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest

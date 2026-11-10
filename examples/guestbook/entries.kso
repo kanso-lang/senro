@@ -1,5 +1,4 @@
 import "../../models"
-import "../../pg"
 import "../../web"
 import "./removal"
 import "./signatures"
@@ -20,7 +19,7 @@ pub without_sign_in = ["index"]
 # notice clears it.
 pub fn index req db
   s = web/session req secret
-  pg/query db newest [] .> (r -> shown req r.rows s (filled "" {}) 200)
+  signatures/newest db .> (book -> shown req book s (filled "" {}) 200)
 
 # A development secret. A deployed guestbook signs its sessions with its own.
 pub secret = "the guestbook's development secret"
@@ -35,28 +34,24 @@ pub sender = "Guestbook <noreply@guestbook.test>"
 pub fn create req db
   viewer = web/viewer req secret
   f = put (web/form req.body) "name" viewer
-  models/created viewer db signatures/signature_model f
-    .> (w -> signed req db w)
+  signatures/create db f .> (w -> signed req db w)
 
 # A signature the rules turned back: the page again, answered 422, with the
 # form as the visitor filled it in and what to fix.
 fn signed req db w:models/invalid
   s = web/session req secret
   form = filled w.record.message w.problems
-  pg/query db newest [] .> (r -> shown req r.rows s form 422)
+  signatures/newest db .> (book -> shown req book s form 422)
 
 # A signature kept. The answer sends the browser back to the list, so
 # reloading it does not sign the book again.
 fn signed _ _ _
   effect (web/noticed (web/redirect "/") "Thank you for signing.")
 
-newest = "select id, name, message, photo from signatures order by id desc"
-
 # The page goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the
 # browser.
-fn shown req rows s form code
-  book = list/to_list (list/map rows signatures/signature_from)
+fn shown req book s form code
   who = said s["viewer"]
   removals = list/fold book {} (m e -> put m "{e.id}" (removal_of e who))
   page = views/signed_view book form (web/notice req) removals who

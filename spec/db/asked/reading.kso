@@ -1,0 +1,70 @@
+import "../../../pg"
+import "../../../web"
+import "./notes"
+import "std/list"
+import "std/text"
+
+# What each viewer reads through the notes model, printed.
+pub fn seen db who
+  notes/all (pg/asked_by db who) .> (ns -> print "{who} sees {bodies ns}")
+
+pub fn unnamed db
+  notes/all db .> (ns -> print "nobody named sees {bodies ns}")
+
+fn bodies ns
+  "[{text/join (list/to_list (list/map ns (n -> n.body))) ", "}]"
+
+pub fn looked db who id
+  notes/find (pg/asked_by db who) id
+    .> (n -> print "{who} finds note {id}: {body_of n}")
+
+fn body_of none
+  "nothing"
+
+fn body_of n
+  n.body
+
+pub fn sorted db by
+  notes/ordered (pg/asked_by db "ada") by
+    .> (ns -> print "ada, ordered by {by}: {bodies ns}")
+
+pub fn picked db
+  notes/where (pg/asked_by db "ada") "body" "third"
+    .> (ns -> print "ada, where body is third: {bodies ns}")
+
+pub fn latest db
+  notes/newest (pg/asked_by db "ada")
+    .> (ns -> print "ada, newest first: {bodies ns}")
+
+# A page holds the rows of that page the viewer may see, so ada's first
+# page of two rows, which are hers and bob's, shows one.
+pub fn leafed db number
+  notes/paged (pg/asked_by db "ada") number 2
+    .> (p -> print "ada, page {number} of two rows: {bodies p.rows}")
+
+pub fn first_of db who
+  notes/find_by (pg/asked_by db who) "body" "second"
+    .> (n -> print "{who}, the note whose body is second: {body_of n}")
+
+# The writes go through the model for the same viewer: a note is made by
+# its owner alone, and changed or removed by nobody else.
+pub fn wrote db who owner
+  notes/create (pg/asked_by db who) { "body":"fourth" "owner":owner }
+    .> (w -> print "{who} makes a note for {owner}: {outcome w}")
+
+pub fn rewrote db who id
+  notes/update (pg/asked_by db who) id { "body":"first, again" }
+    .> (w -> print "{who} changes note {id}: {outcome w}")
+
+pub fn removed db who id
+  notes/destroy (pg/asked_by db who) id
+    .> (w -> print "{who} removes note {id}: {outcome w}")
+
+fn outcome _:web/denied
+  "denied"
+
+fn outcome _:web/absent
+  "absent"
+
+fn outcome n
+  n.body

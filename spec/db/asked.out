@@ -1,0 +1,20 @@
+ada sees [first, third]
+bob sees [second]
+nobody named sees []
+ada finds note 1: first
+bob finds note 1: nothing
+ada, ordered by body: [first, third]
+ada, newest first: [third, first]
+ada, where body is third: [third]
+ada, page 1 of two rows: [first]
+ada, page 2 of two rows: [third]
+bob, the note whose body is second: second
+ada, the note whose body is second: nothing
+bob makes a note for ada: denied
+ada makes a note for ada: fourth
+bob changes note 1: denied
+ada changes note 1: first, again
+bob removes note 3: denied
+ada removes note 3: third
+ada sees [first, again, fourth]
+`body; drop table notes` is not a column of `notes`

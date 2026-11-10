@@ -1,4 +1,3 @@
-import "../../models"
 import "std/list"
 
 # A thing on the shelf, as the `items` table stores it. senro/models checks
@@ -11,16 +10,21 @@ pub type item
   staple
 
 # The pantry is one household's shelf, and anyone at the page may change what
-# is on it. The policy says so outright: without one, a write through the
+# is on it. The policies say so outright: without one, a write through the
 # model is refused.
+pub fn create? _ _
+  true
+
 pub fn update? _ _
+  true
+
+pub fn destroy? _ _
   true
 
 # The staples the shelf holds fewer of than `meals`, by name. The planner asks
 # for them as `stock/short meals`, and this body runs only on the server.
-pub fn short viewer db meals
-  models/where viewer db item_model "staple" "t"
-    .> (items -> effect (under items meals))
+pub fn short _ db meals
+  where db "staple" true .> (items -> effect (under items meals))
 
 fn under items meals
   low = list/select items (i -> i.quantity < meals)

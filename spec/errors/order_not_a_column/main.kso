@@ -1,0 +1,12 @@
+import "../../../models"
+import "../../../pg"
+import "./comment"
+import "./migrations"
+
+derive models/tables
+
+# An order written out that the comments table does not have, asked of the
+# model by its module's name.
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> comment/ordered db "written_at")
+  .> (cs -> print cs)
