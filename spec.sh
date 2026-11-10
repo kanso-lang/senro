@@ -12,7 +12,8 @@
 # spec/serve, served and asked over HTTP, answers its golden; the guestbook
 # and the pantry, used in a browser, update in place without a reload; the
 # generators write examples/notebook, which checks and serves its resource;
-# and each app under spec/errors is refused with the message its golden
+# a lock on a guestbook account runs out by the clock (spec/lapsed); and
+# each app under spec/errors is refused with the message its golden
 # holds.
 # Set SPEC_WRITE=1 to rewrite the goldens from what this kanso says.
 set -u
@@ -28,7 +29,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg; do
+for d in routes models web pg kata data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -347,6 +348,46 @@ else
   echo "$out"
 fi
 rm -rf "$gen"
+
+note "== a lock on a guestbook account runs out by the clock"
+# The guestbook is served and used over HTTP (spec/lapsed/drive.sh): three
+# wrong passwords lock an account, and an hour and a minute later a wrong
+# password starts a new run of three and the right one signs in. A server
+# of its own, since the sign-in limit is counted in the server's memory. It
+# uses Postgres, so SENRO_NO_DB=1 skips it.
+if [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/lapsed (SENRO_NO_DB=1)"
+else
+  for engine in native interp; do
+    flag=""
+    [ "$engine" = interp ] && flag=--interp
+    log=$(mktemp)
+    outbox=$(mktemp -d)
+    (cd examples/guestbook && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    server=$!
+    tries=0
+    while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+      sleep 0.1
+      tries=$((tries + 1))
+    done
+    got=$(KANSO=$KANSO sh spec/lapsed/drive.sh 3000 "$outbox" 2>&1)
+    pkill -P "$server" 2>/dev/null
+    kill "$server" 2>/dev/null
+    wait "$server" 2>/dev/null
+    if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+      printf '%s\n' "$got" > spec/lapsed/served.out
+    fi
+    if printf '%s\n' "$got" | diff spec/lapsed/served.out - >/dev/null; then
+      note "ok: a lock runs out ($engine)"
+    else
+      bad "a lock runs out ($engine)"
+      printf '%s\n' "$got" | diff spec/lapsed/served.out -
+      cat "$log"
+    fi
+    rm -f "$log"
+    rm -rf "$outbox"
+  done
+fi
 
 note "== the guestbook and the pantry, used in a browser, update in place"
 # Each app is served and driven in each browser SENRO_BROWSERS names

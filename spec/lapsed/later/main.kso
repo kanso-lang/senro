@@ -1,0 +1,9 @@
+import "./lock"
+import "std/list"
+import "std/os"
+
+# Moves the lock on the guestbook account named on the command line an hour
+# and a minute into the past:
+#
+#   kanso run spec/lapsed/later -- Gil
+os/args .> (a -> lock/moved (list/first a)) .? (u -> print u.reason)
