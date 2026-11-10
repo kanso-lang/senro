@@ -54,8 +54,9 @@ ol.entries
   that may be none, such as a map's entry, writes nothing under `=`.
 - `if expr`, any number of `else if expr` and an optional `else`.
 - `each xs x ->` writes the rows under it once for each element of `xs`,
-  with `x` in scope. It is kanso's `each xs (x -> ...)` with the rows as
-  the function's body. Kata has no `for`, as kanso has none, and a `for` row
+  with `x` in scope. It is the call `each xs (x -> ...)` to a helper kata
+  writes, with the rows as the function's body, in the order `list/map`
+  takes its arguments. Kata has no `for`, as kanso has none, and a `for` row
   is refused at its line (`spec/errors/a_for_row_in_a_template`).
 - `case expr` with `when value` rows under it and an optional `else` last.
   A value is matched as a function's argument is: a string, a number,
