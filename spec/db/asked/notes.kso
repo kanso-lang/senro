@@ -1,8 +1,17 @@
-# A note, which only its owner may see.
+# A note, which only its owner may see, make, change or remove.
 pub type note
   id
   owner
   body
 
 pub fn visible? viewer n
+  n.owner == viewer
+
+pub fn create? viewer n
+  n.owner == viewer
+
+pub fn update? viewer n
+  n.owner == viewer
+
+pub fn destroy? viewer n
   n.owner == viewer

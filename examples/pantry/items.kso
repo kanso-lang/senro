@@ -16,8 +16,7 @@ pub fn edit req db id:int
 
 pub fn create req db
   name = web/value (web/form req.body) "name"
-  models/create db stock/item_model { "name":name "quantity":"0" }
-    .> (_ -> back)
+  stock/create db { "name":name "quantity":"0" } .> (_ -> back)
 
 # Two forms update an item: one renames it, and the plus and minus buttons
 # send `by`, which moves its count and never below zero.
@@ -32,7 +31,7 @@ fn moved db id _ by
   stock/find db id .> (i -> stepped db id i by)
 
 pub fn destroy _ db id:int
-  models/destroy db stock/item_model id .> (_ -> back)
+  stock/destroy db id .> (_ -> back)
 
 fn stepped _ _ none _
   back
@@ -42,7 +41,7 @@ fn stepped db id i by
   changed db id { "quantity":"{if (left > 0) left 0}" }
 
 fn changed db id changes
-  models/update db stock/item_model id changes .> (_ -> back)
+  stock/update db id changes .> (_ -> back)
 
 back = effect (web/redirect "/")
 

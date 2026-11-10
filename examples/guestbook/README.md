@@ -116,7 +116,7 @@ place, rendered on the server.
   the form is multipart, senro stores the file and hands the action its key,
   and the `photo` column keeps the key, which the page shows through
   `/senro/blobs/<key>`.
-  `entries.kso` makes a signature through the model (`models/created`),
+  `entries.kso` makes a signature through the model (`signatures/create`),
   which stores it with a parameterized insert, so what a visitor types is
   stored as text and never read as SQL. A signature that breaks a rule is
   not stored: the page comes back with a 422, the form as the visitor

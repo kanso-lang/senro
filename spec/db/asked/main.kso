@@ -6,10 +6,10 @@ import "./reading"
 
 derive models/tables
 
-# A session told who is asking reads through the model by the model's own
-# name, with no viewer passed and no SQL: `notes/all`, `notes/find`,
-# `notes/ordered` and `notes/where`, each answering what that viewer's read
-# policy shows. A session nobody named asks as a visitor.
+# A session told who is asking reads and writes through the model by the
+# model's own name, with no viewer passed and no SQL. The reads answer what
+# that viewer's read policy shows, and the writes ask the model's policies
+# about the same viewer. A session nobody named asks as a visitor.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
@@ -31,7 +31,17 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> reading/unnamed db .> (_ -> db))
   .> (db -> reading/looked db "ada" 1 .> (_ -> db))
   .> (db -> reading/looked db "bob" 1 .> (_ -> db))
-  .> (db -> reading/sorted db "body desc" .> (_ -> db))
+  .> (db -> reading/sorted db "body" .> (_ -> db))
+  .> (db -> reading/latest db .> (_ -> db))
   .> (db -> reading/picked db .> (_ -> db))
+  .> (db -> reading/first_of db "bob" .> (_ -> db))
+  .> (db -> reading/first_of db "ada" .> (_ -> db))
+  .> (db -> reading/wrote db "bob" "ada" .> (_ -> db))
+  .> (db -> reading/wrote db "ada" "ada" .> (_ -> db))
+  .> (db -> reading/rewrote db "bob" 1 .> (_ -> db))
+  .> (db -> reading/rewrote db "ada" 1 .> (_ -> db))
+  .> (db -> reading/removed db "bob" 3 .> (_ -> db))
+  .> (db -> reading/removed db "ada" 3 .> (_ -> db))
+  .> (db -> reading/seen db "ada" .> (_ -> db))
   .> (db -> reading/sorted db "body; drop table notes")
   .? (u -> print u.reason)

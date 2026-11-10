@@ -1,4 +1,5 @@
 import "../../../pg"
+import "../../../web"
 import "./notes"
 import "std/list"
 import "std/text"
@@ -30,3 +31,34 @@ pub fn sorted db by
 pub fn picked db
   notes/where (pg/asked_by db "ada") "body" "third"
     .> (ns -> print "ada, where body is third: {bodies ns}")
+
+pub fn latest db
+  notes/newest (pg/asked_by db "ada")
+    .> (ns -> print "ada, newest first: {bodies ns}")
+
+pub fn first_of db who
+  notes/find_by (pg/asked_by db who) "body" "second"
+    .> (n -> print "{who}, the note whose body is second: {body_of n}")
+
+# The writes go through the model for the same viewer: a note is made by
+# its owner alone, and changed or removed by nobody else.
+pub fn wrote db who owner
+  notes/create (pg/asked_by db who) { "body":"fourth" "owner":owner }
+    .> (w -> print "{who} makes a note for {owner}: {outcome w}")
+
+pub fn rewrote db who id
+  notes/update (pg/asked_by db who) id { "body":"first, again" }
+    .> (w -> print "{who} changes note {id}: {outcome w}")
+
+pub fn removed db who id
+  notes/destroy (pg/asked_by db who) id
+    .> (w -> print "{who} removes note {id}: {outcome w}")
+
+fn outcome _:web/denied
+  "denied"
+
+fn outcome _:web/absent
+  "absent"
+
+fn outcome n
+  n.body

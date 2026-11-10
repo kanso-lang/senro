@@ -3,6 +3,16 @@ bob sees [second]
 nobody named sees []
 ada finds note 1: first
 bob finds note 1: nothing
-ada, ordered by body desc: [third, first]
+ada, ordered by body: [first, third]
+ada, newest first: [third, first]
 ada, where body is third: [third]
-`body; drop table notes` is not an order of `notes`
+bob, the note whose body is second: second
+ada, the note whose body is second: nothing
+bob makes a note for ada: denied
+ada makes a note for ada: fourth
+bob changes note 1: denied
+ada changes note 1: first, again
+bob removes note 3: denied
+ada removes note 3: third
+ada sees [first, again, fourth]
+`body; drop table notes` is not a column of `notes`

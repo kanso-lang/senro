@@ -143,6 +143,8 @@ pub fn tables p
   kinds = list/fold p.modules [] (acc m -> list/concat acc (typed_in m schema))
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
+  each_named = (acc m -> list/concat acc (named_reads p m schema))
+  named = list/fold p.modules [] each_named
   uniq = uniques_of p p.files["schema.sql"]
   each_read = (acc m -> list/concat acc (readers m schema uniq))
   given = list/fold p.modules [] each_read
@@ -150,7 +152,7 @@ pub fn tables p
   each = (acc m -> list/concat acc (linked m schema fks))
   joined = list/fold p.modules [] each
   declared = list/concat [(derive/declare "schema" "schema" schema)] kinds
-  parts = [declared refused asked given joined]
+  parts = [declared refused asked named given joined]
   list/fold parts [] list/concat
 
 # A module named for a table, as `notes` is for `notes`, holds the table's
@@ -268,13 +270,38 @@ fn wheres m schema
 fn where_checked c schema
   t = record_named (last_part (blank_if_none c.arguments[3]))
   field = blank_if_none c.strings[4]
-  return [] if t == "" or field == ""
-  table = plural t
+  return [] if t == ""
+  column_checked c (plural t) field schema
+
+fn column_checked c table field schema
+  return [] if field == ""
   columns = list/to_list (list/map (present schema[table]) name_of)
   return [] if list/any? columns (n -> n == field)
   has = text/join columns ", "
   said = "`{field}` is not a column of `{table}`: it has {has}"
   [(derive/refuse_call c said)]
+
+# The same check for a read through a model's own module: the field of
+# `notes/where db "title" t` and `notes/find_by db "title" t`, and the
+# column of `notes/ordered db "title"`, where it is written out.
+fn named_reads p m schema
+  calls = list/select m.calls (c -> by_column? (last_part c.callee))
+  list/fold calls [] (acc c -> list/concat acc (named_checked p c schema))
+
+fn by_column? leaf
+  leaf == "where" or leaf == "find_by" or leaf == "ordered"
+
+fn named_checked p c schema
+  path = text/split c.callee "/"
+  return [] if length path != 2
+  holders = list/select p.modules (m -> m.name == path[1])
+  one = (acc m -> list/concat acc (held_models m schema))
+  kept = list/fold holders [] one
+  return [] if length kept != 1
+  column_checked c (plural kept[1].name) (blank_if_none c.strings[2]) schema
+
+fn held_models m schema
+  list/to_list (list/select (records_of m schema) (r -> modeled? r schema))
 
 fn last_part name
   blank_if_none (list/last (text/split name "/"))
@@ -306,37 +333,45 @@ fn readers m schema uniq
   each = records_of m schema
   one = (acc r -> list/concat acc (reader m r schema uniq))
   each_read = list/fold each [] one
-  kept = list/to_list (list/select each (r -> modeled? r schema))
-  list/concat each_read (finders m kept)
+  list/concat each_read (finders m (held_models m schema))
 
 fn modeled? r schema
   schema[plural r.name] != none and list/any? r.fields (f -> f == "id")
 
-# A module that holds one model answers for it by name: `notes/find db id`,
-# `notes/all db`, `notes/ordered db "title"` and `notes/where db "title" t`,
-# each a read through the model for the viewer the session names. A module
-# that declares a function of one of those names keeps its own, and a module
-# with two models has none written, since a bare `find` would not say which.
+# A module that holds one model answers for it by name, as a Rails model
+# answers its class methods. The reads are `notes/find db id`, `notes/find_by
+# db "title" t`, `notes/all db`, `notes/newest db`, `notes/ordered db
+# "title"`, `notes/where db "title" t` and `notes/paged db number per`; the
+# writes are `notes/create db fields`, `notes/update db id changes` and
+# `notes/destroy db id`. Each goes through the model for the viewer the
+# session names. A module that declares a function of one of those names
+# keeps its own, and a module with two models has none written, since a bare
+# `find` would not say which.
 fn finders m kept
   return [] if length kept != 1
-  t = kept[1].name
-  calls = [
-    (finder m "find" "db id" "models/find db {t}_model id")
-    (finder m "all" "db" "models/all db {t}_model")
-    (finder m "ordered" "db by" "models/ordered db {t}_model by")
-    (finder m "where" "db field value" (matched t))
+  model = "{kept[1].name}_model"
+  each_one = [
+    (finder m model "find" "find" "id")
+    (finder m model "find_by" "find_by" "field value")
+    (finder m model "all" "all" "")
+    (finder m model "newest" "newest" "")
+    (finder m model "ordered" "ordered" "by")
+    (finder m model "where" "matching" "field value")
+    (finder m model "paged" "paged" "number per")
+    (finder m model "create" "create" "fields")
+    (finder m model "update" "update" "id changes")
+    (finder m model "destroy" "destroy" "id")
   ]
-  found_calls = list/to_list (list/reject calls (c -> c == ""))
+  found_calls = list/to_list (list/reject each_one (c -> c == ""))
   return [] if length found_calls == 0
   source = "import \"../models\"\n\n{text/join found_calls "\n"}"
   [(derive/define m.name source)]
 
-fn matched t
-  "models/matching db {t}_model field value"
-
-fn finder m name takes call
+fn finder m model name reads takes
   return "" if declares? m name
-  "pub fn {name} {takes}\n  {call}\n"
+  head = text/trim "pub fn {name} db {takes}"
+  call = text/trim "models/{reads} db {model} {takes}"
+  "{head}\n  {call}\n"
 
 fn reader m r schema uniq
   table = plural r.name
@@ -636,27 +671,47 @@ pub fn find db model id
 pub fn all db model
   ordered db model "id"
 
-# Every record the viewer may see, in the order `by` names: one of the
-# model's columns, alone or followed by `asc` or `desc`, as
-# `signatures/ordered db "id desc"` reads. Anything else is an error, so the
-# order never reaches the SQL unread.
+# Every record the viewer may see, in the order of one of the model's
+# columns, smallest first: `notes/ordered db "title"`. The column is checked
+# where the call writes it out, as `where`'s field is; one that is not a
+# column is an error here, so the order never reaches the SQL unread.
 pub fn ordered db model by
-  words = text/split (text/trim by) " "
-  field = blank_if_none words[1]
-  way = blank_if_none words[2]
   cols = column_list model["columns"]
-  odd = "`{by}` is not an order of `{table_of model["table"]}`"
-  fine = length words <= 2 and (way == "" or way == "asc" or way == "desc")
-  return err odd if not fine or not list/any? cols (c -> c == field)
-  names = text/join cols ", "
-  from = "from {table_of model["table"]} order by {field} {way}, id"
+  odd = "`{by}` is not a column of `{table_of model["table"]}`"
+  return err odd if not list/any? cols (c -> c == by)
+  sorted db model "{by}, id"
+
+# Every record the viewer may see, the one made last first, as a guestbook
+# or a feed lists them.
+pub fn newest db model
+  sorted db model "id desc"
+
+fn sorted db model order
+  names = text/join (column_list model["columns"]) ", "
+  from = "from {table_of model["table"]} order by {order}"
   pg/query db "select {names} {from}" []
     .> (r -> effect (shown (pg/asker db) model r.rows))
+
+# Page `number` of the model's records, oldest first, `per` to a page, for
+# the session's viewer: `notes/paged db number per`. The read policy is asked
+# about the rows of that page, so a page may show fewer than `per`.
+pub fn paged db model number per
+  names = text/join (column_list model["columns"]) ", "
+  sql = "select {names} from {table_of model["table"]} order by id"
+  paged db sql [] number per .> (p -> effect (seen_page db model p))
+
+fn seen_page db model p
+  page (shown (pg/asker db) model p.rows) p.number p.more
 
 # The records whose `field` holds `value`, oldest first, as `where` reads
 # them for the session's viewer.
 pub fn matching db model field value
   where (pg/asker db) db model field value
+
+# The first record whose `field` holds `value` that the viewer may see, or
+# none: `accounts/find_by db "email" e`, as Rails' `find_by` answers nil.
+pub fn find_by db model field value
+  matching db model field value .> (ms -> effect ms[1])
 
 # The writes, for the session's viewer: `created`, `updated` and `destroyed`
 # as an action calls them, with the policy asked about whoever the session
