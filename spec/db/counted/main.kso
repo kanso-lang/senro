@@ -1,0 +1,34 @@
+import "../../../models"
+import "../../../pg"
+import "./account"
+import "./counting"
+import "./migrations"
+import "./tally"
+
+derive models/tables
+
+# What the app does on its own account, it does as the app:
+# `models/as_app db` asks no policy, where a visitor's write is denied and a
+# holder's is asked about. `account/increment` adds one in the statement
+# that answers the record, so eight requests that count at once see eight
+# different counts.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "counted" migrations/all)
+  .> (db -> counting/tried db "a visitor makes eve" .> (_ -> db))
+  .> (db -> counting/opened db .> (_ -> db))
+  .> (db -> counting/missed db "a visitor counts" .> (_ -> db))
+  .> (db -> counting/missed (pg/asked_by db "bob") "bob counts" .> (_ -> db))
+  .> (db -> counting/missed (pg/asked_by db "ada") "ada counts" .> (_ -> db))
+  .> (db -> counting/missed (models/as_app db) "the app counts" .> (_ -> db))
+  .> (db -> counting/cleared db "a visitor clears" .> (_ -> db))
+  .> (db -> counting/cleared (models/as_app db) "the app clears" .> (_ -> db))
+  .> (db -> counting/raced db 8 .> (_ -> db))
+  .> (db -> counting/missed_in db "name; drop table accounts")
+  .? (u -> print u.reason)

@@ -1,0 +1,7 @@
+import "std/list"
+import "std/text"
+
+# The count one request saw after it counted.
+pub fn counts ts
+  each_one = list/sort (list/to_list (list/map ts (t -> t.seen)))
+  text/join (list/to_list (list/map each_one (n -> "{n}"))) " "

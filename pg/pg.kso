@@ -19,6 +19,10 @@ pub type session
   conn
   who
 
+# Who asks when the app writes for itself and no viewer is behind the write,
+# as a sign-in counts a wrong password. A model asks no policy about it.
+pub type the_app
+
 pub type result
   columns
   rows
@@ -155,6 +159,13 @@ pub fn row_by_id s table columns id
 # Writes `changes`, a map from a field to its new value, into the row with
 # `id`. A key that is not one of `columns` is left out, so the SQL names only
 # the model's own fields, and every value goes as a parameter.
+# One more in the column `field` of the row with this id, added by Postgres
+# in the statement that answers the row as the change left it, so two
+# sessions that count at once each get a count of their own.
+pub fn increment_by_id s table columns field id
+  sql = "update {table} set {field} = coalesce({field}, 0) + 1"
+  query s "{sql} where id = $1 returning {text/join columns ", "}" ["{id}"]
+
 pub fn update_by_id s table columns id changes
   named = list/select (keys changes) (k -> list/any? columns (c -> c == k))
   cols = list/to_list named
@@ -255,9 +266,13 @@ fn heard ms
 pub fn asked_by s who
   session s.conn who
 
-# On whose behalf the session asks, or "" when nobody has been named.
+# On whose behalf the session asks: "" when nobody has been named, and `the_app`
+# when the app asks for itself.
 pub fn asker s
   s.who
+
+pub fn as_app s
+  session s.conn the_app
 
 pub fn close s
   net/write s.conn (text/to_bytes (framed 88 []))

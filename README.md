@@ -229,6 +229,11 @@ when they are given that path. The specs write it again and compare the two.
   | `note/create db fields` | the record as stored, or `models/invalid` |
   | `note/update db id changes` | the record as changed, or `models/invalid` |
   | `note/destroy db id` | the record as it was |
+  | `note/increment db id "views"` | the record after one is added to the column |
+
+  `increment` adds in the statement that answers the record, so of
+  several requests that count at once each sees a count of its own
+  (`spec/db/counted` runs eight).
 
   A read shows only what the viewer's read policy allows. A write asks the
   model's `create?`, `update?` or `destroy?` about the same viewer and
@@ -237,9 +242,19 @@ when they are given that path. The specs write it again and compare the two.
   the call is checked against the table's columns when the app is checked
   (`spec/errors/order_not_a_column`), and one that arrives in a variable
   is checked before any SQL is sent (`spec/db/asked`,
-  `examples/pantry/items.kso`). A module that declares a function of one
-  of these names keeps its own, and a module with two models gets none,
-  since a bare `find` would not say which.
+  `examples/pantry/items.kso`).
+
+  What the app does on its own account it does as the app:
+  `account/update (models/as_app db) id { "failures":"0" }` asks no policy.
+  It is for a write no viewer is behind, as when a sign-in counts a wrong
+  password or a reset link sets a digest, and it keeps those columns out of
+  the policy that says what a holder may change. The id comes from a token
+  the app checked or a record it looked up, and the changes are written out
+  at the call, never taken from a form.
+
+  A module that declares a function of one of these names keeps its own,
+  and a module with two models gets none, since a bare `find` would not say
+  which.
 
   Underneath, `models/found viewer db model id`
   reads a record by its id, or answers none when there is no such row or
