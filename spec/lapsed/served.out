@@ -1,0 +1,9 @@
+making an account: 303
+confirming its address: 303
+three wrong passwords: 422 422 422
+the right one, while it is locked: 403
+an hour and a minute on, a wrong one: 422
+two more: 422 422
+the right one, locked again: 403
+mails to unlock it: 2
+another hour on, the right one: 303
