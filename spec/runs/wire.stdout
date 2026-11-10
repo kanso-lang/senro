@@ -32,5 +32,5 @@ aAD/CsMHCQ== true true
 [65 66 67]
 not base64
 not base64
-not base64
+[65 66 65 66 67]
 not base64

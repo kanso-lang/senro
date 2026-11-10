@@ -1,3 +1,4 @@
+import "std/base64"
 import "std/bits"
 import "std/list"
 import "std/text"
@@ -262,83 +263,23 @@ fn valued bs (read v p) k:string n acc
 fn valued _ _ _ _ _
   lost
 
-# Bytes as text a page can hold in an attribute, and back: base64, RFC 4648,
-# which a browser reads and writes natively. std/base64 says the same thing
-# and builds its text a group at a time by joining strings, which costs a
-# component more than its action does, so this writes onto one builder.
+# Bytes as text a page can hold in an attribute, and back: base64, which a
+# browser reads and writes natively. std/base64 answers the bytes it reads
+# as a list of byte values, and the readers here take bytes.
 pub fn as_text bs
-  spoken (text/utf8 (grouped bs 1 (length bs) (text/bytes "")))
+  base64/encode bs
 
-fn spoken _:<some>effect
-  ""
-
-fn spoken s
-  s
-
-fn grouped bs i n acc
-  left = n - i + 1
-  return acc if left < 1
-  a = byte_at bs[i]
-  b = byte_at bs[i + 1]
-  c = byte_at bs[i + 2]
-  first = text/append acc (letter (bits/shr a 2))
-  two = text/append first (letter ((a & 3) * 16 + bits/shr b 4))
-  return text/append (text/append two 61) 61 if left == 1
-  three = text/append two (letter ((b & 15) * 4 + bits/shr c 6))
-  return text/append three 61 if left == 2
-  grouped bs (i + 3) n (text/append three (letter (c & 63)))
-
-fn byte_at none
-  0
-
-fn byte_at b
-  b
-
-# The letter for six bits: A to Z, a to z, 0 to 9, + and /.
-fn letter v
-  return v + 65 if v < 26
-  return v + 71 if v < 52
-  return v - 4 if v < 62
-  if (v == 62) 43 47
-
-# The bytes `s` spells, or none when it is not whole groups of the alphabet
-# with `=` only at the end.
 pub fn from_text s
-  cs = text/bytes s
-  return none if length cs % 4 != 0
-  spelled_out cs 1 (length cs) (text/bytes "")
+  as_bytes (base64/decode s)
 
-fn spelled_out cs i n acc
-  return acc if i > n
-  a = six cs[i]
-  b = six cs[i + 1]
-  c = six cs[i + 2]
-  d = six cs[i + 3]
-  return none if a < 0 or a > 63 or b < 0 or b > 63 or c < 0 or d < 0
-  last = i + 3 == n
-  one = text/append acc (a * 4 + bits/shr b 4)
-  return closing one (last and d == 64) if c == 64
-  two = text/append one ((b & 15) * 16 + bits/shr c 2)
-  return closing two last if d == 64
-  spelled_out cs (i + 4) n (text/append two ((c & 3) * 64 + d))
-
-# Padding ends the text: bytes read up to it stand when it is the last
-# group, and nothing does when more follows.
-fn closing bytes true
-  bytes
-
-fn closing _ false
+fn as_bytes none
   none
 
-# Six bits for a letter of the alphabet, 64 for the `=` that pads, and -1
-# for anything else or for a place past the end.
-fn six none
-  0 - 1
+fn as_bytes codes
+  kept (text/to_bytes codes)
 
-fn six c
-  return c - 65 if c > 64 and c < 91
-  return c - 71 if c > 96 and c < 123
-  return c + 4 if c > 47 and c < 58
-  return 62 if c == 43
-  return 63 if c == 47
-  if (c == 61) 64 (0 - 1)
+fn kept _:<some>effect
+  none
+
+fn kept bs
+  bs
