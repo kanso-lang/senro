@@ -276,6 +276,16 @@ else
   bad "what generate writes is examples/notebook"
   diff -r examples/notebook "$gen"
 fi
+# A scaffold's modules and the pantry's go through their models: none of
+# them names the pg module (kanso#2394).
+sql=$(grep -n "pg/" "$gen/note.kso" "$gen/notes.kso" "$gen/page.kso" \
+  "$gen/pages.kso" examples/pantry/items.kso examples/pantry/stock.kso)
+if [ -z "$sql" ]; then
+  note "ok: the scaffold and the pantry write no SQL"
+else
+  bad "the scaffold and the pantry write no SQL"
+  echo "$sql"
+fi
 if out=$("$KANSO" check "$gen" 2>&1); then
   note "ok: the generated app checks"
 else

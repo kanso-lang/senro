@@ -1,81 +1,49 @@
 import "../../models"
-import "../../pg"
 import "../../web"
+import "./note"
 import "./views"
 import "std/list"
 import "std/net/http"
-import "std/text"
-
-# A note is a row of the `notes` table. This module is named for the table,
-# so the models derivation declares `note` here with a field for each
-# column, and writes `note_from`, which builds one from a row, and
-# `note_model`, which the writes below go through.
-#
-# Anyone may make, change and remove a note. The models module asks these
-# before it writes; narrow them to the visitors who should.
-pub fn create? _ _
-  true
-
-pub fn update? _ _
-  true
-
-pub fn destroy? _ _
-  true
-
-# What makes a note fit to keep: each number is one its column takes.
-pub fn problems r
-  models/problems [(models/whole_number "pages" r.pages)]
-
-model = note_model
 
 pub fn index req db
   number = models/page_number (web/value (web/query req) "page")
-  asked = models/paged db listed [] number per_page
-  asked .> (p -> effect (listing req p))
+  note/paged db number per_page .> (p -> effect (listing req p))
 
 # How many rows a page of the list shows.
 per_page = 25
 
-columns = text/join note_columns ", "
-
-listed = "select {columns} from notes order by id"
-
-found = "select {columns} from notes where id = $1::integer"
-
 pub fn show req db id:int
-  pg/query db found ["{id}"] .> (r -> effect (shown req (list/first r.rows)))
+  note/find db id .> (r -> effect (shown req r))
 
 pub fn new req _
   effect (form req "/notes" "POST" blank {} 200)
 
 pub fn create req db
   given = sent (web/form req.body)
-  models/created "" db model given .> (w -> effect (made req w))
+  note/create db given .> (w -> effect (made req w))
 
 pub fn edit req db id:int
-  pg/query db found ["{id}"]
-    .> (r -> effect (editing req id (list/first r.rows)))
+  note/find db id .> (r -> effect (editing req id r))
 
 pub fn update req db id:int
   given = picked (web/form req.body)
-  models/updated "" db model "{id}" given .> (w -> effect (changed req id w))
+  note/update db id given .> (w -> effect (changed req id w))
 
 pub fn destroy _ db id:int
-  models/destroyed "" db model "{id}" .> (w -> effect (gone w))
+  note/destroy db id .> (w -> effect (gone w))
 
 fn listing req p
-  every = list/to_list (list/map p.rows note_from)
-  mapped = list/to_list (list/map every note_attributes)
+  as_json = note/note_attributes
+  mapped = list/to_list (list/map p.rows as_json)
   return web/json 200 mapped if web/wants_json? req
-  page = views/notes_index_view every p.number p.more
+  page = views/notes_index_view p.rows p.number p.more
   views/answer_as req 200 (views/layout_view "Notes" page)
 
 fn shown _ none
   http/not_found
 
-fn shown req row
-  record = note_from row
-  attributes = note_attributes record
+fn shown req record
+  attributes = note/note_attributes record
   return web/json 200 attributes if web/wants_json? req
   page = views/note_shown_view record
   views/answer_as req 200 (views/layout_view "Note" page)
@@ -83,9 +51,8 @@ fn shown req row
 fn editing _ _ none
   http/not_found
 
-fn editing req id row
-  kept = filled (note_from row)
-  form req "/notes/{id}" "PATCH" kept {} 200
+fn editing req id record
+  form req "/notes/{id}" "PATCH" (filled record) {} 200
 
 fn made req w:models/invalid
   form req "/notes" "POST" (filled w.record) w.problems 422

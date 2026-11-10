@@ -1,11 +1,11 @@
 import "../../../models"
 import "../../../pg"
-import "./accounts"
+import "./account"
 
 # What a write through the model answered: the problems of a record it
 # refused, or the record it wrote.
 pub fn made db label handle
-  models/created "" db accounts/account_model { "handle":handle }
+  models/created "" db account/account_model { "handle":handle }
     .> (w -> told label w)
     .> (_ -> effect db)
 
@@ -22,7 +22,7 @@ fn changed _ none _
   err "no account holds that handle"
 
 fn changed db id handle
-  models/updated "" db accounts/account_model id { "handle":handle }
+  models/updated "" db account/account_model id { "handle":handle }
 
 fn told label w:models/invalid
   print "{label}: {w.problems}"

@@ -47,18 +47,22 @@ serves on port 3000.
 kind gives the column a unique index, as Rails' generator reads it
 (`email:text:uniq`). A field's name is a lowercase letter and
 then letters, digits and underscores, at most 24 in all; a resource's name
-is spelled the same way, at most 16. It writes a module whose seven actions
-list, show, make, change and remove rows through the model, and the three views
-they render. The list shows 25 rows a page (`per_page` in the module), read
-with `models/paged`, and links the pages before and after it as
-`?page=2`. The list and the page for one row answer JSON when it is asked
+is spelled the same way, at most 16. It writes two modules and three views.
+`note.kso` is the model: the module is named for the record, so the models
+derivation declares `note` in it from the table's columns, and it holds the
+policies and the rules. `notes.kso` is the resource: seven actions that
+list, show, make, change and remove rows, each through the model
+(`note/find db id`, `note/create db given`) and with no SQL. The list shows
+25 rows a page (`per_page` in the module), read with `note/paged`, and links
+the pages before and after it as `?page=2`. The list and the page for one row answer JSON when it is asked
 for, as a Rails scaffold's do: `/notes.json` is the page's rows, each as
 `note_attributes` gives it, and `/notes/3.json` is one. Each `int` field
 gets a rule that the value is a whole number, so a form that says otherwise
 is shown again with the problem rather than
 refused by Postgres. It adds the migration that makes the table, whose last
 columns are `models/created_at` and `models/updated_at`, to the end of
-`migrations/all`, and the module's import to the entry. The policies it
+`migrations/all`, and both modules' imports to the entry, since a
+derivation reads the modules the entry names. The policies it
 writes let anyone write; narrow them before the app is public.
 
 A `references` field nests the resource under another, as Rails' generator
@@ -203,21 +207,28 @@ when they are given that path. The specs write it again and compare the two.
   The `db` senro hands an action already knows who is signed in: the web
   layer names the viewer on the session (`pg/asked_by`) before an action, a
   server component or a provider sees it, and a session nobody named asks
-  as a visitor. A module that holds one model answers for it, as a Rails
-  model answers its class methods:
+  as a visitor.
+
+  A module named for a table's rows holds the table's model, as a Rails
+  model is named in the singular: `note.kso` is the model of `notes`. When
+  the module declares no record of its own name, the derivation declares
+  `note` in it with a field for each column. The entry imports the module,
+  since a derivation reads the modules the entry names. A module that holds
+  one model answers for it, as a Rails model answers its class methods:
 
   | call | answers |
   |---|---|
-  | `notes/find db id` | the record, or none |
-  | `notes/find_by db "title" t` | the first record whose field holds the value, or none |
-  | `notes/all db` | every record, oldest first |
-  | `notes/newest db` | every record, the one made last first |
-  | `notes/ordered db "title"` | every record in the order of a column |
-  | `notes/where db "title" t` | the records whose field holds the value |
-  | `notes/paged db number per` | one page of the records, oldest first |
-  | `notes/create db fields` | the record as stored, or `models/invalid` |
-  | `notes/update db id changes` | the record as changed, or `models/invalid` |
-  | `notes/destroy db id` | the record as it was |
+  | `note/find db id` | the record, or none |
+  | `note/find_by db "title" t` | the first record whose field holds the value, or none |
+  | `note/all db` | every record, oldest first |
+  | `note/newest db` | every record, the one made last first |
+  | `note/ordered db "title"` | every record in the order of a column |
+  | `note/where db "title" t` | the records whose field holds the value |
+  | `note/paged db number per` | one page of the records, oldest first |
+  | `note/paged db "author" a number per` | one page of the records whose field holds the value |
+  | `note/create db fields` | the record as stored, or `models/invalid` |
+  | `note/update db id changes` | the record as changed, or `models/invalid` |
+  | `note/destroy db id` | the record as it was |
 
   A read shows only what the viewer's read policy allows. A write asks the
   model's `create?`, `update?` or `destroy?` about the same viewer and
@@ -238,8 +249,8 @@ when they are given that path. The specs write it again and compare the two.
   comment/comment_model "post_id" id`. A foreign key the migrations add
   writes that call for the app, once in each direction, as Rails'
   `has_many` and `belongs_to` do. `pages.note_id` holding a row of `notes`
-  gives `pages/of_note viewer db note`, the pages of a note the viewer may
-  see, and `notes/of_page viewer db page`, the note a page belongs to. Each
+  gives `page/of_note viewer db note`, the pages of a note the viewer may
+  see, and `note/of_page viewer db page`, the note a page belongs to. Each
   reads the other record's field by name, so neither module imports the
   other. A module that declares a function of the same name keeps its own,
   as does one that declares a pub function or record named as the parameter

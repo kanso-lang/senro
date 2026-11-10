@@ -155,30 +155,28 @@ pub fn tables p
   parts = [declared refused asked named given joined]
   list/fold parts [] list/concat
 
-# A module named for a table, as `notes` is for `notes`, holds the table's
-# model, as a Rails model is named for its table. When the module declares
-# no record of the singular name, the derivation declares one in it with a
-# field for each of the table's columns, in the table's order, and the rest
-# of the derivation reads it as a record the module wrote. A module that
-# declares the record keeps its own, which may leave columns out.
+# A module named for a table's rows, as `note` is for `notes`, holds the
+# table's model, as a Rails model is named in the singular. When the module
+# declares no record of its own name, the derivation declares one in it with
+# a field for each of the table's columns, in the table's order, and the
+# rest of the derivation reads it as a record the module wrote. A module
+# that declares the record keeps its own, which may leave columns out.
 fn records_of m schema
   own = list/to_list (list/map m.records (r -> shape r.name r.fields))
   return own if wrote_model? m schema
-  t = singular m.name
-  list/concat own [(shape t (column_names schema[m.name]))]
+  list/concat own [(shape m.name (column_names schema[plural m.name]))]
 
 fn typed_in m schema
   return [] if wrote_model? m schema
-  fields = column_names schema[m.name]
+  fields = column_names schema[plural m.name]
   lines = list/to_list (list/map fields (f -> "  {f}"))
-  source = "pub type {singular m.name}\n{text/join lines "\n"}\n"
+  source = "pub type {m.name}\n{text/join lines "\n"}\n"
   [(derive/define m.name source)]
 
 fn wrote_model? m schema
-  t = singular m.name
-  return true if t == "" or not table? schema[m.name]
-  declared = list/any? m.records (r -> r.name == t)
-  declared or list/any? m.functions (f -> f.name == t)
+  return true if not table? schema[plural m.name]
+  declared = list/any? m.records (r -> r.name == m.name)
+  declared or list/any? m.functions (f -> f.name == m.name)
 
 fn table? none
   false
@@ -289,7 +287,8 @@ fn named_reads p m schema
   list/fold calls [] (acc c -> list/concat acc (named_checked p c schema))
 
 fn by_column? leaf
-  leaf == "where" or leaf == "find_by" or leaf == "ordered"
+  one = leaf == "where" or leaf == "find_by" or leaf == "ordered"
+  one or leaf == "paged"
 
 fn named_checked p c schema
   path = text/split c.callee "/"
@@ -358,6 +357,7 @@ fn finders m kept
     (finder m model "ordered" "ordered" "by")
     (finder m model "where" "matching" "field value")
     (finder m model "paged" "paged" "number per")
+    (finder m model "paged" "paged" "field value number per")
     (finder m model "create" "create" "fields")
     (finder m model "update" "update" "id changes")
     (finder m model "destroy" "destroy" "id")
@@ -702,6 +702,17 @@ pub fn paged db model number per
 
 fn seen_page db model p
   page (shown (pg/asker db) model p.rows) p.number p.more
+
+# The same page of the records whose `field` holds `value`: a note's pages
+# are `page/paged db "note_id" id number per`.
+pub fn paged db model field value number per
+  cols = column_list model["columns"]
+  odd = "`{field}` is not a column of `{table_of model["table"]}`"
+  return err odd if not list/any? cols (c -> c == field)
+  names = text/join cols ", "
+  from = "from {table_of model["table"]} where {field} = $1 order by id"
+  paged db "select {names} {from}" ["{value}"] number per
+    .> (p -> effect (seen_page db model p))
 
 # The records whose `field` holds `value`, oldest first, as `where` reads
 # them for the session's viewer.

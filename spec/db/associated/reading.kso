@@ -1,17 +1,17 @@
 import "../../../models"
-import "./notes"
-import "./pages"
+import "./note"
+import "./page"
 import "std/list"
 
 pub fn pages_of db id
-  models/found "" db notes/note_model id
-    .> (n -> pages/of_note "" db n)
-    .> (ps -> said db "note {id}: {list/to_list (list/map ps pages/bodied)}")
+  models/found "" db note/note_model id
+    .> (n -> page/of_note "" db n)
+    .> (ps -> said db "note {id}: {list/to_list (list/map ps page/bodied)}")
 
 pub fn note_of db id
-  models/found "" db pages/page_model id
-    .> (p -> notes/of_page "" db p)
-    .> (n -> said db "page {id}: {notes/titled n}")
+  models/found "" db page/page_model id
+    .> (p -> note/of_page "" db p)
+    .> (n -> said db "page {id}: {note/titled n}")
 
 fn said db line
   print line .> (_ -> effect db)

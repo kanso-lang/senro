@@ -1,6 +1,6 @@
 import "../../../models"
 import "../../../pg"
-import "./accounts"
+import "./account"
 import "./migrations"
 import "./signing"
 

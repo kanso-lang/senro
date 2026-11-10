@@ -8,6 +8,8 @@ ada, newest first: [third, first]
 ada, where body is third: [third]
 ada, page 1 of two rows: [first]
 ada, page 2 of two rows: [third]
+ada, page 1 of ada's, a row each: [first]
+ada, page 1 of bob's, a row each: []
 bob, the note whose body is second: second
 ada, the note whose body is second: nothing
 bob makes a note for ada: denied

@@ -1,12 +1,12 @@
 import "../../../models"
 import "../../../pg"
-import "./notes"
+import "./note"
 
 pub fn made db fields
-  models/created "" db notes/note_model fields .> (_ -> effect db)
+  models/created "" db note/note_model fields .> (_ -> effect db)
 
 pub fn changed db id fields
-  models/updated "" db notes/note_model "{id}" fields .> (_ -> effect db)
+  models/updated "" db note/note_model "{id}" fields .> (_ -> effect db)
 
 stamps = """
   select (created_at > '2020-01-01')::text as created,

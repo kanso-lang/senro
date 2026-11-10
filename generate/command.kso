@@ -135,12 +135,13 @@ fn text_of m
 fn wrote app singular fields main old
   plural = models/plural singular
   senro = up_from app
-  entry = app/entry_with main plural
+  entry = with_resource (app/entry_with main singular) plural
   migrations = migrated old senro plural fields
   bare = "{app}/main.kso imports nothing of its own"
   long = "{app}/migrations.kso has no `all` this can read"
   return refused bare if entry == none
   return refused long if migrations == none
+  model = scaffold/model senro singular fields
   module = scaffold/resource senro singular fields
   index = scaffold/index_view singular fields
   shown = scaffold/shown_view singular fields
@@ -148,12 +149,21 @@ fn wrote app singular fields main old
   views = "{app}/views"
   os/is_dir views
     .> (there -> made_dir there views)
+    .> (_ -> written "{app}/{singular}.kso" model)
     .> (_ -> written "{app}/{plural}.kso" module)
     .> (_ -> written "{views}/{plural}_index.kata" index)
     .> (_ -> written "{views}/{singular}_shown.kata" shown)
     .> (_ -> written "{views}/{singular}_form.kata" form)
     .> (_ -> changed "{app}/migrations.kso" (said migrations))
     .> (_ -> changed "{app}/main.kso" (said entry))
+
+# The entry imports the model's module and the resource's, since a
+# derivation reads the modules the entry names.
+fn with_resource none _
+  none
+
+fn with_resource entry plural
+  app/entry_with entry plural
 
 fn migrated "" senro plural fields
   scaffold/migrations_new senro plural fields

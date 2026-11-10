@@ -1,15 +1,15 @@
 import "../../../models"
 import "../../../pg"
 import "./migrations"
-import "./notes"
-import "./pages"
+import "./note"
+import "./page"
 import "./reading"
 
 derive models/tables
 
 # A page belongs to a note. The derivation reads the foreign key the
-# migrations add and writes a reader each way: `pages/of_note` lists a
-# note's pages, and `notes/of_page` finds the note a page belongs to.
+# migrations add and writes a reader each way: `page/of_note` lists a
+# note's pages, and `note/of_page` finds the note a page belongs to.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
