@@ -1,5 +1,5 @@
 error[name]: unknown name `kata_has_no_for_write_each_xs_x` — no module in this program writes `kata_has_no_for_write_each_xs_x` for a type it owns, so no value carries it
-  --> ./views.derived.kso:34:9
-  34 |   "<ul>{kata_has_no_for_write_each_xs_x things (t -> list_3 t)}</ul>"
+  --> ./views.derived.kso:38:9
+  38 |   "<ul>{kata_has_no_for_write_each_xs_x things (t -> list_3 t)}</ul>"
                ^
   = written from ./views/list.kata:3

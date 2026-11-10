@@ -1,10 +1,10 @@
 error[name]: no record type has a field `titel`
-  --> ./views.derived.kso:37:23
-  37 |     "<li><h2>{escape p.titel}</h2><p>"
+  --> ./views.derived.kso:41:23
+  41 |     "<li><h2>{escape p.titel}</h2><p>"
                              ^
   = written from ./views/list.kata:5
 error[name]: no record type has a field `titel`
-  --> ./views.derived.kso:53:16
-  53 |   wire/add a1 x.titel
+  --> ./views.derived.kso:57:16
+  57 |   wire/add a1 x.titel
                       ^
   = written from ./views/list.kata:5

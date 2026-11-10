@@ -174,12 +174,19 @@ fn handed_only n p
 # What every compiled template leans on, written once into each module that
 # holds templates: the escape that keeps a value from being read as markup, a
 # loop body joined once per element, and the join of a function's parts.
+# Most values hold none of the five characters that need escaping, so the
+# escape looks for them first, two bytes to a search (`&` `<`, `>` `"`, and
+# `'`), and hands a value with none back as it came.
 leaned_on = """
   fn escape none
     ""
 
   fn escape x
     s = "\{x}"
+    cs = text/bytes s
+    past = length cs
+    marks = text/find2 cs 1 38 60 <= past or text/find2 cs 1 62 34 <= past
+    return s if not marks and text/find2 cs 1 39 39 > past
     amp = text/join (text/split s "&") "&amp;"
     lt = text/join (text/split amp "<") "&lt;"
     gt = text/join (text/split lt ">") "&gt;"

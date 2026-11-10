@@ -8,6 +8,10 @@ fn escape none
 
 fn escape x
   s = "{x}"
+  cs = text/bytes s
+  past = length cs
+  marks = text/find2 cs 1 38 60 <= past or text/find2 cs 1 62 34 <= past
+  return s if not marks and text/find2 cs 1 39 39 > past
   amp = text/join (text/split s "&") "&amp;"
   lt = text/join (text/split amp "<") "&lt;"
   gt = text/join (text/split lt ">") "&gt;"
@@ -97,6 +101,10 @@ fn escape none
 
 fn escape x
   s = "{x}"
+  cs = text/bytes s
+  past = length cs
+  marks = text/find2 cs 1 38 60 <= past or text/find2 cs 1 62 34 <= past
+  return s if not marks and text/find2 cs 1 39 39 > past
   amp = text/join (text/split s "&") "&amp;"
   lt = text/join (text/split amp "<") "&lt;"
   gt = text/join (text/split lt ">") "&gt;"
