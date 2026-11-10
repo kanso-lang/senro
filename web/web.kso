@@ -787,7 +787,7 @@ fn routed_to routes n secret c
   put routes "POST /senro/act/{n}" (act_row c secret)
 
 fn act_row c secret
-  acting = (req db -> acted c req db (viewer req secret))
+  acting = (req db -> acted_as c req (asking_for db req secret))
   { "action":acting "id":"" "open":true }
 
 # The app's providers: what an action running in the browser asks the server
@@ -807,8 +807,11 @@ pub fn providers routes secret table
   put routes "POST /senro/data" (provider_row table secret)
 
 fn provider_row table secret
-  asking = (req db -> asked_of table req db (viewer req secret))
+  asking = (req db -> asked_as table req (asking_for db req secret))
   { "action":asking "id":"" "open":true }
+
+fn asked_as table req db
+  asked_of table req db (pg/asker db)
 
 fn asked_of table req db who
   return effect forbidden if req.headers["senro-page"] == none
@@ -857,6 +860,9 @@ fn one table call who db got
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is
 # what keeps a page elsewhere from acting with this visitor's cookie.
+fn acted_as c req db
+  acted c req db (pg/asker db)
+
 fn acted c req db who
   return effect forbidden if req.headers["senro-page"] == none
   lines = text/split req.body "\n"
@@ -945,7 +951,8 @@ fn guarded row secret bound_of
   kind = id_kind row["id"]
   open = row["open"] != none
   gate = (req db go -> admitted req db open secret bound_of go)
-  put row "action" (gated row["action"] kind (row["within"] != none) gate)
+  nested = row["within"] != none
+  put row "action" (gated row["action"] kind nested gate secret)
 
 fn id_kind none
   ""
@@ -953,24 +960,31 @@ fn id_kind none
 fn id_kind kind
   kind
 
-fn gated none _ _ _
+fn gated none _ _ _ _
   none
 
-fn gated action kind nested gate
-  gated_by kind nested action gate
+fn gated action kind nested gate secret
+  gated_by kind nested action gate (r db -> asking_for db r secret)
+
+# The session an action is handed asks on behalf of whoever its request says
+# is signed in, so a model read through it applies that viewer's policy
+# (`models/find`). The request is the one the action sees: when a sign-in has
+# ended, that is the request without it.
+fn asking_for db req secret
+  pg/asked_by db (viewer req secret)
 
 # A nested action takes its parent's id before its own.
-fn gated_by "" false action gate
-  (req db -> gate req db (r -> action r db))
+fn gated_by "" false action gate as
+  (req db -> gate req db (r -> action r (as r db)))
 
-fn gated_by "" true action gate
-  (req db p -> gate req db (r -> action r db p))
+fn gated_by "" true action gate as
+  (req db p -> gate req db (r -> action r (as r db) p))
 
-fn gated_by _ false action gate
-  (req db id -> gate req db (r -> action r db id))
+fn gated_by _ false action gate as
+  (req db id -> gate req db (r -> action r (as r db) id))
 
-fn gated_by _ true action gate
-  (req db p id -> gate req db (r -> action r db p id))
+fn gated_by _ true action gate as
+  (req db p id -> gate req db (r -> action r (as r db) p id))
 
 fn admitted req db open secret bound_of go
   who = viewer req secret

@@ -1,0 +1,32 @@
+import "../../../pg"
+import "./notes"
+import "std/list"
+import "std/text"
+
+# What each viewer reads through the notes model, printed.
+pub fn seen db who
+  notes/all (pg/asked_by db who) .> (ns -> print "{who} sees {bodies ns}")
+
+pub fn unnamed db
+  notes/all db .> (ns -> print "nobody named sees {bodies ns}")
+
+fn bodies ns
+  "[{text/join (list/to_list (list/map ns (n -> n.body))) ", "}]"
+
+pub fn looked db who id
+  notes/find (pg/asked_by db who) id
+    .> (n -> print "{who} finds note {id}: {body_of n}")
+
+fn body_of none
+  "nothing"
+
+fn body_of n
+  n.body
+
+pub fn sorted db by
+  notes/ordered (pg/asked_by db "ada") by
+    .> (ns -> print "ada, ordered by {by}: {bodies ns}")
+
+pub fn picked db
+  notes/where (pg/asked_by db "ada") "body" "third"
+    .> (ns -> print "ada, where body is third: {bodies ns}")

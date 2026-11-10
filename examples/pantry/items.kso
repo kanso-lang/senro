@@ -1,10 +1,11 @@
-import "../../pg"
+import "../../models"
 import "../../web"
 import "./planner"
 import "./staple"
 import "./stock"
 import "./views"
 import "std/list"
+import "std/text"
 
 pub fn index req db
   shelf req db ""
@@ -15,32 +16,43 @@ pub fn edit req db id:int
 
 pub fn create req db
   name = web/value (web/form req.body) "name"
-  pg/query db added [name] .> (_ -> back)
+  models/create db stock/item_model { "name":name "quantity":"0" }
+    .> (_ -> back)
 
 # Two forms update an item: one renames it, and the plus and minus buttons
 # send `by`, which moves its count and never below zero.
 pub fn update req db id:int
   f = web/form req.body
-  by = web/value f "by"
-  return changed db renamed [(web/value f "name") "{id}"] if by == ""
-  changed db stepped [by "{id}"]
+  moved db id (web/value f "name") (text/to_int (web/value f "by"))
+
+fn moved db id name none
+  changed db id { "name":name }
+
+fn moved db id _ by
+  stock/find db id .> (i -> stepped db id i by)
 
 pub fn destroy _ db id:int
-  changed db removed ["{id}"]
+  models/destroy db stock/item_model id .> (_ -> back)
 
-fn changed db sql params
-  pg/query db sql params .> (_ -> back)
+fn stepped _ _ none _
+  back
+
+fn stepped db id i by
+  left = i.quantity + by
+  changed db id { "quantity":"{if (left > 0) left 0}" }
+
+fn changed db id changes
+  models/update db stock/item_model id changes .> (_ -> back)
 
 back = effect (web/redirect "/")
 
 fn shelf req db editing
-  pg/query db stocked [] .> (r -> shown req r.rows editing)
+  stock/all db .> (items -> shown req items editing)
 
 # The shelf goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the
 # browser.
-fn shown req rows editing
-  items = list/to_list (list/map rows stock/item_from)
+fn shown req items editing
   total = list/fold items 0 (n i -> n + i.quantity)
   stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
   plan = planner/view (planner/planned 3)
@@ -51,16 +63,3 @@ fn shown req rows editing
 # senro/pg reads a boolean column as true or false.
 fn starred i
   staple/view { "id":i.id "staple":i.staple }
-
-stocked = "select id, name, quantity, staple from items order by id"
-
-added = "insert into items (name) values ($1)"
-
-renamed = "update items set name = $1 where id = $2::integer"
-
-stepped = """
-  update items set quantity = greatest(quantity + $1::integer, 0)
-  where id = $2::integer
-"""
-
-removed = "delete from items where id = $1::integer"

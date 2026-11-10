@@ -304,7 +304,39 @@ fn checked origin table fields columns
 # it wrote (kanso#2265).
 fn readers m schema uniq
   each = records_of m schema
-  list/fold each [] (acc r -> list/concat acc (reader m r schema uniq))
+  one = (acc r -> list/concat acc (reader m r schema uniq))
+  each_read = list/fold each [] one
+  kept = list/to_list (list/select each (r -> modeled? r schema))
+  list/concat each_read (finders m kept)
+
+fn modeled? r schema
+  schema[plural r.name] != none and list/any? r.fields (f -> f == "id")
+
+# A module that holds one model answers for it by name: `notes/find db id`,
+# `notes/all db`, `notes/ordered db "title"` and `notes/where db "title" t`,
+# each a read through the model for the viewer the session names. A module
+# that declares a function of one of those names keeps its own, and a module
+# with two models has none written, since a bare `find` would not say which.
+fn finders m kept
+  return [] if length kept != 1
+  t = kept[1].name
+  calls = [
+    (finder m "find" "db id" "models/find db {t}_model id")
+    (finder m "all" "db" "models/all db {t}_model")
+    (finder m "ordered" "db by" "models/ordered db {t}_model by")
+    (finder m "where" "db field value" (matched t))
+  ]
+  found_calls = list/to_list (list/reject calls (c -> c == ""))
+  return [] if length found_calls == 0
+  source = "import \"../models\"\n\n{text/join found_calls "\n"}"
+  [(derive/define m.name source)]
+
+fn matched t
+  "models/matching db {t}_model field value"
+
+fn finder m name takes call
+  return "" if declares? m name
+  "pub fn {name} {takes}\n  {call}\n"
 
 fn reader m r schema uniq
   table = plural r.name
@@ -517,8 +549,8 @@ fn guarded m r uniq
   policies = list/select owned (p -> declares? m p)
   said = list/map policies (p -> "\"{text/join (text/split p "?") ""}\":{p}")
   marked = list/concat (list/to_list said) (unique_entry r.fields uniq)
-  all = list/to_list (list/sort (list/concat base marked))
-  value = [(derive/define m.name (model_value t all))]
+  pairs = list/to_list (list/sort (list/concat base marked))
+  value = [(derive/define m.name (model_value t pairs))]
   named = "{t}_columns"
   return value if declares? m named or m.constants[named] != none
   list/concat value [(derive/define m.name (columns_value t r.fields))]
@@ -589,6 +621,54 @@ pub fn where viewer db model field value
   from = "from {table_of model["table"]} where {field} = $1 order by id"
   pg/query db "select {names} {from}" ["{value}"]
     .> (r -> effect (shown viewer model r.rows))
+
+# The same reads for an action, which holds the session senro handed it and
+# nothing else. The web layer has named whoever is signed in on that session
+# (`pg/asked_by`), so the viewer is not passed: `models/find db note_model id`
+# reads as `found` does for that viewer. Each model's module gets these under
+# its own name, as `notes/find db id`, `notes/all db`, `notes/ordered db by`
+# and `notes/where db field value`, the way a Rails model answers `find`,
+# `all`, `order` and `where`.
+pub fn find db model id
+  found (pg/asker db) db model id
+
+# Every record the session's viewer may see, oldest first.
+pub fn all db model
+  ordered db model "id"
+
+# Every record the viewer may see, in the order `by` names: one of the
+# model's columns, alone or followed by `asc` or `desc`, as
+# `signatures/ordered db "id desc"` reads. Anything else is an error, so the
+# order never reaches the SQL unread.
+pub fn ordered db model by
+  words = text/split (text/trim by) " "
+  field = blank_if_none words[1]
+  way = blank_if_none words[2]
+  cols = column_list model["columns"]
+  odd = "`{by}` is not an order of `{table_of model["table"]}`"
+  fine = length words <= 2 and (way == "" or way == "asc" or way == "desc")
+  return err odd if not fine or not list/any? cols (c -> c == field)
+  names = text/join cols ", "
+  from = "from {table_of model["table"]} order by {field} {way}, id"
+  pg/query db "select {names} {from}" []
+    .> (r -> effect (shown (pg/asker db) model r.rows))
+
+# The records whose `field` holds `value`, oldest first, as `where` reads
+# them for the session's viewer.
+pub fn matching db model field value
+  where (pg/asker db) db model field value
+
+# The writes, for the session's viewer: `created`, `updated` and `destroyed`
+# as an action calls them, with the policy asked about whoever the session
+# names.
+pub fn create db model fields
+  created (pg/asker db) db model fields
+
+pub fn update db model id changes
+  updated (pg/asker db) db model id changes
+
+pub fn destroy db model id
+  destroyed (pg/asker db) db model id
 
 # A rule of a model's `problems`: the field it is about, whether the record
 # breaks it, and what to tell the visitor when it does.
@@ -950,10 +1030,10 @@ fn making table columns
 #
 # Each change does nothing when its work is already done, so a database made
 # before migrations were recorded takes the whole list safely the first time.
-pub fn migrated db app all
+pub fn migrated db app steps
   pg/run db ledger
     .> (_ -> pg/query db history [app])
-    .> (r -> pending db app all (recorded r.rows))
+    .> (r -> pending db app steps (recorded r.rows))
 
 ledger = """
   create table if not exists senro_migrations
@@ -966,9 +1046,9 @@ fn recorded rows
   each = (acc row -> put acc "{cell row "version"}" (cell row "change"))
   list/fold rows {} each
 
-fn pending db app all before
+fn pending db app steps before
   each = (acc c -> acc .> (n -> ran db app before n c))
-  list/fold all (effect 1) each .> (_ -> effect db)
+  list/fold steps (effect 1) each .> (_ -> effect db)
 
 fn ran db app before n c
   version = "{n}"

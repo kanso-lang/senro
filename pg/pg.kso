@@ -17,6 +17,7 @@ import "std/text"
 # does not know yet stays the string Postgres sent.
 pub type session
   conn
+  who
 
 pub type result
   columns
@@ -247,6 +248,17 @@ fn heard ms
   channel = cstring_at n.body 5
   (cstring_at n.body channel.next).value
 
+# The session, asking on behalf of `who`: the id of whoever is signed in, or
+# "" for a visitor. Postgres is told nothing of it. senro's web layer names
+# the viewer this way before an action sees its session, and a model read
+# through the session (`models/find`) applies that viewer's policy.
+pub fn asked_by s who
+  session s.conn who
+
+# On whose behalf the session asks, or "" when nobody has been named.
+pub fn asker s
+  s.who
+
 pub fn close s
   net/write s.conn (text/to_bytes (framed 88 []))
     .> (_ -> net/close_conn s.conn)
@@ -276,7 +288,7 @@ fn admitted c password ms
   refused = list/find ms (m -> m.kind == 69)
   return failure refused.body if refused != none
   request = list/find ms asks_password?
-  return session c if request == none
+  return session c "" if request == none
   authenticated c password (be32_at request.body 1)
 
 # SCRAM-SHA-256, RFC 5802 and 7677, which is what Postgres asks for by
@@ -376,7 +388,7 @@ fn concluded c server ms
   final = list/find ms (m -> m.kind == 82 and be32_at m.body 1 == 12)
   return err "the server never proved it knew the password" if final == none
   verdict = utf8_of (slice final.body 5 (length final.body - 4))
-  return session c if verdict == "v={server}"
+  return session c "" if verdict == "v={server}"
   err "the server's proof does not match; this is not the server you think"
 
 # An error's body is a run of fields, each a code byte and a string, ending

@@ -1,0 +1,8 @@
+ada sees [first, third]
+bob sees [second]
+nobody named sees []
+ada finds note 1: first
+bob finds note 1: nothing
+ada, ordered by body desc: [third, first]
+ada, where body is third: [third]
+`body; drop table notes` is not an order of `notes`

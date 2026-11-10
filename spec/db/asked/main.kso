@@ -1,0 +1,37 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+import "./notes"
+import "./reading"
+
+derive models/tables
+
+# A session told who is asking reads through the model by the model's own
+# name, with no viewer passed and no SQL: `notes/all`, `notes/find`,
+# `notes/ordered` and `notes/where`, each answering what that viewer's read
+# policy shows. A session nobody named asks as a visitor.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+made = models/made schema
+
+written = """
+  insert into notes (owner, body) values
+    ('ada', 'first'), ('bob', 'second'), ('ada', 'third')
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> pg/run db made) .> (_ -> db))
+  .> (db -> pg/run db written .> (_ -> db))
+  .> (db -> reading/seen db "ada" .> (_ -> db))
+  .> (db -> reading/seen db "bob" .> (_ -> db))
+  .> (db -> reading/unnamed db .> (_ -> db))
+  .> (db -> reading/looked db "ada" 1 .> (_ -> db))
+  .> (db -> reading/looked db "bob" 1 .> (_ -> db))
+  .> (db -> reading/sorted db "body desc" .> (_ -> db))
+  .> (db -> reading/picked db .> (_ -> db))
+  .> (db -> reading/sorted db "body; drop table notes")
+  .? (u -> print u.reason)

@@ -197,7 +197,26 @@ when they are given that path. The specs write it again and compare the two.
   with an `id` as a value (`signature_model`), and `models/updated` and
   `models/destroyed` take it, read the row, ask the policy and write only on
   a yes, answering `web/denied` or `web/absent` otherwise. A model with no
-  such policy cannot be written this way. `models/found viewer db model id`
+  such policy cannot be written this way.
+
+  An action reads and writes through its models by name and writes no SQL.
+  The `db` senro hands an action already knows who is signed in: the web
+  layer names the viewer on the session (`pg/asked_by`) before an action, a
+  server component or a provider sees it, and a session nobody named asks
+  as a visitor. A module that holds one model answers for it: `notes/find
+  db id` is the record or none, `notes/all db` is every record oldest
+  first, `notes/ordered db "title desc"` is every record in the order of a
+  column, and `notes/where db "title" t` is the records whose field holds
+  the value. Each shows only what the viewer's read policy allows, and an
+  order or a field that is not one of the table's columns is an error
+  before any SQL is sent. `models/create db model fields`, `models/update
+  db model id changes` and `models/destroy db model id` are the writes for
+  the same viewer (`spec/db/asked`, `examples/pantry/items.kso`). A module
+  that declares a function named `find`, `all`, `ordered` or `where` keeps
+  its own, and a module with two models gets none, since a bare `find`
+  would not say which.
+
+  Underneath, `models/found viewer db model id`
   reads a record by its id, or answers none when there is no such row or
   the viewer may not see it, and `models/where viewer db model field value`
   answers the records whose field holds the value, oldest first, that the
