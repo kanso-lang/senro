@@ -276,19 +276,21 @@ else
   bad "what generate writes is examples/notebook"
   diff -r examples/notebook "$gen"
 fi
-# A scaffold's modules and the pantry's go through their models: none of
-# them names the pg module (kanso#2394).
+# What the generators write and the pantry's modules go through their
+# models: none of them names the pg module (kanso#2394).
 sql=$(grep -n "pg/" "$gen/note.kso" "$gen/notes.kso" "$gen/page.kso" \
-  "$gen/pages.kso" examples/pantry/items.kso examples/pantry/stock.kso)
+  "$gen/pages.kso" "$gen/user.kso" "$gen/registration.kso" \
+  "$gen/session.kso" "$gen/resets.kso" examples/pantry/items.kso \
+  examples/pantry/stock.kso)
 # The guestbook's modules hold no query either; its entry opens and closes
 # the database and does nothing else with it.
 asked=$(grep -n "pg/query\|pg/run\|pg/exec" examples/guestbook/*.kso \
   examples/guestbook/removal/*.kso)
 sql="$sql$asked"
 if [ -z "$sql" ]; then
-  note "ok: the scaffold, the pantry and the guestbook write no SQL"
+  note "ok: the generators, the pantry and the guestbook write no SQL"
 else
-  bad "the scaffold, the pantry and the guestbook write no SQL"
+  bad "the generators, the pantry and the guestbook write no SQL"
   echo "$sql"
 fi
 if out=$("$KANSO" check "$gen" 2>&1); then

@@ -14,10 +14,15 @@ pub copied = [
   "registration.kso"
   "resets.kso"
   "session.kso"
+  "user.kso"
   "views/door.kata"
   "views/reset_asked.kata"
   "views/reset_chosen.kata"
 ]
+
+# The modules of those the entry imports: the three resources, and the
+# model, which a derivation reads only when the entry names it.
+imported = ["registration" "resets" "session" "user"]
 
 pub source = "generate/authentication"
 
@@ -51,7 +56,7 @@ pub fn entry_signed main senro
   return none if not list/any? lines (l -> l == connect_line)
   served = list/to_list (list/map lines (l -> signed_line l senro))
   own = text/join served "\n"
-  locals = list/fold ["registration" "resets" "session"] own (e n -> with e n)
+  locals = list/fold imported own (e n -> with e n)
   locals
 
 fn with entry name

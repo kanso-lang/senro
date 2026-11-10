@@ -21,6 +21,7 @@
   create spec/notebook/registration.kso
   create spec/notebook/resets.kso
   create spec/notebook/session.kso
+  create spec/notebook/user.kso
   create spec/notebook/views/door.kata
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
