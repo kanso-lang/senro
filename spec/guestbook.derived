@@ -8,11 +8,23 @@ fn escape none
 
 fn escape x
   s = "{x}"
-  amp = text/join (text/split s "&") "&amp;"
-  lt = text/join (text/split amp "<") "&lt;"
-  gt = text/join (text/split lt ">") "&gt;"
-  quot = text/join (text/split gt "\"") "&quot;"
-  text/join (text/split quot "'") "&#39;"
+  cs = text/bytes s
+  past = length cs
+  amp = text/find2 cs 1 38 38 <= past
+  angle = text/find2 cs 1 60 62 <= past
+  quote = text/find2 cs 1 34 39 <= past
+  return s if not (amp or angle or quote)
+  a = swapped s amp "&" "&amp;"
+  b = swapped a angle "<" "&lt;"
+  c = swapped b angle ">" "&gt;"
+  d = swapped c quote "\"" "&quot;"
+  swapped d quote "'" "&#39;"
+
+fn swapped s false _ _
+  s
+
+fn swapped s true from to
+  text/join (text/split s from) to
 
 fn each xs f
   text/join (list/to_list (list/map xs f)) ""
@@ -97,11 +109,23 @@ fn escape none
 
 fn escape x
   s = "{x}"
-  amp = text/join (text/split s "&") "&amp;"
-  lt = text/join (text/split amp "<") "&lt;"
-  gt = text/join (text/split lt ">") "&gt;"
-  quot = text/join (text/split gt "\"") "&quot;"
-  text/join (text/split quot "'") "&#39;"
+  cs = text/bytes s
+  past = length cs
+  amp = text/find2 cs 1 38 38 <= past
+  angle = text/find2 cs 1 60 62 <= past
+  quote = text/find2 cs 1 34 39 <= past
+  return s if not (amp or angle or quote)
+  a = swapped s amp "&" "&amp;"
+  b = swapped a angle "<" "&lt;"
+  c = swapped b angle ">" "&gt;"
+  d = swapped c quote "\"" "&quot;"
+  swapped d quote "'" "&#39;"
+
+fn swapped s false _ _
+  s
+
+fn swapped s true from to
+  text/join (text/split s from) to
 
 fn each xs f
   text/join (list/to_list (list/map xs f)) ""
