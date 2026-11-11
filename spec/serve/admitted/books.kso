@@ -1,0 +1,5 @@
+# A provider: what the books hold for a number of years, read for whoever
+# asks. It checks nothing about the viewer, since the page that asks for it
+# has been checked already.
+pub fn total viewer _ years
+  effect "{years} years of books, read for viewer {viewer}"

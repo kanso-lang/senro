@@ -1,0 +1,7 @@
+import "std/net/http"
+
+pub without_sign_in = ["index"]
+
+# Anyone may read the front page, which asks the server for nothing.
+pub fn index _ _
+  effect (http/text_page "the front page")

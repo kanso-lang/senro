@@ -206,8 +206,9 @@ console.log(`act naming an action no template binds: ${await act("staple", `stap
 console.log(`act with a state that is not JSON: ${await act("staple", "toggled\n{", ours)}`);
 console.log(`act on a component the app does not serve: ${await act("planner", `more\n3`, ours)}`);
 
-// And what it may ask a provider: only from senro's script, and only a
-// provider the app's own code calls from the browser.
+// And what it may ask a provider: only from senro's script, only a provider
+// the app's own code calls from the browser, and only from a page whose
+// module uses it.
 const ask = async (body, headers) => {
   const r = await fetch(`http://127.0.0.1:${port}/senro/data`, {
     method: "POST", headers, body,
@@ -215,7 +216,11 @@ const ask = async (body, headers) => {
   return r.status;
 };
 console.log(`data without the page's header: ${await ask(`[["stock/short",[1]]]`, {})}`);
-console.log(`data naming no provider: ${await ask(`[["stock/update?",[1]]]`, ours)}`);
+const shelf = { ...ours, "senro-from": "/items" };
+console.log(`data naming no provider: ${await ask(`[["stock/update?",[1]]]`, shelf)}`);
+console.log(`data from the page that asks for it: ${await ask(`[["stock/short",[1]]]`, shelf)}`);
+console.log(`data from no page: ${await ask(`[["stock/short",[1]]]`, ours)}`);
+console.log(`data from a page that is not there: ${await ask(`[["stock/short",[1]]]`, { ...ours, "senro-from": "/nowhere" })}`);
 
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.

@@ -82,7 +82,9 @@ pub fn rest p
   placed = list/concat conventional aliased.routes
   limited = list/fold apps (limits {} []) limits_in
   open = list/fold apps (limits {} []) opens_in
-  rows = list/fold placed {} (acc r -> put acc (spelled r) (row r limited open))
+  asked = list/fold apps {} admitting_in
+  each = (acc r -> put acc (spelled r) (row r limited open asked))
+  rows = list/fold placed {} each
   turned = list/concat limited.refused open.refused
   given = list/concat aliased.refused turned
   calls = data/calls_of_program p
@@ -248,12 +250,32 @@ fn how name parent _ _
 fn spelled r
   "{r.method} {r.path}"
 
-fn row r limited open
+fn row r limited open asked
   return { "action":r.action "id":r.id "to":r.to } if r.to != ""
-  plain = { "action":r.action "id":r.id }
+  plain = { "action":r.action "id":r.id "name":r.origin }
   placed = nested_row plain r.within
   base = opened placed open.by[r.origin]
-  bounded base limited.by[r.origin]
+  admitted (bounded base limited.by[r.origin]) asked[module_of r.origin]
+
+# A module that defines `admits action viewer db` says who may reach each of
+# its actions, and every row of the module carries the function. An app that
+# wraps its table in `web/requiring_sign_in` asks it before the action runs,
+# and again for the page a provider's request names (`web/providers`).
+fn admitting_in acc m
+  found = list/to_list (list/select m.functions (f -> f.name == "admits"))
+  return acc if length found == 0
+  put acc m.name found[1].reference
+
+fn admitted base none
+  base
+
+fn admitted base asking
+  put base "admits" asking
+
+# The module of `notes/index` is `notes`.
+fn module_of origin
+  parts = list/to_list (text/split origin "/")
+  text/join (list/to_list (list/take parts (length parts - 1))) "/"
 
 fn nested_row plain ""
   plain
@@ -517,7 +539,7 @@ fn strays m calls
 
 fn policy? name
   modeled = ["create?" "update?" "destroy?" "visible?" "problems" "over_limit"]
-  list/any? modeled (p -> p == name)
+  name == "admits" or list/any? modeled (p -> p == name)
 
 # A singular resource has no `index`: there is one of it.
 fn indexed m
