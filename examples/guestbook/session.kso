@@ -1,5 +1,4 @@
-import "../../clock"
-import "../../models"
+import "../../accounts"
 import "../../passwords"
 import "../../web"
 import "./account"
@@ -94,26 +93,12 @@ fn arrived _ _ none _
   effect none
 
 fn arrived req db was t
-  changes = {
-    "current_sign_in_at":(clock/utc_minute t)
-    "current_sign_in_ip":(web/peer req)
-    "failures":"0"
-    "last_sign_in_at":was.current_sign_in_at
-    "last_sign_in_ip":was.current_sign_in_ip
-    "locked":""
-  }
-  account/update (models/as_app db) was.id changes
-    .> (_ -> account/increment (models/as_app db) was.id "sign_in_count")
+  at = was.current_sign_in_at
+  from = was.current_sign_in_ip
+  accounts/arrived req db account/account_model was.id at from t
 
 fn locked? a t
-  return false if a.locked == ""
-  t < stamp_of (text/to_int a.locked) + locked_minutes * 60 * 1000
-
-fn stamp_of none
-  0
-
-fn stamp_of n
-  n
+  accounts/locked? a.locked locked_minutes t
 
 fn shut req name true
   told = "This account is locked. Follow the link we mailed to unlock it."
@@ -129,22 +114,16 @@ fn shut req name false
 # sees the run reach its length.
 fn missed req db name a t
   return refused req name if a.id == ""
-  reopened db a
-    .> (_ -> account/increment (models/as_app db) a.id "failures")
+  accounts/missed db account/account_model a.id a.locked
     .> (counted -> locking req db name a counted t)
-
-fn reopened db a
-  return effect a if a.locked == ""
-  account/update (models/as_app db) a.id { "failures":"0" "locked":"" }
 
 fn locking req _ name _ _:web/absent _
   refused req name
 
 fn locking req db name a counted t
   return refused req name if counted.failures != locks_after
-  stamp = "{t}"
-  account/update (models/as_app db) a.id { "locked":stamp }
-    .> (_ -> account_mailer/unlock db a.id a.email stamp)
+  accounts/locked_at db account/account_model a.id t
+    .> (stamp -> account_mailer/unlock db a.id a.email stamp)
     .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
     .> (_ -> refused req name)
 

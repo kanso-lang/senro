@@ -606,6 +606,14 @@ until the app is changed with it.
   an effect. Anyone signed in can call a provider
   with arguments of their choosing, so it checks what the viewer may read,
   as a model's policy does (`spec/runs/provided`).
+- `accounts`: what an account keeps beside its password, as Devise's
+  lockable and trackable keep it. `accounts/missed` counts a wrong password
+  against an account and `accounts/locked_at` locks it; `accounts/locked?`
+  says whether a lock still holds; `accounts/arrived` ends the run of wrong
+  passwords, lifts a lock, and counts and stamps the sign-in, keeping the
+  one before it. The guestbook's sign-in is written with them
+  (`examples/guestbook/session.kso`), and its migrations hold the columns
+  they write.
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 
