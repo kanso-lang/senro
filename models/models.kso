@@ -1075,8 +1075,9 @@ pub fn refused? w
 # such policy. The server answers a server action that answers either as a
 # 404 or a 403. An update is checked by the model's `problems` too, as the
 # change leaves the record, and answers `invalid` without writing when it
-# breaks a rule. `updated` answers the row as the change leaves it and
-# `destroyed` the row as it was.
+# breaks a rule. `updated` answers the row as Postgres holds it after the
+# change, and a change that names nothing answers the row as it is without
+# writing. `destroyed` answers the row as it was.
 #
 # A state the browser sent may name no id at all, which is a row not there.
 pub fn updated _ _ _ none _
@@ -1092,6 +1093,7 @@ fn update_found viewer db model asked row
   was = row_read model["read"] row
   return effect web/denied if not allowed? model["update"] viewer was
   changes = unstamped asked
+  return effect was if length (keys changes) == 0
   now = list/fold (keys changes) row (acc k -> put acc k changes[k])
   changed = row_read model["read"] now
   broken = checked_by model["problems"] changed
@@ -1108,7 +1110,16 @@ fn update_found viewer db model asked row
 fn rewritten db model cols row sent changed t
   return effect (invalid t changed) if t != {}
   pg/update_by_id db (table_of model["table"]) cols "{id_of row}" sent
-    .> (_ -> effect changed)
+    .> (r -> effect (stored model changed r.rows[1]))
+
+# The row as Postgres holds it after the write, each value of its column's
+# type and `updated_at` the moment of the change. A row removed between the
+# check and the write answers the record as the change would have left it.
+fn stored _ changed none
+  changed
+
+fn stored model _ row
+  row_read model["read"] row
 
 # A form's fields without the timestamps, which only the database writes.
 fn unstamped fields

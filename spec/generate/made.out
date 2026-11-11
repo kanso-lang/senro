@@ -27,6 +27,13 @@
   create spec/notebook/views/reset_chosen.kata
   create spec/notebook/migrations/20261111180514_create_users.kso
   change spec/notebook/main.kso
+  create spec/notebook/reading.kso
+  create spec/notebook/readings.kso
+  create spec/notebook/migrations/20261111180515_create_readings.kso
+  change spec/notebook/main.kso
+generate: spec/notebook/readings.kso is there already
+generate: cannot make a resource of that: `cover` is an attachment, which `scaffold` writes; a resource's fields are text and int
+generate: cannot make a resource of that: `note_id` is a reference, which `scaffold` writes; a resource's fields are text and int
 generate: spec/notebook/notes.kso is there already
 generate: cannot read `title:words`: a field is name:text, name:int, name:references or name:attachment
 generate: cannot read `Title:text`: a field's name is a lowercase letter, then letters, digits and _

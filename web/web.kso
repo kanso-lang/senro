@@ -1401,6 +1401,34 @@ fn field acc parts
   return acc if length parts < 2
   put acc (decoded parts[1]) (decoded parts[2])
 
+# What a request sent, as a form reads: the fields of a posted form, or the
+# members of a JSON object when the request says its body is
+# `application/json`, each written as text. An API's action reads either
+# with `value`, as Rails' `params` holds both. A JSON body that is no
+# object sent no fields.
+pub fn input req
+  kind = blank_if_none req.headers["content-type"]
+  return form req.body if not text/starts_with? kind "application/json"
+  as_fields (json/decode req.body)
+
+fn as_fields none
+  {}
+
+fn as_fields m:map[string some]
+  list/fold (entries m) {} (acc e -> put acc e.key (as_text e.value))
+
+fn as_fields _
+  {}
+
+fn as_text none
+  ""
+
+fn as_text s:string
+  s
+
+fn as_text v
+  "{v}"
+
 # The query string a request came with, as a form: `/notes?page=2` reads
 # as `{ "page":"2" }`, which `value` reads as it reads a posted field.
 pub fn query req

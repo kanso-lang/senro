@@ -6,5 +6,6 @@ ada counts: 1 wrong
 the app counts: 2 wrong
 a visitor clears: denied
 the app clears: 0 wrong
+no change: 0 wrong
 eight at once saw: 1 2 3 4 5 6 7 8
 `name; drop table accounts` is not a column of `accounts`

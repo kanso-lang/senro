@@ -9,6 +9,7 @@ import "std/text"
 #
 #   senro new blog
 #   senro generate scaffold post title:text body:text
+#   senro generate resource reading title:text minutes:int
 #   senro generate controller pages index show
 #   senro generate model tag name:text
 #   senro generate migration add_cover_to_posts cover:text
@@ -53,6 +54,7 @@ usage_lines = [
 
 pub built_in = [
   "scaffold"
+  "resource"
   "model"
   "controller"
   "migration"

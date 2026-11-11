@@ -18,6 +18,10 @@ pub fn missed db label
 pub fn cleared db label
   account/update db 1 { "failures":"0" } .> (w -> print "{label}: {said w}")
 
+# A change that names no field writes nothing and answers the row as it is.
+pub fn untouched db label
+  account/update db 1 {} .> (w -> print "{label}: {said w}")
+
 pub fn missed_in db field
   account/increment (models/as_app db) 1 field
 

@@ -35,6 +35,7 @@ senro new notebook
 cd notebook
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
+senro generate resource reading title:text minutes:int
 senro generate controller pages index show
 senro generate model tag name:text:uniq
 senro generate migration add_rating_to_notes rating:int
@@ -88,6 +89,15 @@ its module's name. An action queues one with `jobs/perform_later db "tidy"
 args`, where `args` is a map of strings, and a name that is no job is
 refused while the app compiles. An app with no jobs starts no worker for
 them.
+
+`resource` writes an API over a model, as `rails g scaffold --api` does:
+the model and its migration, as `scaffold` writes them, and a module of
+five actions that answer JSON, with no views and no forms. `create` and
+`update` read a posted form or a JSON object (`web/input`), and take only
+the fields the resource names. An update changes the fields a request
+sends and leaves the rest; a row that breaks a rule is answered 422 with
+the problem of each field. Its fields are text and int: a file or a nested
+resource is `scaffold`'s to write.
 
 `model` takes what `scaffold` takes and writes the model alone: `tag.kso`,
 the module named for the record, and the migration that makes its table.
@@ -452,7 +462,10 @@ until the app is changed with it.
 - `web`: serves the route table, each connection in a fiber of its own, and
   decodes a posted form. A path's query string is taken off before the route
   is matched, so `/notes?page=2` answers as `/notes` does, and `web/query req`
-  reads it as a form: `web/value (web/query req) "page"` is "2". A request is
+  reads it as a form: `web/value (web/query req) "page"` is "2". `web/input
+  req` is what the request's body sent, read the same way whichever it was:
+  a posted form, or the members of a JSON object when the request says
+  `application/json`, each value as text. A request is
   read as bytes until its body is as long
   as its `Content-Length` says, since a browser often sends the head and the
   body in separate packets. A body over 10 MiB is refused with a 413 before it

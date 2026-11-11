@@ -6,6 +6,7 @@ import "./controller"
 import "./job"
 import "./mailer"
 import "./migration"
+import "./resource"
 import "./scaffold"
 import "std/io"
 import "std/list"
@@ -41,6 +42,15 @@ fn chosen "scaffold" rest
   named = scaffold/resource_named singular
   return refused "cannot name a resource `{singular}`: {named}" if named != ""
   given (scaffold/fields_of words) app singular
+
+fn chosen "resource" rest
+  app = said (list/first rest)
+  singular = said (list/first (list/drop rest 1))
+  words = list/to_list (list/drop rest 2)
+  return usage if app == "" or singular == "" or length words == 0
+  named = scaffold/resource_named singular
+  return refused "cannot name a resource `{singular}`: {named}" if named != ""
+  resourced (scaffold/fields_of words) app singular
 
 fn chosen "controller" rest
   app = said (list/first rest)
@@ -105,6 +115,7 @@ usage = refused (text/join usage_lines "\n")
 usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
+  "       kanso run generate -- resource <app> <singular> <name:kind>..."
   "       kanso run generate -- controller <app> <plural> <action>..."
   "       kanso run generate -- model <app> <singular> <name:kind>..."
   "       kanso run generate -- migration <app> <name> <name:kind>..."
@@ -347,6 +358,44 @@ fn model_wrote app singular fields main names
   return refused bare if entry == none
   return refused "{app}/migrations/{held} is there already" if held != ""
   written "{app}/{singular}.kso" (scaffold/model senro singular fields)
+    .> (_ -> stamped app names made (migration/create senro plural fields))
+    .> (_ -> changed "{app}/main.kso" (said entry))
+
+# `resource` writes the model as `model` does, and an API over it in
+# place of the pages `scaffold` writes.
+fn resourced f:scaffold/unreadable _ _
+  refused "cannot read `{f.word}`: {f.why}"
+
+fn resourced fields app singular
+  unfit = resource/unfit fields
+  return refused "cannot make a resource of that: {unfit}" if unfit != ""
+  os/exists "{app}/{models/plural singular}.kso"
+    .> (there -> resource_fresh there app singular fields)
+
+fn resource_fresh true app singular _
+  refused "{app}/{models/plural singular}.kso is there already"
+
+fn resource_fresh false app singular fields
+  os/read_file "{app}/main.kso" .> (m -> resource_in app singular fields m)
+
+fn resource_in app _ _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn resource_in app singular fields main
+  migrations_in app .> (names -> resource_wrote app singular fields main names)
+
+fn resource_wrote app singular fields main names
+  plural = models/plural singular
+  senro = senro_in main (up_from app)
+  entry = with_resource (app/entry_with main singular) plural
+  made = "create_{plural}"
+  held = migration/holding names made
+  bare = "{app}/main.kso imports nothing of its own"
+  return refused bare if entry == none
+  return refused "{app}/migrations/{held} is there already" if held != ""
+  api = resource/module senro singular fields
+  written "{app}/{singular}.kso" (scaffold/model senro singular fields)
+    .> (_ -> written "{app}/{plural}.kso" api)
     .> (_ -> stamped app names made (migration/create senro plural fields))
     .> (_ -> changed "{app}/main.kso" (said entry))
 
