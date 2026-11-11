@@ -1,0 +1,27 @@
+import "std/text"
+
+# What `generate job` writes, as Rails' job generator does: a module named
+# `<name>_job` whose `perform` is the job. Nothing lists it: the entry's
+# `derive jobs/performers` finds the module by its name once the entry
+# imports it, and the worker beside the server calls `perform`.
+pub fn module name
+  lines = [
+    "import \"std/io\""
+    ""
+    "# The `{name}` job. It is queued with a map of strings:"
+    "#"
+    "#   jobs/perform_later db \"{name}\" args"
+    "#"
+    "# A worker beside the server then calls `perform` with a database"
+    "# session and that map; name the two when the job uses them. A job"
+    "# that answers an error is tried again later, five times in all."
+    "pub fn perform _ _"
+    "  io/write_err \"{name}: nothing to do yet\\n\""
+  ]
+  "{text/join lines "\n"}\n"
+
+pub fn file name
+  "{name}_job.kso"
+
+# The line of an entry that finds the app's jobs.
+pub found = "derive jobs/performers"

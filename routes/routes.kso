@@ -100,9 +100,12 @@ pub fn rest p
 # A component's pub functions are its actions, which its template binds, and
 # none of them is a route. A module whose name ends in `_mailer` makes the
 # app's mail, as a Rails mailer does, and its pub functions are called by
-# actions in other modules; none of them is a route either.
+# actions in other modules; none of them is a route either. Nor is the
+# `perform` of a module whose name ends in `_job`, which a worker calls
+# (`jobs/performers`).
 fn routed? m
-  not templated? m and not text/ends_with? m.name "_mailer"
+  aside = text/ends_with? m.name "_mailer" or text/ends_with? m.name "_job"
+  not templated? m and not aside
 
 fn templated? m
   list/any? (keys m.files) (f -> text/ends_with? f ".kata")

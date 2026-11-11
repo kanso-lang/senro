@@ -1,0 +1,4 @@
+error[derive]: the job `tidy` has no `pub fn perform db args`
+  --> ./tidy_job.kso:1:8
+   1 | pub fn tidied days
+              ^

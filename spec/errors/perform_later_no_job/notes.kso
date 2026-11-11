@@ -1,0 +1,7 @@
+import "../../../jobs"
+
+pub fn tidied db days
+  jobs/perform_later db "tidy" { "older_than":days }
+
+pub fn kept db days
+  jobs/perform_later db "tidi" { "older_than":days }

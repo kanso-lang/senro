@@ -60,6 +60,21 @@ fn password_changed_letter to
   body = text/join lines "\n"
   mail/composed sender to "Password changed" body
 account_mailer.kso: ok
+  create ./tidy_job.kso
+  change ./main.kso
+generate: ./tidy_job.kso is there already
+generate: cannot name a job `Tidy`: a resource's name is spelled as a field's is
+import "std/io"
+
+# The `tidy` job. It is queued with a map of strings:
+#
+#   jobs/perform_later db "tidy" args
+#
+# A worker beside the server then calls `perform` with a database
+# session and that map; name the two when the job uses them. A job
+# that answers an error is tried again later, five times in all.
+pub fn perform _ _
+  io/write_err "tidy: nothing to do yet\n"
 == 20261111180512_create_tags.kso
 import "<senro>/models"
 
@@ -106,6 +121,7 @@ pub tidy_up = []
   controller
   migration
   mailer
+  job
   authentication
   greeting   (./generators/greeting.kso)
 greeting: ["one" "two"]
@@ -124,3 +140,4 @@ senro: usage: senro new <app>
        senro server                           (or `senro s`)
        senro migrate
 main.kso: ok
+generate: ./main.kso has no `derive jobs/performers`, which finds a job; `new` writes one

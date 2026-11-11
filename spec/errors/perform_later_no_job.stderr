@@ -1,0 +1,4 @@
+error[derive]: `tidi` names no job
+  --> ./notes.kso:7:3
+   7 |   jobs/perform_later db "tidi" { "older_than":days }
+         ^
