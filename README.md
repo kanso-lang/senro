@@ -525,7 +525,12 @@ until the app is changed with it.
   its viewer. The cookie lasts until the browser closes, and a session made
   `web/lasting` keeps it for those fourteen days instead, through every later
   write, as Devise's "remember me" does; the guestbook's sign-in form offers
-  it. `web/signed_out` forgets the sign-in and keeps the rest. An answer can
+  it. A session made `web/idle_after held 30` also ends after thirty minutes
+  with no request, as Devise's timeoutable does: each answer to a signed-in
+  request more than a second after the last one rewrites the cookie with the
+  time it was seen, and a request that arrives past the window reads without
+  its viewer (`spec/serve/idle`). `web/signed_out` forgets the sign-in and
+  keeps the rest. An answer can
   leave a notice for the next page, as Rails' flash does:
   `web/noticed (web/redirect "/") "Thank you for signing."` sends the browser
   on with one, the page it lands on reads it with `web/notice req`, and the
