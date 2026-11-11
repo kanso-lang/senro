@@ -1,0 +1,86 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+pub without_sign_in = ["index"]
+
+total = "[[\"books/total\",[3]]]"
+
+# A visitor asks for the books from a page that wants a sign-in and from the
+# open one, which does not use them, and is refused both times. Viewer 2
+# signs in, may not reach the ledger, and so may not ask from it, but may
+# from the desk, which admits anyone signed in and leans on the ledger; not
+# from the front page, and not without saying which page. Viewer 1 reaches
+# the ledger and is answered from it, and a provider nobody has is not
+# found.
+pub fn index _ _
+  asked "POST" "/senro/data" "" "/desk" total
+    .> (a -> asked "POST" "/senro/data" "" "/" total .> (b -> second [a b]))
+
+fn second got
+  asked "POST" "/session" "" "" "2" .> (s -> as_two got (cookie_of s))
+
+fn as_two got two
+  asked "GET" "/ledger" two "" ""
+    .> (a -> asked "POST" "/senro/data" two "/ledger" total
+    .> (b -> asked "POST" "/senro/data" two "/desk" total
+    .> (c -> asked "POST" "/senro/data" two "/" total
+    .> (d -> asked "POST" "/senro/data" two "" total
+    .> (e -> first (list/concat got [a b c d e]))))))
+
+fn first got
+  asked "POST" "/session" "" "" "1" .> (s -> as_one got (cookie_of s))
+
+fn as_one got one
+  nobody = "[[\"books/nobody\",[]]]"
+  asked "GET" "/ledger" one "" ""
+    .> (a -> asked "POST" "/senro/data" one "/ledger" total
+    .> (b -> asked "POST" "/senro/data" one "/ledger" nobody
+    .> (c -> said (list/concat got [a b c]))))
+
+fn asked method path cookie from sending
+  net/dial "127.0.0.1" 24420 .> (c -> sent c method path cookie from sending)
+
+fn sent c method path cookie from sending
+  head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie from}"
+  net/write c "{head}\r\ncontent-length: {length sending}\r\n\r\n{sending}"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn carried cookie from
+  page = "\r\nsenro-page: spec"
+  with_cookie = if (cookie == "") "" "\r\ncookie: {cookie}"
+  return "{with_cookie}{page}" if from == ""
+  "{with_cookie}{page}\r\nsenro-from: {from}"
+
+fn cookie_of raw
+  set = list/to_list (list/select (lines raw) (l -> starts? l "set-cookie: "))
+  return "" if length set == 0
+  line = or_empty set[1]
+  value = or_empty (text/slice line 13 (length line))
+  or_empty (text/split value ";")[1]
+
+fn said answers
+  told = text/join (list/to_list (list/map answers heard)) "\n"
+  effect (http/text_page told)
+
+fn heard raw
+  "{or_empty (lines raw)[1]}: {body raw}"
+
+fn lines raw
+  text/split (or_empty (text/split raw "\r\n\r\n")[1]) "\r\n"
+
+fn or_empty none
+  ""
+
+fn or_empty s
+  s
+
+fn starts? l prefix
+  text/starts_with? (text/lowercase l) prefix
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]

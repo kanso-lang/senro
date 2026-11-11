@@ -1,0 +1,10 @@
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 200 OK: ["3 years of books, read for viewer 2"]
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 200 OK: the ledger, which asks the server: true
+HTTP/1.1 200 OK: ["3 years of books, read for viewer 1"]
+HTTP/1.1 404 Not Found: not found

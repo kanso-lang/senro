@@ -247,6 +247,27 @@ until the app is changed with it.
   the table goes through `web/components` first and then through
   `web/requiring_sign_in`. An app whose sign-ins rest on nothing passes
   `web/unbound` and "".
+  A module says who may reach its pages with `pub fn admits action viewer
+  db`, which answers an effect of true or false, as a Rails controller's
+  `before_action` authorizes its actions. It is asked once a request is
+  past the sign-in, with the action's name, the viewer's id and the session
+  asking as that viewer, and an action it refuses is answered 403 without
+  running. It may read the database to decide, which is why it answers an
+  effect. A module that defines none admits whoever the sign-in does.
+
+  ```
+  pub fn admits "destroy" viewer _
+    effect (viewer == "1")
+
+  pub fn admits _ _ _
+    effect true
+  ```
+
+  The check is the page's, and what the page asks the server for is covered
+  by it: a provider's request names its page, and the server asks that
+  page's `admits` once for the request before any provider runs (see
+  `data` below). A record's own rules stay with its model, in `create?`,
+  `update?`, `destroy?` and `visible?`.
 - `models`: the schema, folded at compile time from the app's migrations,
   and the check of each model's fields against its table's columns. Each
   model gets a reader in its own module, `signature_from row`, which builds a
@@ -600,12 +621,19 @@ until the app is changed with it.
   function of its state and those answers alone, so it comes to the same
   question and goes on past it. A call that needs another's answer, inside
   `data/then`, waits a round; calls that need none share one. The server
-  names its providers with `web/providers routes secret stock/provided`, or
-  with a table of its own, `{ "stock/low": low_from_page }`, each a function
-  of the viewer, a database session and the arguments as a list, answering
-  an effect. Anyone signed in can call a provider
-  with arguments of their choosing, so it checks what the viewer may read,
-  as a model's policy does (`spec/runs/provided`).
+  names its providers with `web/providers routes secret stock/provided`. A
+  request says which page it comes from, and the server answers it as it
+  would answer that page. The page's module must lean on a module that asks
+  for each provider called: the module itself, or one its calls reach, as a
+  page's action reaches the component whose action asks. The derivation
+  works that out from the app's calls, so a page that does not use a
+  provider cannot be named to reach it. Behind `web/requiring_sign_in`, a
+  page that asks for a sign-in answers only a visitor who has one, and the
+  module's `admits` is asked once for the whole request (see below). So a
+  provider checks nothing about the viewer that its page has checked. Its
+  arguments are still the page's to choose, and what it reads for them goes
+  through a model's policy as any read does (`spec/serve/admitted`,
+  `spec/runs/provided`).
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 

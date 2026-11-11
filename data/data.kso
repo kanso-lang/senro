@@ -13,6 +13,12 @@ pub type asked
   calls
   rest
 
+# What a module's `provided` is: each provider's answering half by its name,
+# and beside it the modules whose pages may ask for it.
+pub type provided_table
+  answers
+  pages
+
 # A call to the provider `name` with `args`, whose answer is the value the
 # provider gave.
 pub fn ask name args
@@ -95,12 +101,13 @@ pub fn calls_in v
 # asks the server for the provider's answer, and the provider's own body runs
 # only on the server. The module also gets `provided`, the table the server
 # answers those calls from (`web/providers routes secret stock/provided`), so
-# a page can reach a provider only when the app's own code calls it that way.
+# a page can reach a provider only when the app's own code calls it that way,
+# and only a page whose module leans on a module that does (`pages_of`).
 # A server action, which takes the state after the viewer and the session and
 # is never called short, is not reachable as a provider.
 pub fn providers p
   calls = calls_of_program p
-  list/fold p.modules [] (acc m -> list/concat acc (written m calls))
+  list/fold p.modules [] (acc m -> list/concat acc (written p m calls))
 
 # Every call the program's modules make, which `provided?` reads.
 pub fn calls_of_program p
@@ -111,13 +118,20 @@ pub fn calls_of_program p
 pub fn provided? m f calls
   provider? f.params and asked_short? m f calls
 
-fn written m calls
+fn written p m calls
   called = list/to_list (list/select m.functions (f -> provided? m f calls))
   return [] if length called == 0
   pieces = list/to_list (list/map called (f -> pieces_of m f))
-  table = text/join (list/to_list (list/map called (f -> row m f))) " "
-  source = "{imported}{text/join pieces "\n"}\npub provided = \{ {table} }\n"
-  [(derive/define m.name source)]
+  answers = list/to_list (list/map called (f -> row m f))
+  from = list/to_list (list/map called (f -> page_row m f))
+  lists = list/to_list (list/map called (f -> pages_of p m f))
+  tables = [
+    "pub provided = data/answering provided_answers provided_pages"
+    (spread "provided_answers =" "\{" answers "}")
+    (spread "provided_pages =" "\{" from "}")
+  ]
+  parts = list/concat (list/concat pieces tables) lists
+  [(derive/define m.name "{imported}{text/join parts "\n\n"}\n")]
 
 imported = "import \"../data\"\n\n"
 
@@ -148,12 +162,97 @@ fn pieces_of m f
   taken = (acc _ -> push acc "(data/nth args {length acc + 1})")
   each = list/fold names [] taken
   given = text/join (list/concat ["viewer" "db"] each) " "
-  asking = "pub fn {f.name} {head}\n  {question}\n"
-  answer = "pub fn {f.name}_from_page viewer db args\n  {f.name} {given}\n"
-  "{asking}\n{answer}"
+  asking = "pub fn {f.name} {head}\n  {question}"
+  answer = "pub fn {f.name}_from_page viewer db args\n  {f.name} {given}"
+  "{asking}\n\n{answer}"
 
 fn row m f
   "\"{m.name}/{f.name}\":{f.name}_from_page"
+
+fn page_row m f
+  "\"{m.name}/{f.name}\":{f.name}_pages"
+
+# A provider answers a request from a page only when that page's module
+# leans on a module that asks for it: the module itself, or one its calls
+# reach, as a page's action reaches the component whose action asks. The
+# list is those modules, so `web/providers` can tell a page that uses the
+# provider from one that only names it.
+fn pages_of p m f
+  askers = askers_of p m f
+  leaning = list/select p.modules (x -> leans_on? p x.name askers)
+  names = list/to_list (list/map leaning (x -> "\"{x.name}\""))
+  spread "{f.name}_pages =" "[" (list/sort names) "]"
+
+# The modules that call the provider short.
+fn askers_of p m f
+  wanted = length f.params - 2
+  named = "{m.name}/{f.name}"
+  asks = (c -> c.callee == named and length c.arguments == wanted)
+  asking = list/select p.modules (x -> list/any? x.calls asks)
+  list/to_list (list/map asking (x -> x.name))
+
+fn leans_on? p name askers
+  reached = grown p [name]
+  list/any? reached (r -> list/any? askers (a -> a == r))
+
+# Every module `seen` leans on: those its calls name, and theirs in turn.
+fn grown p seen
+  next = list/fold seen seen (acc n -> with_called p acc n)
+  return seen if length next == length seen
+  grown p next
+
+fn with_called p acc name
+  found = list/to_list (list/select p.modules (m -> m.name == name))
+  return acc if length found == 0
+  list/fold found[1].calls acc (a c -> with_module p a (module_of c.callee))
+
+fn with_module p acc name
+  ours = list/any? p.modules (m -> m.name == name)
+  return acc if not ours or list/any? acc (a -> a == name)
+  list/concat acc [name]
+
+# The module of `planner/view` is `planner`.
+fn module_of callee
+  parts = list/to_list (text/split callee "/")
+  text/join (list/to_list (list/take parts (length parts - 1))) "/"
+
+# A list or a map as the formatter wants it: on one line when it fits in
+# eighty columns, and otherwise an item to a line.
+fn spread head open items close
+  inner = text/join items " "
+  flat = if (open == "[") "{head} [{inner}]" "{head} \{ {inner} }"
+  return flat if length flat <= 80
+  "{head} {open}\n  {text/join items "\n  "}\n{close}"
+
+pub fn answering answers pages
+  provided_table answers pages
+
+# Whether the table holds a provider by this name, then its answering half
+# by that name, which is none for a name the table lacks.
+pub fn provides? _ none
+  false
+
+pub fn provides? table name
+  list/any? (keys table.answers) (k -> k == name)
+
+pub fn answer_named _ none
+  none
+
+pub fn answer_named table name
+  table.answers[name]
+
+# The modules whose pages may ask for the provider `name`.
+pub fn pages_asking _ none
+  []
+
+pub fn pages_asking table name
+  listed_or_none table.pages[name]
+
+fn listed_or_none none
+  []
+
+fn listed_or_none names
+  names
 
 # The `i`th argument a page sent a provider, or "" when it sent fewer.
 pub fn nth args:[]some i

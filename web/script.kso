@@ -421,7 +421,7 @@ script = """
         if (!answer.startsWith("?\\n")) return answer;
         const r = await fetch("/senro/data", \{
           method: "POST",
-          headers: \{ "senro-page": self },
+          headers: \{ "senro-page": self, "senro-from": location.pathname },
           body: answer.slice(2),
         });
         if (stale(r) || !r.ok) return null;
