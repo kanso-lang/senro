@@ -24,7 +24,7 @@ fn swapped s false _ _
   s
 
 fn swapped s true from to
-  text/join (text/split s from) to
+  text/replace s from to
 
 fn each xs f
   text/join (list/to_list (list/map xs f)) ""
@@ -125,7 +125,7 @@ fn swapped s false _ _
   s
 
 fn swapped s true from to
-  text/join (text/split s from) to
+  text/replace s from to
 
 fn each xs f
   text/join (list/to_list (list/map xs f)) ""

@@ -129,10 +129,10 @@ fn path_in (place _ path) _ id
 # A route's path with its `:id` filled, or with the segment left out when
 # there is no id, which is how a singular resource's path reads.
 fn joined path ""
-  text/join (text/split path "/:id") ""
+  text/replace path "/:id" ""
 
 fn joined path id
-  text/join (text/split path ":id") id
+  text/replace path ":id" id
 
 fn arms_of m
   nest = nest_of m
@@ -183,8 +183,8 @@ fn named_arm _ _ none _
 fn named_arm m f (place _ path) nest
   member = has_id? path
   params = with_id nest member
-  parented = text/join (text/split path ":{nest}") "\{{nest}}"
-  body = text/join (text/split parented ":id") "\{id}"
+  parented = text/replace path ":{nest}" "\{{nest}}"
+  body = text/replace parented ":id" "\{id}"
   name = "{m.name}/{f.name}"
   derive/define name "fn routes/path_to \"{name}\" {params}\n  \"{body}\"\n"
 
@@ -230,7 +230,7 @@ fn count _
 
 fn miscounted c name r
   third = blank_if_none (text/split r.path "/")[3]
-  parent = text/join (text/split third ":") ""
+  parent = text/replace third ":" ""
   [(derive/refuse_call c (how name parent r.within r.id))]
 
 fn how name _ "" ""

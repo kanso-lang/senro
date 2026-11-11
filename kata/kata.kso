@@ -446,7 +446,7 @@ fn tagged rows r i last scope o acc
   lit inner closing r.line
 
 fn shorthand h
-  pieces = text/split (text/join (text/split h "#") ".#") "."
+  pieces = text/split (text/replace h "#" ".#") "."
   return shaped "div" "<div" [] if length pieces < 1
   tag = if (pieces[1] == "") "div" pieces[1]
   marks = list/to_list (list/drop pieces 1)
@@ -501,7 +501,7 @@ fn event key value classes acc at o
 
 # The actions a template binds, each once, in the order first written.
 pub fn actions src
-  pieces = text/split (text/join (text/split src "\n") " ") " "
+  pieces = text/split (text/replace src "\n" " ") " "
   bound_words = list/select pieces (w -> text/starts_with? w "on-")
   names = list/map bound_words (w -> action_of (text/split w "="))
   list/fold names [] (acc n -> if (n == "" or has? acc n) acc (push acc n))

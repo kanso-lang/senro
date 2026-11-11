@@ -42,7 +42,7 @@ fn same f t
 
 # CRLF shown as a mark, so the golden says where each line ends.
 pub fn shown t
-  text/join (text/split t "\r\n") "<CRLF>\n"
+  text/replace t "\r\n" "<CRLF>\n"
 
 # A sink on a port of its own, a delivery to it, and what the sink heard.
 pub fn conversed way
@@ -74,7 +74,7 @@ fn answered _ log ""
   effect log
 
 fn answered c log got
-  heard = "{log}C: {text/join (text/split got "\r\n") ""}\n"
+  heard = "{log}C: {text/replace got "\r\n" ""}\n"
   return data c heard if got == "DATA\r\n"
   return closed c heard if got == "QUIT\r\n"
   net/write c (reply got) .> (_ -> listened c heard)

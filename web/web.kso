@@ -701,7 +701,7 @@ fn redirected to ""
   to
 
 fn redirected to id
-  text/join (text/split to ":id") id
+  text/replace to ":id" id
 
 fn took none none _
   none
@@ -1274,7 +1274,7 @@ fn given v
 
 # `+` is a space, and `%` and two hex digits are one byte.
 fn decoded s
-  percent_decoded (text/join (text/split s "+") " ")
+  percent_decoded (text/replace s "+" " ")
 
 # Text with each `%` and the two hex digits after it read as one byte, as a
 # URL writes a character it cannot hold. A `+` stays a `+`.

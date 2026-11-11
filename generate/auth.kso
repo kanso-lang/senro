@@ -33,7 +33,7 @@ pub fn localized t senro secret
   swapped pointed "pub secret = \"SECRET\"" "pub secret = \"{secret}\""
 
 fn swapped t old new
-  text/join (text/split t old) new
+  text/replace t old new
 
 # A secret of 32 random bytes, written as hex.
 pub fn secret_of bytes

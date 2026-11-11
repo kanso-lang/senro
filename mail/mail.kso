@@ -213,7 +213,7 @@ pub fn sent_through none t m
   sent_through "" t m
 
 pub fn sent_through "" t _
-  io/write_err (text/join (text/split t "\r\n") "\n") .> (_ -> effect t)
+  io/write_err (text/replace t "\r\n" "\n") .> (_ -> effect t)
 
 pub fn sent_through way t m
   return filed (after way 5) t if text/starts_with? way "dir:"
