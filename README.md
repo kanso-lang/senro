@@ -38,12 +38,16 @@ senro generate scaffold page body:text note:references
 senro generate controller pages index show
 senro generate migration add_rating_to_notes rating:int
 senro generate authentication
+senro routes
 senro migrate
 senro server
 ```
 
 `senro generate` with nothing after it lists the generators. `g` is short
-for `generate` and `s` for `server`. `migrate` brings the database up to
+for `generate` and `s` for `server`. `routes` lists every route the app
+answers, as `rails routes` does: the verb, the path and the action, with
+`open` beside one that asks for no sign-in and `limited` beside one that
+counts its calls. It compiles the app and opens no database. `migrate` brings the database up to
 the app's migrations, checks the tables against the schema, and stops;
 `server` does the same and then serves. Both run the app, so they read the
 same `PG*` variables it does. `KANSO` names the kanso to use when it is not

@@ -3,6 +3,7 @@
 #
 #   senro new blog                 a new app in ./blog
 #   senro generate ...             write code (`senro generate` lists how)
+#   senro routes                   list the routes the app answers
 #   senro server                   run the app
 #   senro migrate                  bring the database up to the migrations
 #

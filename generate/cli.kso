@@ -1,4 +1,5 @@
 import "./command"
+import "./listing"
 import "std/io"
 import "std/list"
 import "std/os"
@@ -12,6 +13,7 @@ import "std/text"
 #   senro generate migration add_cover_to_posts cover:text
 #   senro generate authentication
 #   senro generate              (lists every generator it can find)
+#   senro routes                (lists every route the app answers)
 #
 # `server` and `migrate` are the launcher's, because they hand the terminal
 # to the app. A generator senro does not ship is a kanso program at
@@ -31,6 +33,9 @@ fn asked "generate" rest
 fn asked "g" rest
   generated rest
 
+fn asked "routes" _
+  os/env "KANSO" .> (k -> os/run (kanso_of k) ["derived" "."]) .> routed
+
 fn asked _ _
   declined (text/join usage_lines "\n")
 
@@ -38,6 +43,7 @@ usage_lines = [
   "usage: senro new <app>"
   "       senro generate <generator> <word>...   (or `senro g`)"
   "       senro generate                         lists the generators"
+  "       senro routes                           lists the routes"
   "       senro server                           (or `senro s`)"
   "       senro migrate"
 ]
@@ -122,6 +128,18 @@ fn ran kanso words g
 
 fn relayed r
   io/write r.stdout .> (_ -> io/write_err r.stderr) .> (_ -> os/exit r.status)
+
+# The app's routes, from what `kanso derived` printed for it. An app that
+# does not compile says why, as it would to `kanso check`.
+fn routed r
+  return relayed r if r.status != 0
+  listed_routes (listing/table r.stdout)
+
+fn listed_routes none
+  declined "this app derives no routes; its entry has no `derive routes/rest`"
+
+fn listed_routes lines
+  io/write lines
 
 fn catalogued all
   own = list/to_list (list/map built_in (b -> "  {b}"))

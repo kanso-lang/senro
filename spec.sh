@@ -344,7 +344,8 @@ fi
 # The `senro` command, as an app's author runs it: `senro new` from a
 # directory outside senro, then from the app's directory a controller, a
 # migration of each kind its name can ask for, the list of generators with
-# one the app ships, that generator, and each thing the command refuses. The app must check as `new` leaves it and after the
+# one the app ships, that generator, the app's routes, and each thing the
+# command refuses. The app must check as `new` leaves it and after the
 # controller. An app imports senro by the path from wherever it is, so what
 # is compared is what the command prints.
 case "$KANSO" in
@@ -382,6 +383,7 @@ ran=$(
       >> generators/greeting.kso
     "$senro" generate
     "$senro" g greeting one two
+    "$senro" routes
     "$senro" g nothing
     "$senro" g controller pages index
     "$senro" g controller things fly
