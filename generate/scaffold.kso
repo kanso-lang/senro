@@ -287,7 +287,7 @@ pub fn migrations_new senro plural fields
     (all_line (changes plural fields))
     ""
   ]
-  "{text/join head "\n"}{migration plural fields}\n"
+  "{text/join head "\n"}\n{migration plural fields}\n"
 
 # The model's module, named for the record: its policies and its rules.
 # The models derivation declares the record in it and answers for the table

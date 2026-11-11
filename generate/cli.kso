@@ -108,7 +108,16 @@ fn from_outside name _ none
   declined "no generator named `{name}`; `senro generate` lists them"
 
 fn from_outside _ words g
-  os/run "kanso" (list/concat ["run" g[2] "--"] words) .> relayed
+  os/env "KANSO" .> (k -> ran (kanso_of k) words g)
+
+fn kanso_of none
+  "kanso"
+
+fn kanso_of k
+  k
+
+fn ran kanso words g
+  os/run kanso (list/concat ["run" g[2] "--"] words) .> relayed
 
 fn relayed r
   io/write r.stdout .> (_ -> io/write_err r.stderr) .> (_ -> os/exit r.status)

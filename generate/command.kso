@@ -128,7 +128,7 @@ fn laid app senro
     .> (_ -> os/make_dir "{app}/views")
     .> (_ -> written "{app}/main.kso" (app/entry senro name))
     .> (_ -> written "{app}/home.kso" (app/home name))
-    .> (_ -> written "{app}/migrations.kso" (app/migrations senro))
+    .> (_ -> written "{app}/migrations.kso" app/migrations)
     .> (_ -> written "{app}/views/layout.kata" app/layout)
     .> (_ -> written "{app}/views/home.kata" app/home_view)
 
@@ -272,8 +272,14 @@ fn with_resource entry plural
 fn migrated "" senro plural fields
   scaffold/migrations_new senro plural fields
 
-fn migrated old _ plural fields
+fn migrated old senro plural fields
+  return scaffold/migrations_new senro plural fields if not changes? old
   scaffold/migrations_with old plural fields
+
+# Whether a migrations module holds a change yet. One that holds none has
+# no import of senro to build on.
+fn changes? old
+  list/any? (text/split old "\n") (l -> text/starts_with? l "import \"")
 
 fn made_dir true _
   effect ""
