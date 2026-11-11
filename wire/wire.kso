@@ -35,6 +35,14 @@ pub type read
   value
   next
 
+# A count read from the bytes and the position after it. Both fields are
+# whole numbers, which is why a count has a record of its own: kept in a
+# `read`, whose value may be anything, a count could not be told from any
+# other value, and neither could a position worked out from one.
+type count
+  size
+  after
+
 # Bytes carried inside a value untouched: a page within a page, which the
 # views that know its shape read when they splice it.
 pub type blob
@@ -51,7 +59,7 @@ pub type page
 # Only this module builds its records, so these build them for the code kata
 # writes: a value read and where the next begins, bytes to carry untouched,
 # and a page from its values, how they are written and how they are drawn.
-pub fn got value next
+pub fn got value next:int
   read value next
 
 pub fn enclosed bytes
@@ -117,7 +125,8 @@ pub fn packed v
   add (text/bytes "") v
 
 pub fn unpacked bs
-  held bs (at bs 1)
+  r = at bs 1
+  held bs r
 
 fn held bs r
   if (whole? bs r) r.value none
@@ -127,25 +136,39 @@ pub fn whole? bs r
 
 lost = read none 0
 
-pub fn count_at bs p
+short = count 0 0
+
+pub fn count_at bs p:int
+  as_value (sized bs p)
+
+fn as_value (count n p)
+  return lost if p < 1
+  read n p
+
+fn sized bs p
   counted bs bs[p] p 0 0
 
 fn counted _ none _ _ _
-  lost
+  short
 
 fn counted bs b p shift sum
   v = sum + bits/shl (b & 127) shift
-  return read v (p + 1) if b < 128
-  return lost if shift > 49
+  return count v (p + 1) if b < 128
+  return short if shift > 49
   counted bs bs[p + 1] (p + 1) (shift + 7) v
 
-pub fn at bs p
+# One value at a position, and the position after it. A position that
+# arrives from outside this module is declared a whole number, here and in
+# `count_at`, `listed` and `got`, and so is the tag read at it. With both
+# said, a `read` travels back to the caller that takes it apart in
+# registers, and no record is built for it.
+pub fn at bs p:int
   tagged bs[p] bs (p + 1)
 
 fn tagged none _ _
   lost
 
-fn tagged tag bs p
+fn tagged tag:int bs p
   return read tag p if tag < 128
   return spelled bs p (tag - 128) if tag < 192
   marked tag bs p
@@ -160,34 +183,34 @@ fn marked 194 _ p
   read true p
 
 fn marked 195 bs p
-  count_at bs p
+  as_value (sized bs p)
 
 fn marked 196 bs p
-  below (count_at bs p)
+  below (sized bs p)
 
 fn marked 197 bs p
-  floated bs (count_at bs p)
+  floated bs (sized bs p)
 
 fn marked 198 bs p
-  texted bs (count_at bs p)
+  texted bs (sized bs p)
 
 fn marked 199 bs p
-  items bs (count_at bs p) at []
+  items bs (sized bs p) at []
 
 fn marked 200 bs p
-  pairs bs (count_at bs p) {}
+  pairs bs (sized bs p) {}
 
 fn marked 201 bs p
-  carried bs (count_at bs p)
+  carried bs (sized bs p)
 
 fn marked _ _ _
   lost
 
-fn below (read n p)
+fn below (count n p)
   return lost if p < 1
   read (0 - n - 1) p
 
-fn texted bs (read n p)
+fn texted bs (count n p)
   spelled bs p n
 
 # The `n` bytes at `p` as text. A count that reaches past the end, or bytes
@@ -209,7 +232,7 @@ fn sound _:<some>effect _
 fn sound s next
   read s next
 
-fn floated bs (read n p)
+fn floated bs (count n p)
   numbered (spelled bs p n)
 
 fn numbered (read s p)
@@ -222,7 +245,7 @@ fn figured none _
 fn figured x p
   read x p
 
-fn carried bs (read n p)
+fn carried bs (count n p)
   return lost if p < 1
   return read (blob (text/bytes "")) p if n == 0
   sliced (text/slice bs p (p + n - 1)) (p + n)
@@ -236,10 +259,10 @@ fn sliced run next
 # A count and that many values, each read by `one`, which takes the bytes
 # and a position as `at` does. kata reads a list of records with the reader
 # it wrote for the record.
-pub fn listed bs p one
-  items bs (count_at bs p) one []
+pub fn listed bs p:int one
+  items bs (sized bs p) one []
 
-fn items bs (read n p) one acc
+fn items bs (count n p) one acc
   return lost if p < 1 or n > length bs
   return read acc p if n == 0
   item bs (one bs p) (n - 1) one acc
@@ -247,9 +270,9 @@ fn items bs (read n p) one acc
 # A list holds no none, so one among its values is bytes that make no sense.
 fn item bs (read v p) n one acc
   return lost if v == none
-  items bs (read n p) one (push acc v)
+  items bs (count n p) one (push acc v)
 
-fn pairs bs (read n p) acc
+fn pairs bs (count n p) acc
   return lost if p < 1 or n > length bs
   return read acc p if n == 0
   keyed bs (at bs p) (n - 1) acc
@@ -258,7 +281,7 @@ fn keyed bs (read k p) n acc
   valued bs (at bs p) k n acc
 
 fn valued bs (read v p) k:string n acc
-  pairs bs (read n p) (put acc k v)
+  pairs bs (count n p) (put acc k v)
 
 fn valued _ _ _ _ _
   lost
