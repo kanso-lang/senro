@@ -1,0 +1,2 @@
+pub fn tidied days
+  "tidied what is older than {days} days"

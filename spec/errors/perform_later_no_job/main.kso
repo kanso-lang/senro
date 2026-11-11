@@ -1,0 +1,11 @@
+import "../../../jobs"
+import "../../../pg"
+import "./notes"
+import "./tidy_job"
+
+derive jobs/performers
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> notes/tidied db "30")
+  .> (db -> notes/kept db "3")
+  .> (db -> jobs/worked db jobs/default_queue performers 0)

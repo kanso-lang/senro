@@ -1,0 +1,30 @@
+import "../../../jobs"
+import "std/list"
+import "std/time"
+
+# The moment `greet` is queued for. It is long past, so both jobs are due
+# when the queue is worked, and the earlier runs first.
+pub t = 1000000
+
+# Works the app's queue three times, a second after now, saying what each
+# step did.
+pub fn worked db table
+  list/fold [1 2 3] (effect db) (acc _ -> acc .> (_ -> step db table))
+
+fn step db table
+  time/now
+    .> (now -> jobs/worked db jobs/default_queue table (now + 1000))
+    .> (said -> print (told said))
+    .> (_ -> db)
+
+# What a worker with nothing to perform would connect with, and what is
+# served beside it.
+pub unreachable = time/now .> (_ -> err "a worker started with nothing to do")
+
+pub served = print "served, with no worker beside it"
+
+fn told none
+  "nothing due"
+
+fn told said
+  said

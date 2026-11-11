@@ -13,6 +13,7 @@ import "std/text"
 #   senro generate model tag name:text
 #   senro generate migration add_cover_to_posts cover:text
 #   senro generate mailer account welcome
+#   senro generate job tidy
 #   senro generate authentication
 #   senro generate              (lists every generator it can find)
 #   senro routes                (lists every route the app answers)
@@ -56,6 +57,7 @@ pub built_in = [
   "controller"
   "migration"
   "mailer"
+  "job"
   "authentication"
 ]
 

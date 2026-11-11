@@ -39,6 +39,7 @@ senro generate controller pages index show
 senro generate model tag name:text:uniq
 senro generate migration add_rating_to_notes rating:int
 senro generate mailer account welcome
+senro generate job tidy
 senro generate authentication
 senro routes
 senro migrate
@@ -77,8 +78,16 @@ An action that writes answers with a redirect, to be filled in.
 `new` writes an entry, a home page, a layout and an empty `migrations`
 directory. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 `PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
-serves on port 3000, with a worker beside the server that sends the mail the
-app queues (`jobs/beside`).
+serves on port 3000. Two workers run beside the server (`jobs/beside`): one
+sends the mail the app queues, and one does the app's own jobs.
+
+`job` writes `tidy_job.kso` and adds its import to the entry. A module named
+`<name>_job` is the job `<name>`, and its `perform db args` is the work.
+Nothing lists the jobs: the entry's `derive jobs/performers` finds each by
+its module's name. An action queues one with `jobs/perform_later db "tidy"
+args`, where `args` is a map of strings, and a name that is no job is
+refused while the app compiles. An app with no jobs starts no worker for
+them.
 
 `model` takes what `scaffold` takes and writes the model alone: `tag.kso`,
 the module named for the record, and the migration that makes its table.
@@ -213,7 +222,9 @@ until the app is changed with it.
   route by its action. A name that is no route, or an id where the route
   takes none, is refused at the call. A module whose name ends in
   `_mailer` makes the app's mail, as a Rails mailer does: its pub functions
-  are called by actions in other modules, and none of them is a route. A
+  are called by actions in other modules, and none of them is a route. Nor
+  is the `perform` of a module whose name ends in `_job`, which a worker
+  calls (see `jobs` below). A
   module whose member actions (`show`, `edit`, `update`, `destroy`) take no
   `id` is a singular resource:
   `profile/show` answers GET /profile, and the module has no `index`. A
@@ -584,7 +595,18 @@ until the app is changed with it.
   with the reason. `jobs/worked` takes one step of that loop at a moment the
   caller names, which is how `spec/db/jobs` runs it. `jobs/beside connect
   queue performers served` runs a worker in a fiber beside `served`, such as
-  `web/serve`, which is how the guestbook sends its mail.
+  `web/serve`, which is how the guestbook sends its mail. A table with no
+  performers starts no worker.
+
+  An app's own jobs go by convention. A module named `<name>_job` is the job
+  `<name>`, and its `pub fn perform db args` does the work. An entry that
+  writes `derive jobs/performers` is given `performers`, the table from each
+  job's name to its `perform`, to hand to a worker on `jobs/default_queue`.
+  `jobs/perform_later db name args` queues a job to run as soon as a worker
+  is free, and `jobs/perform_at db name args t` at `t` or after. A `_job`
+  module with no `perform` is refused, and so is a name written as a string
+  that is no job's (`spec/db/performed`, `spec/errors/job_without_perform`,
+  `spec/errors/perform_later_no_job`).
 - `browser`: what an app's components and pages need in the browser.
   `browser.kso` beside the app's entry names its browser components with
   `browser/answer`, or with `browser/answer_pages` when the module renders

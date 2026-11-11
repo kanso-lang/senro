@@ -3,6 +3,7 @@ import "../models"
 import "./app"
 import "./auth"
 import "./controller"
+import "./job"
 import "./mailer"
 import "./migration"
 import "./scaffold"
@@ -74,6 +75,14 @@ fn chosen "mailer" rest
   os/exists "{app}/{mailer/file name}"
     .> (there -> mailed there app name letters)
 
+fn chosen "job" rest
+  app = said (list/first rest)
+  name = said (list/first (list/drop rest 1))
+  return usage if app == "" or name == ""
+  named = scaffold/resource_named name
+  return refused "cannot name a job `{name}`: {named}" if named != ""
+  os/exists "{app}/{job/file name}" .> (there -> jobbed there app name)
+
 fn chosen "migration" rest
   app = said (list/first rest)
   name = said (list/first (list/drop rest 1))
@@ -100,6 +109,7 @@ usage_lines = [
   "       kanso run generate -- model <app> <singular> <name:kind>..."
   "       kanso run generate -- migration <app> <name> <name:kind>..."
   "       kanso run generate -- mailer <app> <name> <letter>..."
+  "       kanso run generate -- job <app> <name>"
   "       kanso run generate -- authentication <app>"
   "a kind is text, int, references or attachment"
 ]
@@ -353,6 +363,27 @@ fn mail_in app name letters main
   senro = senro_in main (up_from app)
   path = "{app}/{mailer/file name}"
   written path (mailer/module senro name letters)
+
+fn jobbed true app name
+  refused "{app}/{job/file name} is there already"
+
+fn jobbed false app name
+  os/read_file "{app}/main.kso" .> (main -> job_in app name main)
+
+fn job_in app _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+# A job is found by the entry's derivation, so an entry without one is
+# told what to add before anything is written.
+fn job_in app name main
+  entry = app/entry_with main "{name}_job"
+  finds = list/any? (text/split main "\n") (l -> l == job/found)
+  lacks = "{app}/main.kso has no `{job/found}`, which finds a job"
+  bare = "{app}/main.kso imports nothing of its own"
+  return refused "{lacks}; `new` writes one" if not finds
+  return refused bare if entry == none
+  written "{app}/{job/file name}" (job/module name)
+    .> (_ -> changed "{app}/main.kso" (said entry))
 
 # The names in an app's `migrations/`, which is where each generator
 # writes a migration. An app that keeps its migrations in one file,

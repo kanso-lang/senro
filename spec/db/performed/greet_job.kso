@@ -1,0 +1,2 @@
+pub fn perform _ args
+  print "hello, {args["name"]}"

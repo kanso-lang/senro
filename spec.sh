@@ -343,11 +343,12 @@ else
 fi
 # The `senro` command, as an app's author runs it: `senro new` from a
 # directory outside senro, then from the app's directory a controller, a
-# model, a migration of each kind its name can ask for, a mailer, the list of generators with
-# one the app ships, that generator, the app's routes, and each thing the
-# command refuses. The app must check as `new` leaves it and after the
-# controller. An app imports senro by the path from wherever it is, so what
-# is compared is what the command prints.
+# model, a migration of each kind its name can ask for, a mailer, a job,
+# the list of generators with one the app ships, that generator, the app's
+# routes, and each thing the command refuses, ending with a job asked of an
+# entry that no longer finds jobs. The app must check as `new` leaves it
+# and with everything written. An app imports senro by the path from
+# wherever it is, so what is compared is what the command prints.
 case "$KANSO" in
   */*) kanso_at=$(cd "$(dirname "$KANSO")" && pwd)/$(basename "$KANSO") ;;
   *) kanso_at=$(command -v "$KANSO") ;;
@@ -380,6 +381,10 @@ ran=$(
     "$senro" g mailer account Welcome
     sed 's|^import ".*/mail"$|import "<senro>/mail"|' account_mailer.kso
     "$KANSO" check account_mailer.kso
+    "$senro" generate job tidy
+    "$senro" g job tidy
+    "$senro" g job Tidy
+    cat tidy_job.kso
     ls migrations | while read -r f; do
       echo "== $f"
       sed 's|^import ".*/models"$|import "<senro>/models"|' "migrations/$f"
@@ -398,6 +403,9 @@ ran=$(
     "$senro" g controller Things index
     "$senro" bogus
     "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
+    grep -v '^derive jobs/performers$' main.kso > main.without
+    mv main.without main.kso
+    "$senro" g job sweep
   } 2>&1
 )
 rm -rf "$cmd"
