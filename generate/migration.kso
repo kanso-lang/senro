@@ -84,10 +84,16 @@ fn name_char? c
 # `t.timestamps`; then a key for a reference and an index for each unique
 # field.
 pub fn create senro plural fields
+  create_with senro plural fields []
+
+# The same, with more columns after the fields', each a name and what
+# Postgres is told of it.
+pub fn create_with senro plural fields also
   each = list/to_list (list/map fields (f -> column_of f))
+  more = list/to_list (list/map also written_column)
   stamps = ["models/created_at" "models/updated_at"]
   id = "(models/column \"id\" \"serial primary key\")"
-  columns = list/concat (list/concat [id] each) stamps
+  columns = list/concat (list/concat [id] (list/concat each more)) stamps
   after = list/concat (keyed plural fields) (indexed plural fields)
   with_table senro "create_{plural}" plural columns after
 
@@ -207,6 +213,9 @@ fn bare name
     ""
   ]
   text/join lines "\n"
+
+fn written_column pair
+  "(models/column \"{worded pair[1]}\" \"{worded pair[2]}\")"
 
 fn column_of f
   "(models/column \"{f.name}\" \"{column_type f.kind}\")"

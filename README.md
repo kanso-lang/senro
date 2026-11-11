@@ -139,7 +139,17 @@ nobody is signed in when it is followed. The entry then serves every route
 behind `web/requiring_sign_in`, so an action asks for a sign-in unless its
 module lists it in `without_sign_in`. `session.kso` holds the secret that signs sessions, 32
 random bytes made when the generator ran; keep it out of a public
-repository. The files are copied from `generate/authentication`, which
+repository.
+
+The sign-in it writes locks an account after five wrong passwords in a row,
+for an hour, as Devise's lockable does. A locked account answers a wrong
+password as it always does, and tells only the holder of the right one that
+it is locked. A right password ends the run of wrong ones, and each sign-in
+is counted and stamped with its time and address, as Devise's trackable
+does. `locks_after` and `locked_minutes` in `session.kso` set the two
+numbers, and the `users` migration holds the columns (`accounts/columns`).
+
+The files are copied from `generate/authentication`, which
 holds them as an app two directories below senro would.
 
 Each generator prints the files it writes and changes. A file that is there
@@ -611,9 +621,10 @@ until the app is changed with it.
   against an account and `accounts/locked_at` locks it; `accounts/locked?`
   says whether a lock still holds; `accounts/arrived` ends the run of wrong
   passwords, lifts a lock, and counts and stamps the sign-in, keeping the
-  one before it. The guestbook's sign-in is written with them
-  (`examples/guestbook/session.kso`), and its migrations hold the columns
-  they write.
+  one before it. `accounts/columns` lists the columns they write. The
+  guestbook's sign-in is written with them
+  (`examples/guestbook/session.kso`), and so is the one `generate
+  authentication` writes (`spec/generate/drive.sh` drives it to a lock).
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 

@@ -6,6 +6,13 @@ users_table = models/create_table "users" [
   (models/column "id" "serial primary key")
   (models/column "email" "text")
   (models/column "digest" "text")
+  (models/column "failures" "integer not null default 0")
+  (models/column "locked" "text not null default ''")
+  (models/column "sign_in_count" "integer not null default 0")
+  (models/column "current_sign_in_at" "text not null default ''")
+  (models/column "last_sign_in_at" "text not null default ''")
+  (models/column "current_sign_in_ip" "text not null default ''")
+  (models/column "last_sign_in_ip" "text not null default ''")
   models/created_at
   models/updated_at
 ]

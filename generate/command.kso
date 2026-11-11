@@ -1,3 +1,4 @@
+import "../accounts"
 import "../models"
 import "./app"
 import "./auth"
@@ -461,7 +462,8 @@ fn signing app main names
     .> (_ -> changed "{app}/main.kso" (said entry))
 
 fn users_made senro
-  migration/create senro "users" (scaffold/fields_of auth/fields)
+  fields = scaffold/fields_of auth/fields
+  migration/create_with senro "users" fields accounts/columns
 
 fn copied app senro secret
   views = "{app}/views"

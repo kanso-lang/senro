@@ -39,3 +39,8 @@ choosing a new one: 303 /session/new
 the link again: 303 /resets/new
 the old password: 422
 the new one: 303 to /notes
+four wrong passwords: 422 422 422 422
+the right one then: 303
+five wrong passwords: 422 422 422 422 422
+the right one then: 403 This account is locked. Try again in 60 minutes.
+a wrong one then: 422

@@ -7,19 +7,25 @@ import "std/text"
 # trackable keep it: a run of wrong passwords that locks the account for a
 # while, and a count and a stamp of each sign-in. An app's sign-in calls
 # these with its accounts' model, and its table holds the columns they
-# write:
+# write, which `columns` lists. Each is written as the app itself
+# (`models/as_app`), since nobody is signed in while a sign-in is being
+# decided.
 #
-#   failures             integer not null default 0
-#   locked               text not null default ''
-#   sign_in_count        integer not null default 0
-#   current_sign_in_at   text not null default ''
-#   last_sign_in_at      text not null default ''
-#   current_sign_in_ip   text not null default ''
-#   last_sign_in_ip      text not null default ''
-#
-# Each is written as the app itself (`models/as_app`), since nobody is
-# signed in while a sign-in is being decided.
-#
+# The columns an accounts table holds for these, each a name and what
+# Postgres is told of it. `senro generate authentication` writes them into
+# the migration that makes `users`.
+pub columns = [
+  ["failures" "integer not null default 0"]
+  ["locked" blank]
+  ["sign_in_count" "integer not null default 0"]
+  ["current_sign_in_at" blank]
+  ["last_sign_in_at" blank]
+  ["current_sign_in_ip" blank]
+  ["last_sign_in_ip" blank]
+]
+
+blank = "text not null default ''"
+
 # Whether an account locked at `stamp`, the moment in milliseconds as text
 # or "" for one that is open, is still locked at `t`, when a lock lasts
 # `minutes`.
