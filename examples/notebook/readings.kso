@@ -1,0 +1,80 @@
+import "../../models"
+import "../../web"
+import "./reading"
+import "std/list"
+import "std/net/http"
+
+# The readings, as an API: each action answers JSON, and `create` and
+# `update` read a posted form or a JSON object (`web/input`).
+pub fn index req db
+  number = models/page_number (web/value (web/query req) "page")
+  reading/paged db number per_page .> (p -> effect (listing p))
+
+# How many rows a page of the list holds.
+per_page = 25
+
+pub fn show _ db id:int
+  reading/find db id .> (r -> effect (shown r))
+
+pub fn create req db
+  given = taken (web/input req)
+  reading/create db given .> (w -> effect (made w))
+
+pub fn update req db id:int
+  given = taken (web/input req)
+  reading/update db id given .> (w -> effect (changed w))
+
+pub fn destroy _ db id:int
+  reading/destroy db id .> (w -> effect (gone w))
+
+fn listing p
+  web/json 200 (list/to_list (list/map p.rows reading/reading_attributes))
+
+fn shown none
+  http/not_found
+
+fn shown record
+  web/json 200 (reading/reading_attributes record)
+
+# A row that breaks a rule answers 422 with the problem of each field.
+fn made w:models/invalid
+  web/json 422 w.problems
+
+fn made w:web/denied
+  web/refusal w
+
+fn made w
+  web/json 201 (reading/reading_attributes w)
+
+fn changed w:models/invalid
+  web/json 422 w.problems
+
+fn changed w:web/denied
+  web/refusal w
+
+fn changed w:web/absent
+  web/refusal w
+
+fn changed w
+  web/json 200 (reading/reading_attributes w)
+
+fn gone w:web/denied
+  web/refusal w
+
+fn gone w:web/absent
+  web/refusal w
+
+fn gone _
+  http/respond 204 [] ""
+
+# The fields a request may set. One it does not send is left as it is.
+fields = ["minutes" "title"]
+
+fn taken sent
+  list/fold fields {} (acc n -> kept acc n sent[n])
+
+fn kept acc _ none
+  acc
+
+fn kept acc n v
+  put acc n v

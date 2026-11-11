@@ -1,0 +1,144 @@
+import "../models"
+import "std/list"
+import "std/text"
+
+# What `generate resource` writes for the resource's module: an API over
+# the model, as `rails g scaffold --api` writes one. Five actions answer
+# JSON and read a posted form or a JSON object, each through the model.
+# There are no views and no forms, so there is no `new` and no `edit`.
+pub fn module senro singular fields
+  plural = models/plural singular
+  names = list/to_list (list/sort (list/map fields (f -> f.name)))
+  parts = [(head senro singular) (actions singular plural) (answers singular)]
+  "{text/join parts "\n\n"}\n\n{taking names}\n"
+
+# Why a field cannot be one of a resource's, or "": a file is posted as a
+# multipart form and a reference nests the resource, and `scaffold` writes
+# both.
+pub fn unfit fields
+  odd = list/to_list (list/select fields (f -> not plain? f.kind))
+  told (list/first odd)
+
+fn plain? kind
+  kind == "text" or kind == "integer"
+
+fn told none
+  ""
+
+fn told f
+  theirs = "`{f.name}` is {a_kind f.kind}, which `scaffold` writes"
+  "{theirs}; a resource's fields are text and int"
+
+fn a_kind "attachment"
+  "an attachment"
+
+fn a_kind _
+  "a reference"
+
+fn head senro singular
+  lines = [
+    "import \"{senro}/models\""
+    "import \"{senro}/web\""
+    "import \"./{singular}\""
+    "import \"std/list\""
+    "import \"std/net/http\""
+  ]
+  text/join lines "\n"
+
+fn actions singular plural
+  lines = [
+    "# The {plural}, as an API: each action answers JSON, and `create` and"
+    "# `update` read a posted form or a JSON object (`web/input`)."
+    "pub fn index req db"
+    "  number = models/page_number (web/value (web/query req) \"page\")"
+    "  {singular}/paged db number per_page .> (p -> effect (listing p))"
+    ""
+    "# How many rows a page of the list holds."
+    "per_page = 25"
+    ""
+    "pub fn show _ db id:int"
+    "  {singular}/find db id .> (r -> effect (shown r))"
+    ""
+    "pub fn create req db"
+    "  given = taken (web/input req)"
+    "  {singular}/create db given .> (w -> effect (made w))"
+    ""
+    "pub fn update req db id:int"
+    "  given = taken (web/input req)"
+    "  {singular}/update db id given .> (w -> effect (changed w))"
+    ""
+    "pub fn destroy _ db id:int"
+    "  {singular}/destroy db id .> (w -> effect (gone w))"
+  ]
+  text/join lines "\n"
+
+fn answers singular
+  row = "{singular}/{singular}_attributes"
+  lines = [
+    "fn listing p"
+    "  web/json 200 (list/to_list (list/map p.rows {row}))"
+    ""
+    "fn shown none"
+    "  http/not_found"
+    ""
+    "fn shown record"
+    "  web/json 200 ({row} record)"
+    ""
+    "# A row that breaks a rule answers 422 with the problem of each field."
+    "fn made w:models/invalid"
+    "  web/json 422 w.problems"
+    ""
+    "fn made w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn made w"
+    "  web/json 201 ({row} w)"
+    ""
+    "fn changed w:models/invalid"
+    "  web/json 422 w.problems"
+    ""
+    "fn changed w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn changed w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn changed w"
+    "  web/json 200 ({row} w)"
+    ""
+    "fn gone w:web/denied"
+    "  web/refusal w"
+    ""
+    "fn gone w:web/absent"
+    "  web/refusal w"
+    ""
+    "fn gone _"
+    "  http/respond 204 [] \"\""
+  ]
+  text/join lines "\n"
+
+# The fields an action takes from what was sent, and no others. A field
+# the request left out is left out, so an update changes only what it
+# names.
+fn taking names
+  lines = [
+    "# The fields a request may set. One it does not send is left as it is."
+    (listed names)
+    ""
+    "fn taken sent"
+    "  list/fold fields \{} (acc n -> kept acc n sent[n])"
+    ""
+    "fn kept acc _ none"
+    "  acc"
+    ""
+    "fn kept acc n v"
+    "  put acc n v"
+  ]
+  text/join lines "\n"
+
+fn listed names
+  quoted = list/to_list (list/map names (n -> "\"{n}\""))
+  one = "fields = [{text/join quoted " "}]"
+  return one if length one <= 80
+  each = list/to_list (list/map quoted (q -> "  {q}"))
+  "fields = [\n{text/join each "\n"}\n]"

@@ -1,0 +1,22 @@
+import "../../models"
+
+# A reading is a row of the `readings` table. This module is named for it,
+# so the models derivation declares `reading` here with a field for each
+# column and answers for the table by this module's name: `reading/find db
+# id`, `reading/paged db number per`, `reading/create db fields` and the
+# rest.
+#
+# Anyone may make, change and remove a reading. The models module asks these
+# before it writes; narrow them to the visitors who should.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true
+
+pub fn destroy? _ _
+  true
+
+# What makes a reading fit to keep: each number is one its column takes.
+pub fn problems r
+  models/problems [(models/whole_number "minutes" r.minutes)]
