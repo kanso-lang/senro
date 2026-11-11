@@ -36,7 +36,9 @@ cd notebook
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
 senro generate controller pages index show
+senro generate model tag name:text:uniq
 senro generate migration add_rating_to_notes rating:int
+senro generate mailer account welcome
 senro generate authentication
 senro routes
 senro migrate
@@ -75,7 +77,18 @@ An action that writes answers with a redirect, to be filled in.
 `new` writes an entry, a home page, a layout and an empty `migrations`
 directory. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 `PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
-serves on port 3000.
+serves on port 3000, with a worker beside the server that sends the mail the
+app queues (`jobs/beside`).
+
+`model` takes what `scaffold` takes and writes the model alone: `tag.kso`,
+the module named for the record, and the migration that makes its table.
+The entry gains the module's import.
+
+`mailer` takes a name and its letters and writes `<name>_mailer.kso`, as
+Rails' mailer generator does. Each letter is a function, `welcome db to`,
+that composes the letter and queues it with `mail/delivered_later`; its
+subject is the letter's name in words, and its body is a placeholder to
+write over. A module that sends one imports the mailer.
 
 `scaffold` takes a singular name and its fields, each `name:text`,
 `name:int`, `name:references` or `name:attachment`, and `:uniq` after the
@@ -123,10 +136,8 @@ of addresses, each held by one account, and password digests, `user`
 with their views. The three read and write through `user` and hold no
 SQL; a reset link sets the new digest as the app (`models/as_app`), since
 nobody is signed in when it is followed. The entry then serves every route
-behind
-`web/requiring_sign_in`, so an action asks for a sign-in unless its module
-lists it in `without_sign_in`, and runs a mail worker beside the server
-(`jobs/beside`). `session.kso` holds the secret that signs sessions, 32
+behind `web/requiring_sign_in`, so an action asks for a sign-in unless its
+module lists it in `without_sign_in`. `session.kso` holds the secret that signs sessions, 32
 random bytes made when the generator ran; keep it out of a public
 repository. The files are copied from `generate/authentication`, which
 holds them as an app two directories below senro would.
