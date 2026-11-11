@@ -2,16 +2,19 @@ import "../models"
 import "./app"
 import "./auth"
 import "./controller"
+import "./migration"
 import "./scaffold"
 import "std/io"
 import "std/list"
 import "std/os"
 import "std/text"
+import "std/time"
 
 # senro's generators, run from senro's own directory:
 #
 #   kanso run generate -- new apps/notebook
 #   kanso run generate -- scaffold apps/notebook note title:text body:int
+#   kanso run generate -- migration apps/notebook add_cover_to_notes cover:text
 #   kanso run generate -- authentication apps/notebook
 #
 # Each prints the files it writes, as Rails' generators do. Nothing is
@@ -46,6 +49,15 @@ fn chosen "controller" rest
   os/exists "{app}/{plural}.kso"
     .> (there -> controlled there app plural actions)
 
+fn chosen "migration" rest
+  app = said (list/first rest)
+  name = said (list/first (list/drop rest 1))
+  words = list/to_list (list/drop rest 2)
+  return usage if app == "" or name == ""
+  named = migration/misnamed name
+  return refused "cannot name a migration `{name}`: {named}" if named != ""
+  os/exists "{app}/main.kso" .> (there -> migrating there app name words)
+
 fn chosen "authentication" rest
   app = said (list/first rest)
   return usage if app == ""
@@ -60,6 +72,7 @@ usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
   "       kanso run generate -- controller <app> <plural> <action>..."
+  "       kanso run generate -- migration <app> <name> <name:kind>..."
   "       kanso run generate -- authentication <app>"
   "a kind is text, int, references or attachment"
 ]
@@ -128,7 +141,8 @@ fn laid app senro
     .> (_ -> os/make_dir "{app}/views")
     .> (_ -> written "{app}/main.kso" (app/entry senro name))
     .> (_ -> written "{app}/home.kso" (app/home name))
-    .> (_ -> written "{app}/migrations.kso" app/migrations)
+    .> (_ -> os/make_dir "{app}/migrations")
+    .> (_ -> written "{app}/migrations/.keep" "")
     .> (_ -> written "{app}/views/layout.kata" app/layout)
     .> (_ -> written "{app}/views/home.kata" app/home_view)
 
@@ -227,24 +241,17 @@ fn with_main app _ _ _:os/file_not_found
   refused "{app}/main.kso is not there; make the app with `new` first"
 
 fn with_main app singular fields main
-  os/read_file "{app}/migrations.kso"
-    .> (m -> wrote app singular fields main (text_of m))
+  migrations_in app .> (names -> wrote app singular fields main names)
 
-fn text_of _:os/file_not_found
-  ""
-
-fn text_of m
-  m
-
-fn wrote app singular fields main old
+fn wrote app singular fields main names
   plural = models/plural singular
   senro = senro_in main (up_from app)
   entry = with_resource (app/entry_with main singular) plural
-  migrations = migrated old senro plural fields
+  made = "create_{plural}"
+  held = migration/holding names made
   bare = "{app}/main.kso imports nothing of its own"
-  long = "{app}/migrations.kso has no `all` this can read"
   return refused bare if entry == none
-  return refused long if migrations == none
+  return refused "{app}/migrations/{held} is there already" if held != ""
   model = scaffold/model senro singular fields
   module = scaffold/resource senro singular fields
   index = scaffold/index_view singular fields
@@ -258,7 +265,7 @@ fn wrote app singular fields main old
     .> (_ -> written "{views}/{plural}_index.kata" index)
     .> (_ -> written "{views}/{singular}_shown.kata" shown)
     .> (_ -> written "{views}/{singular}_form.kata" form)
-    .> (_ -> changed "{app}/migrations.kso" (said migrations))
+    .> (_ -> stamped app names made (migration/create senro plural fields))
     .> (_ -> changed "{app}/main.kso" (said entry))
 
 # The entry imports the model's module and the resource's, since a
@@ -269,17 +276,58 @@ fn with_resource none _
 fn with_resource entry plural
   app/entry_with entry plural
 
-fn migrated "" senro plural fields
-  scaffold/migrations_new senro plural fields
+# The names in an app's `migrations/`, which is where each generator
+# writes a migration. An app that keeps its migrations in one file,
+# `migrations.kso`, is one the generators leave alone.
+fn migrations_in app
+  os/exists "{app}/migrations.kso" .> (one -> kept_apart one app)
 
-fn migrated old senro plural fields
-  return scaffold/migrations_new senro plural fields if not changes? old
-  scaffold/migrations_with old plural fields
+fn kept_apart true app
+  one = "{app}/migrations.kso keeps every migration in one file"
+  refused "{one}; a generator writes each to a file in {app}/migrations"
 
-# Whether a migrations module holds a change yet. One that holds none has
-# no import of senro to build on.
-fn changes? old
-  list/any? (text/split old "\n") (l -> text/starts_with? l "import \"")
+fn kept_apart false app
+  os/is_dir "{app}/migrations" .> (there -> names_in there app)
+
+fn names_in false _
+  effect []
+
+fn names_in true app
+  os/list_dir "{app}/migrations"
+
+# A migration written under the app's `migrations/`, stamped with now.
+fn stamped app _ _ w:migration/too_wide
+  wide = "cannot write `{w.name}` in lines of 80 characters"
+  refused "{wide}; write {app}/migrations/<stamp>_{w.name}.kso by hand"
+
+fn stamped app names name content
+  dir = "{app}/migrations"
+  os/is_dir dir
+    .> (there -> made_dir there dir)
+    .> (_ -> time/now)
+    .> (now -> written (stamped_path dir now names name) content)
+
+fn stamped_path dir now names name
+  "{dir}/{migration/file (migration/stamp_at now names) name}"
+
+fn migrating false app _ _
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn migrating true app name words
+  os/read_file "{app}/main.kso"
+    .> (main -> migrations_in app .> (names -> moved app name words main names))
+
+fn moved app name words main names
+  held = migration/holding names name
+  return refused "{app}/migrations/{held} is there already" if held != ""
+  senro = senro_in main (up_from app)
+  shaped app names name (migration/named senro name words)
+
+fn shaped _ _ _ f:scaffold/unreadable
+  refused "cannot read `{f.word}`: {f.why}"
+
+fn shaped app names name content
+  stamped app names name content
 
 fn made_dir true _
   effect ""
@@ -317,26 +365,26 @@ fn there_if false _
   ""
 
 fn unwritten "" app
-  os/read_file "{app}/main.kso" .> (main -> with_migrations app main)
-
-fn with_migrations app main
-  os/read_file "{app}/migrations.kso" .> (m -> signing app main m)
+  os/read_file "{app}/main.kso"
+    .> (main -> migrations_in app .> (names -> signing app main names))
 
 fn unwritten there _
   refused "{there} is there already"
 
-fn signing app main m
+fn signing app main names
   senro = senro_in main (up_from app)
   entry = auth/entry_signed main senro
-  migrations = migrated (text_of m) senro "users" users
-  moved = "{app}/main.kso no longer serves as `new` wrote it"
-  return refused moved if entry == none
+  held = migration/holding names "create_users"
+  odd = "{app}/main.kso no longer serves as `new` wrote it"
+  return refused odd if entry == none
+  return refused "{app}/migrations/{held} is there already" if held != ""
   os/random_bytes 32
     .> (b -> copied app senro (auth/secret_of b))
-    .> (_ -> changed "{app}/migrations.kso" (said migrations))
+    .> (_ -> stamped app names "create_users" (users_made senro))
     .> (_ -> changed "{app}/main.kso" (said entry))
 
-users = scaffold/fields_of auth/fields
+fn users_made senro
+  migration/create senro "users" (scaffold/fields_of auth/fields)
 
 fn copied app senro secret
   views = "{app}/views"

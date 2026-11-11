@@ -1,0 +1,6 @@
+import "../../../models"
+
+# The address a reset link is sent to.
+pub add_email_to_accounts = [
+  (models/add_column "accounts" (models/column "email" "text"))
+]

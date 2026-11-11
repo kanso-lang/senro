@@ -704,4 +704,28 @@ pub fn destroy db id
 
 pub fn increment db id field
   models/increment db signature_model id field
+# in migrations, by models/tables
+import "../models"
+
+pub all = models/filed filed_stamps filed_changes
+
+filed_stamps = [
+  "20261030014602"
+  "20261104045753"
+  "20261105044946"
+  "20261105050729"
+  "20261105065821"
+  "20261105070000"
+  "20261105100325"
+]
+
+filed_changes = [
+  create_signatures
+  create_accounts
+  add_email_to_accounts
+  add_confirmed_to_accounts
+  add_lock_to_accounts
+  add_sign_ins_to_accounts
+  add_photo_to_signatures
+]
 routes = { "DELETE /session":{ "action":session/destroy "id":"" } "GET /":{ "action":home/index "id":"" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "open":true } "GET /entries":{ "action":entries/index "id":"" "open":true } "GET /password/edit":{ "action":password/edit "id":"" } "GET /registration/new":{ "action":registration/new "id":"" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "open":true } "GET /session/new":{ "action":session/new "id":"" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "open":true } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "open":true } "PATCH /password":{ "action":password/update "id":"" "limit":{ "count":10 "key":"password/update" "over":password/over_limit "within":180000 } } "PATCH /resets/:id":{ "action":resets/update "id":"any" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "open":true } "POST /entries":{ "action":entries/create "id":"" } "POST /registration":{ "action":registration/create "id":"" "open":true } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "open":true } }    # routes/rest

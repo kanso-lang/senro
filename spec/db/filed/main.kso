@@ -1,0 +1,33 @@
+import "../../../models"
+import "../../../pg"
+import "./migrations"
+
+derive models/tables
+
+# Migrations kept one to a file run in the order of the files' names, which
+# their stamps make the order they were written in: the table, then its
+# column, though `add_stripes_to_zebras` sorts before `create_zebras` by
+# name. Each is recorded under its stamp, so a second start runs none.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+columns = """
+  select string_agg(column_name, ' ' order by ordinal_position) as names
+  from information_schema.columns
+  where table_schema = 'senro_spec' and table_name = 'zebras'
+"""
+
+versions = """
+  select string_agg(version::text, ' ' order by version) as ran
+  from senro_migrations where app = 'zoo'
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "zoo" migrations/all)
+  .> (db -> models/migrated db "zoo" migrations/all)
+  .> (db -> pg/query db columns [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> pg/query db versions [] .> (r -> print r.rows))

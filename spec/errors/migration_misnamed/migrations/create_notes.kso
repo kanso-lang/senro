@@ -1,0 +1,6 @@
+import "../../../../models"
+
+pub create_notes = models/create_table "notes" [
+  (models/column "id" "serial")
+  (models/column "title" "text")
+]

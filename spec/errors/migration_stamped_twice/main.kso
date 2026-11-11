@@ -1,0 +1,8 @@
+import "../../../models"
+import "./migrations"
+
+derive models/tables
+
+# Two migrations with one stamp have no order between them, so the second
+# is refused.
+print (length migrations/all.stamps)

@@ -290,9 +290,13 @@ note "== the generator writes examples/notebook, which checks and serves"
 # a note and a page under it, sign out, and reset a lost password through
 # the mail it sends (spec/generate/drive.sh). Serving uses Postgres, so
 # SENRO_NO_DB=1 skips that part.
+# A migration's file is stamped with the moment it was written, so the
+# clock is pinned here: three migrations written in one second take that
+# second and the two after it.
 gen=spec/notebook
 rm -rf "$gen"
 made=$({
+  export KANSO_NOW=1794420312000
   "$KANSO" run generate -- new "$gen"
   "$KANSO" run generate -- scaffold "$gen" note title:text pages:int \
     cover:attachment
@@ -338,9 +342,9 @@ else
   diff -r examples/notebook "$gen"
 fi
 # The `senro` command, as an app's author runs it: `senro new` from a
-# directory outside senro, then from the app's directory a controller, the
-# list of generators with one the app ships, that generator, and each thing
-# the command refuses. The app must check as `new` leaves it and after the
+# directory outside senro, then from the app's directory a controller, a
+# migration of each kind its name can ask for, the list of generators with
+# one the app ships, that generator, and each thing the command refuses. The app must check as `new` leaves it and after the
 # controller. An app imports senro by the path from wherever it is, so what
 # is compared is what the command prints.
 case "$KANSO" in
@@ -357,6 +361,21 @@ ran=$(
     cd blog
     "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
     "$senro" generate controller pages index show create
+    export KANSO_NOW=1794420312000
+    "$senro" generate migration create_tags name:text:uniq
+    "$senro" generate migration add_color_to_tags color:text post:references
+    "$senro" generate migration rename_color_to_shade_in_tags
+    "$senro" generate migration remove_shade_from_tags shade
+    "$senro" generate migration tidy_up
+    "$senro" g migration tidy_up
+    "$senro" g migration Tidy-Up
+    "$senro" g migration add_weight_to_tags weight:heavy
+    "$senro" g migration create_the_longest_table_anyone_ever_named a:text
+    ls migrations | while read -r f; do
+      echo "== $f"
+      sed 's|^import ".*/models"$|import "<senro>/models"|' "migrations/$f"
+    done
+    unset KANSO_NOW
     mkdir generators
     printf 'import "std/io"\nimport "std/os"\n\n' > generators/greeting.kso
     printf 'os/args .> (a -> io/write "greeting: {a}\\n")\n' \

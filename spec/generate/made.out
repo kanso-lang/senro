@@ -1,6 +1,6 @@
   create spec/notebook/main.kso
   create spec/notebook/home.kso
-  create spec/notebook/migrations.kso
+  create spec/notebook/migrations/.keep
   create spec/notebook/views/layout.kata
   create spec/notebook/views/home.kata
   create spec/notebook/note.kso
@@ -8,14 +8,14 @@
   create spec/notebook/views/notes_index.kata
   create spec/notebook/views/note_shown.kata
   create spec/notebook/views/note_form.kata
-  change spec/notebook/migrations.kso
+  create spec/notebook/migrations/20261111180512_create_notes.kso
   change spec/notebook/main.kso
   create spec/notebook/page.kso
   create spec/notebook/pages.kso
   create spec/notebook/views/pages_index.kata
   create spec/notebook/views/page_shown.kata
   create spec/notebook/views/page_form.kata
-  change spec/notebook/migrations.kso
+  create spec/notebook/migrations/20261111180513_create_pages.kso
   change spec/notebook/main.kso
   create spec/notebook/password_mailer.kso
   create spec/notebook/registration.kso
@@ -25,7 +25,7 @@
   create spec/notebook/views/door.kata
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
-  change spec/notebook/migrations.kso
+  create spec/notebook/migrations/20261111180514_create_users.kso
   change spec/notebook/main.kso
 generate: spec/notebook/notes.kso is there already
 generate: cannot read `title:words`: a field is name:text, name:int, name:references or name:attachment

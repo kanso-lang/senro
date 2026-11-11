@@ -1,0 +1,7 @@
+import "../../../models"
+
+pub create_signatures = models/create_table "signatures" [
+  (models/column "id" "serial")
+  (models/column "name" "text")
+  (models/column "message" "text")
+]

@@ -1,0 +1,7 @@
+import "../../../models"
+
+pub add_staple_to_items = [
+  (models/add_column "items" (models/column "staple" staple_kind))
+]
+
+staple_kind = "boolean not null default false"

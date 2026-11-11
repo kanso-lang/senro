@@ -1,0 +1,6 @@
+import "../../../../models"
+
+pub create_shelves = models/create_table "shelves" [
+  (models/column "id" "serial")
+  (models/column "name" "text")
+]

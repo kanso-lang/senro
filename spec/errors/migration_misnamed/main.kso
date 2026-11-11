@@ -1,0 +1,8 @@
+import "../../../models"
+import "./migrations"
+
+derive models/tables
+
+# A migration kept in a file of its own is ordered by the stamp its file's
+# name opens with, so a file with no stamp is refused.
+print (length migrations/all.stamps)

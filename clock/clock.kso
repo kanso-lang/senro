@@ -29,6 +29,15 @@ pub fn utc_minute t
   day = "{d.year}-{two d.month}-{two d.day}"
   "{day} {two (left / 3600)}:{two (left % 3600 / 60)} UTC"
 
+# A moment as a migration's file is stamped with it: fourteen digits, the
+# UTC year, month, day, hour, minute and second, so names sort by when.
+pub fn stamp t
+  s = t / 1000
+  d = civil (s / 86400)
+  left = s % 86400
+  day = "{d.year}{two d.month}{two d.day}"
+  "{day}{two (left / 3600)}{two (left % 3600 / 60)}{two (left % 60)}"
+
 # A number in two digits, as a clock and a calendar write one.
 pub fn two n
   text/pad_start "{n}" 2 "0"

@@ -9,6 +9,7 @@ import "std/text"
 #   senro new blog
 #   senro generate scaffold post title:text body:text
 #   senro generate controller pages index show
+#   senro generate migration add_cover_to_posts cover:text
 #   senro generate authentication
 #   senro generate              (lists every generator it can find)
 #
@@ -41,7 +42,7 @@ usage_lines = [
   "       senro migrate"
 ]
 
-pub built_in = ["scaffold" "controller" "authentication"]
+pub built_in = ["scaffold" "controller" "migration" "authentication"]
 
 fn built_in? name
   list/any? built_in (b -> b == name)
