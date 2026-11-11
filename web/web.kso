@@ -202,7 +202,9 @@ fn heard c s req
   by = sender req.headers["senro-page"]
   answer = (db -> answered_by action req db)
   answering = pool/with s.dbs (db -> responded c db req method by (answer db))
-  turned = turned_away action req .> (r -> logged_as req method r)
+  turned = turned_away action req
+    .> (r -> logged_as req method r)
+    .> (r -> effect (secured req r))
   allowed s.calls action req .> (fine -> let_in fine c answering turned)
 
 # A request that would change something, sent by a page on another site, as
@@ -366,7 +368,22 @@ fn responded c db req method by answer
     .> (r -> told db method by r)
     .> (r -> versioned by r)
     .> (r -> logged_as req method r)
-    .> (r -> sent c (notice_shown req (unchanged req r)))
+    .> (r -> sent c (secured req (notice_shown req (unchanged req r))))
+
+# A proxy that took a request over HTTPS says so in `X-Forwarded-Proto`,
+# and every cookie the answer to it sets is marked `Secure`, as Rails'
+# `force_ssl` marks them. A browser then never sends the session, or a
+# notice, back over plain HTTP, where anyone on the path could read it. A
+# request that came in the clear, as one in development does, is answered
+# as it always was.
+fn secured req r
+  return r if blank_if_none req.headers["x-forwarded-proto"] != "https"
+  http/respond r.status (list/to_list (list/map r.headers secure_line)) r.body
+
+fn secure_line h
+  return h if not text/starts_with? h "set-cookie: "
+  return h if text/ends_with? h "; Secure"
+  "{h}; Secure"
 
 # The server writes a line for each request it answers, as it is about to
 # answer: the method the request stands for, its path, the status, and the

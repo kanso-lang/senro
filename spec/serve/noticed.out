@@ -5,3 +5,7 @@ HTTP/1.1 200 OK: the notes, noting Noted; thank you.
 HTTP/1.1 200 OK: the notes, noting nothing
 HTTP/1.1 303 See Other to /notes
   set-cookie: senro_notice=Noted%3B%20thank%20you.; Path=/; HttpOnly; SameSite=Lax
+HTTP/1.1 303 See Other to /notes
+  set-cookie: senro_notice=Noted%3B%20thank%20you.; Path=/; HttpOnly; SameSite=Lax; Secure
+HTTP/1.1 200 OK: the notes, noting Noted; thank you.
+  set-cookie: senro_notice=; Path=/; Max-Age=0; Secure
