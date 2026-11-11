@@ -29,8 +29,9 @@ place, rendered on the server.
   table that differs, say one an older build made with another column, stops
   the app before it serves anything, with each difference named. Beside the
   server, `jobs/beside` runs a worker that sends the mail the app queues.
-- `migrations.kso` keeps the schema as the changes that built it, as a pub
-  constant. `derive models/tables` folds them into `schema` while the app
+- `migrations/` keeps the schema as the changes that built it, a file to a
+  migration, run in the order of the files' names. `derive models/tables`
+  folds them into `schema` while the app
   compiles, and refuses a record type whose table is missing or whose field
   has no column: `mesage` in `entries/signature` is a compile error at the
   type.

@@ -31,14 +31,6 @@ type wrap
   lines
   line
 
-# How far `read_line` has read a migrations module: the lines before `all`,
-# its names, the lines after it, and which of the three it is in.
-type reading
-  head
-  names
-  tail
-  state
-
 pub fn fields_of words
   read = list/to_list (list/map words field_of)
   first_bad = list/first (list/to_list (list/select read bad?))
@@ -149,79 +141,6 @@ fn column_kind "attachment"
 fn column_kind _
   ""
 
-# The migration that makes the table, as the lines a migrations module
-# gains: the change, then a column for each field, named after the table so
-# two tables' columns never share a name. The table ends with the timestamps,
-# as Rails' scaffold ends its table with `t.timestamps`.
-pub fn migration plural fields
-  cols = list/to_list (list/map fields (f -> "{plural}_{f.name}"))
-  stamps = ["models/created_at" "models/updated_at"]
-  named = list/concat (list/concat ["{plural}_id"] cols) stamps
-  made = list_line "{plural}_made = models/create_table \"{plural}\"" "" named
-  each = list/to_list (list/map fields (f -> column_line plural f))
-  id = "{plural}_id = models/column \"id\" \"serial primary key\""
-  added = list/concat (keyed plural (parent_of fields)) (indexes plural fields)
-  head = list/concat [made] added
-  lines = list/concat (list/concat head ["" id]) (spread each (l -> ["" l]))
-  text/join lines "\n"
-
-fn column_line plural f
-  args = ["\"{f.name}\"" "\"{column_type f.kind}\""]
-  call_line "{plural}_{f.name} = models/column" args
-
-fn column_type "references"
-  "integer not null"
-
-fn column_type "attachment"
-  "text not null default ''"
-
-fn column_type kind
-  kind
-
-# A nested resource's key: its parent's id names a row of the parent's table,
-# and removing that row removes the rows that name it.
-fn keyed _ none
-  []
-
-fn keyed plural f
-  parents = models/plural (parent_name f)
-  args = ["\"{plural}\"" "\"{f.name}\"" "\"{parents}\""]
-  ["" (call_line "{plural}_to_{parents} = models/add_foreign_key" args)]
-
-# The changes a resource adds to `all`: its table, its key when nested, and
-# an index for each unique field.
-fn changes plural fields
-  made = list/concat ["{plural}_made"] (key_named plural (parent_of fields))
-  list/concat made (index_names plural fields)
-
-# A unique field's index, as `scaffold` writes it and as `all` names it.
-fn indexes plural fields
-  spread (uniques fields) (f -> ["" (index_line plural f)])
-
-fn index_line plural f
-  head = "{plural}_{f.name}_unique = models/add_unique_index"
-  call_line head ["\"{plural}\"" "\"{f.name}\""]
-
-fn index_names plural fields
-  list/to_list (list/map (uniques fields) (f -> "{plural}_{f.name}_unique"))
-
-fn uniques fields
-  list/to_list (list/select fields (f -> f.unique))
-
-fn key_named _ none
-  []
-
-fn key_named plural f
-  ["{plural}_to_{models/plural (parent_name f)}"]
-
-# A call on one line when it fits, and one argument to a line when it does
-# not.
-fn call_line head args
-  one = "{head} {text/join args " "}"
-  return one if length one <= 80
-  each = list/to_list (list/map args (a -> "  {a}"))
-  "{head}\n{text/join each "\n"}"
-
 # The reference among a resource's fields, or none when it is not nested.
 pub fn parent_of fields
   list/first (list/to_list (list/select fields (f -> f.kind == "references")))
@@ -234,60 +153,11 @@ pub fn parent_name f
 fn own fields
   list/to_list (list/select fields (f -> f.kind != "references"))
 
-# A migrations module's text with the changes added at the end of `all`, or
-# none when it has no `all` this can read: one line, or one name to a line
-# with `]` on a line of its own, as `all_line` writes it.
-pub fn migrations_with old plural fields
-  lines = list/to_list (text/split old "\n")
-  read = list/fold lines (reading [] [] [] "before") read_line
-  return none if read.state != "after"
-  names = list/concat read.names (changes plural fields)
-  kept = list/concat (list/concat read.head [(all_line names)]) read.tail
-  added = migration plural fields
-  "{text/trim (text/join kept "\n")}\n\n{added}\n"
-
-fn read_line r line
-  after = list/concat r.tail [line]
-  return reading r.head r.names after r.state if r.state == "after"
-  return named_line r line if r.state == "inside"
-  return reading (list/concat r.head [line]) [] [] r.state if not opens? line
-  return reading r.head [] [] "inside" if line == "pub all = ["
-  inner = said (text/slice line 12 (length line - 1))
-  reading r.head (words_of inner) [] "after"
-
-fn opens? line
-  bare = line == "pub all = ["
-  text/starts_with? line "pub all = [" and (bare or text/ends_with? line "]")
-
-fn named_line r line
-  return reading r.head r.names [] "after" if line == "]"
-  reading r.head (list/concat r.names (words_of line)) [] "inside"
-
-# `pub all = [a b]`, one name to a line once the list is too long for one.
-fn all_line names
-  one = "pub all = [{text/join names " "}]"
-  return one if length one <= 80
-  "pub all = [\n  {text/join names "\n  "}\n]"
-
-fn words_of inner
-  list/to_list (list/select (text/split inner " ") (w -> w != ""))
-
 fn said none
   ""
 
 fn said s
   s
-
-# A migrations module for an app that has none.
-pub fn migrations_new senro plural fields
-  head = [
-    "import \"{senro}/models\""
-    ""
-    "# The app's schema, as the changes that built it, oldest first."
-    (all_line (changes plural fields))
-    ""
-  ]
-  "{text/join head "\n"}\n{migration plural fields}\n"
 
 # The model's module, named for the record: its policies and its rules.
 # The models derivation declares the record in it and answers for the table

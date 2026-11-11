@@ -1,0 +1,4 @@
+error[derive]: migrations/20261111180512_create_shelves.kso has the stamp of migrations/20261111180512_create_notes.kso; give it its own
+  --> ./migrations/20261111180512_create_shelves.kso:3:5
+   3 | pub create_shelves = models/create_table "shelves" [
+           ^

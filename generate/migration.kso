@@ -1,0 +1,307 @@
+import "../clock"
+import "../models"
+import "./scaffold"
+import "std/list"
+import "std/text"
+
+# What the generators write under an app's `migrations/`: a file to a
+# migration, named `<stamp>_<name>.kso` and holding one pub constant, `<name>`,
+# which is a change or a list of changes. The stamp is the moment the file
+# was written, fourteen digits of UTC, so the files' names sort in the order
+# they were written and the migrations run in that order on every machine.
+# Each function answers text, so a spec reads what would be written without
+# writing it.
+#
+# `generate migration <name> <field>...` reads what to write from the name,
+# as Rails' generator does:
+#
+#   create_tags name:text               a table, as `scaffold` makes one
+#   add_rating_to_notes rating:int      a column for each field
+#   remove_rating_from_notes rating     each column dropped
+#   rename_title_to_heading_in_notes    one column renamed
+#
+# Any other name makes a migration with no changes, for the app to fill in.
+#
+# A change as a call of `models`: the function and each argument as it is
+# written.
+type made_change
+  head
+  args
+
+# A migration the generator cannot write within eighty columns: the name
+# asked for, and the line that ran over.
+pub type too_wide
+  name
+  line
+
+pub fn file stamp name
+  "{stamp}_{name}.kso"
+
+# The stamp for a migration written at `now`, beside the files `names`: the
+# moment to the second, or one past the newest stamp there when that is not
+# earlier, so two written within a second keep the order they were written
+# in. Rails numbers a migration the same way.
+pub fn stamp_at now names
+  wanted = clock/stamp now
+  newest = list/fold names "" (acc n -> newer acc (text/slice n 1 14))
+  return wanted if wanted > newest
+  one_past (text/to_int newest) wanted
+
+fn newer acc none
+  acc
+
+fn newer acc s
+  return s if s > acc and length s == 14
+  acc
+
+fn one_past none wanted
+  wanted
+
+fn one_past n _
+  "{n + 1}"
+
+# The file among `names` that holds the migration `name` already, or "".
+pub fn holding names name
+  tail = "_{name}.kso"
+  held = (n -> length n == 14 + length tail and text/ends_with? n tail)
+  worded (list/first (list/to_list (list/select names held)))
+
+# Why a migration cannot be named `name`, or "": the name is a constant's,
+# so it is lowercase words joined by underscores.
+pub fn misnamed name
+  first = worded (text/slice name 1 1)
+  opens = first >= "a" and first <= "z"
+  rest = list/all? (text/chars name) name_char?
+  return "a migration's name is at most 48 characters" if length name > 48
+  return "" if opens and rest
+  "a migration's name is lowercase words joined by `_`"
+
+fn name_char? c
+  (c >= "a" and c <= "z") or (c >= "0" and c <= "9") or c == "_"
+
+# The migration that makes a resource's table: an id, a column for each
+# field, and the timestamps, as Rails' `create_table` ends with
+# `t.timestamps`; then a key for a reference and an index for each unique
+# field.
+pub fn create senro plural fields
+  each = list/to_list (list/map fields (f -> column_of f))
+  stamps = ["models/created_at" "models/updated_at"]
+  id = "(models/column \"id\" \"serial primary key\")"
+  columns = list/concat (list/concat [id] each) stamps
+  after = list/concat (keyed plural fields) (indexed plural fields)
+  with_table senro "create_{plural}" plural columns after
+
+fn with_table senro name plural columns after
+  opened = "models/create_table \"{plural}\""
+  alone = listed_from "pub {name} = {opened}" columns
+  fits = length "pub {name} = {opened} [" <= 80
+  return whole senro name [alone] if length after == 0 and fits
+  table = "{plural}_table"
+  items = list/concat [table] (items_of name after)
+  parts = [(listed_from "pub {name} =" items)]
+  defined = [(listed_from "{table} = {opened}" columns)]
+  whole senro name (list/concat (list/concat parts defined) (apart name after))
+
+# What `generate migration` writes for a name and the fields after it, or
+# an `unreadable` field.
+pub fn named senro name words
+  parts = list/to_list (text/split name "_")
+  shaped senro name words (worded parts[1]) (table_of name)
+
+fn shaped senro name words "create" _
+  plural = worded (text/slice name 8 (length name))
+  return bare name if plural == "" or length words == 0
+  created senro plural (scaffold/fields_of words)
+
+fn shaped senro name words "add" table
+  return bare name if table == "" or length words == 0
+  added senro name table (scaffold/fields_of words)
+
+fn shaped senro name words "remove" table
+  return bare name if table == "" or length words == 0
+  drops = list/to_list (list/map words (w -> dropped table (column_named w)))
+  several senro name drops
+
+fn shaped senro name _ "rename" table
+  from = between name "rename_" "_to_"
+  to = between name "_to_" "_in_"
+  return bare name if table == "" or from == "" or to == ""
+  args = ["\"{table}\"" "\"{from}\"" "\"{to}\""]
+  several senro name [(made_change "models/rename_column" args)]
+
+fn shaped _ name _ _ _
+  bare name
+
+fn created _ _ f:scaffold/unreadable
+  f
+
+fn created senro plural fields
+  create senro plural fields
+
+fn added _ _ _ f:scaffold/unreadable
+  f
+
+fn added senro name table fields
+  each = (acc f -> list/concat acc (column_added table f))
+  several senro name (list/fold fields [] each)
+
+# A field's column added to a table that is there already, with its key
+# when it refers to another table and its index when it is unique.
+fn column_added table f
+  change = made_change "models/add_column" ["\"{table}\"" (column_of f)]
+  after = list/concat (keyed table [f]) (indexed table [f])
+  list/concat [change] after
+
+fn dropped table column
+  made_change "models/drop_column" ["\"{table}\"" "\"{column}\""]
+
+# The column a word on the command line names: `rating` or `rating:int`.
+fn column_named word
+  parts = list/to_list (text/split word ":")
+  worded parts[1]
+
+# The table a migration's name ends with: what follows the last `_to_`,
+# `_from_` or `_in_`, by which word the name opens with.
+fn table_of name
+  return after_last name "_to_" if text/starts_with? name "add_"
+  return after_last name "_from_" if text/starts_with? name "remove_"
+  return after_last name "_in_" if text/starts_with? name "rename_"
+  ""
+
+fn after_last name word
+  parts = list/to_list (text/split name word)
+  return "" if length parts < 2
+  worded parts[length parts]
+
+# What sits between the first `opening` and the last `closing` of a name.
+fn between name opening closing
+  tail = list/to_list (list/drop (list/to_list (text/split name opening)) 1)
+  rest = text/join tail opening
+  kept = list/to_list (text/split rest closing)
+  return "" if length kept < 2
+  text/join (list/to_list (list/take kept (length kept - 1))) closing
+
+# A migration of calls alone: the one, or a list of them.
+fn several senro name changes
+  return whole senro name [(lone name changes[1])] if length changes == 1
+  parts = [(listed_from "pub {name} =" (items_of name changes))]
+  whole senro name (list/concat parts (apart name changes))
+
+fn lone name none
+  "pub {name} = []"
+
+fn lone name c
+  one = "pub {name} = {flat c}"
+  return one if length one <= 80
+  return "pub {name} = [\n  ({flat c})\n]" if inline? c
+  called "pub {name} = " c
+
+# A migration that changes nothing yet. It imports nothing, since an import
+# nothing uses is refused, and says what to write.
+fn bare name
+  lines = [
+    "# The changes this migration makes, in order, each a call of senro's"
+    "# models: create_table, add_column, rename_column, drop_column,"
+    "# add_foreign_key or add_unique_index. Import models to write one."
+    "pub {name} = []"
+    ""
+  ]
+  text/join lines "\n"
+
+fn column_of f
+  "(models/column \"{f.name}\" \"{column_type f.kind}\")"
+
+fn column_type "references"
+  "integer not null"
+
+fn column_type "attachment"
+  "text not null default ''"
+
+fn column_type kind
+  kind
+
+# A reference's key: its column names a row of the parent's table, and
+# removing that row removes the rows that name it.
+fn keyed table fields
+  refs = list/to_list (list/select fields (f -> f.kind == "references"))
+  list/to_list (list/map refs (f -> key_of table f))
+
+fn key_of table f
+  parents = models/plural (scaffold/parent_name f)
+  args = ["\"{table}\"" "\"{f.name}\"" "\"{parents}\""]
+  made_change "models/add_foreign_key" args
+
+fn indexed table fields
+  uniques = list/to_list (list/select fields (f -> f.unique))
+  list/to_list (list/map uniques (f -> index_of table f))
+
+fn index_of table f
+  made_change "models/add_unique_index" ["\"{table}\"" "\"{f.name}\""]
+
+# A change inside a list: the call in parentheses when it fits on a line of
+# the list, and otherwise a name, the migration's own with the change's
+# place after it, with the call written below the list.
+fn items_of name changes
+  each = (acc c -> list/concat acc [(item_of name (length acc + 1) c)])
+  list/fold changes [] each
+
+fn item_of name n c
+  return "({flat c})" if inline? c
+  "{name}_{n}"
+
+fn inline? c
+  length (flat c) <= 76
+
+fn flat c
+  "{c.head} {text/join c.args " "}"
+
+# The calls too long for the list, each under the name the list gave it.
+fn apart name changes
+  each = (acc c -> list/concat acc [(below_list name (length acc + 1) c)])
+  lines = list/fold changes [] each
+  list/to_list (list/select lines (l -> l != ""))
+
+fn below_list name n c
+  return "" if inline? c
+  called "{name}_{n} = " c
+
+# A call on one line when it fits. One that does not is wrapped the way a
+# statement too long for a line is: as a pipe, its first argument on the
+# statement's line and the call of the rest on the next.
+fn called opening c
+  one = "{opening}{flat c}"
+  return one if length one <= 80
+  rest = text/join (list/to_list (list/drop c.args 1)) " "
+  "{opening}{worded (list/first c.args)}\n  . {c.head} {rest}"
+
+# A list on one line when it fits, and an item to a line when it does not.
+fn listed_from head items
+  one = "{head} [{text/join items " "}]"
+  return one if length one <= 80
+  each = list/to_list (list/map items (i -> "  {i}"))
+  "{head} [\n{text/join each "\n"}\n]"
+
+# The file's text: the import of senro's models, written from one directory
+# below the app, then each part with a blank line between. A part with a
+# line past eighty columns is one the formatter refuses, so the generator
+# says which.
+fn whole senro name parts
+  body = text/join parts "\n\n"
+  wide = list/to_list (list/select (text/split body "\n") (l -> length l > 80))
+  return too_wide name (worded wide[1]) if length wide > 0
+  "import \"{below senro}/models\"\n\n{body}\n"
+
+# The app's path to senro as a file in `migrations/` writes it: one more
+# directory up when the path is relative.
+fn below senro
+  return ".." if senro == "."
+  beside = text/starts_with? senro "./"
+  return "../{text/slice senro 3 (length senro)}" if beside
+  return "../{senro}" if text/starts_with? senro "../" or senro == ".."
+  senro
+
+fn worded none
+  ""
+
+fn worded s
+  s

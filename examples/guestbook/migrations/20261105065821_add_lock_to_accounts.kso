@@ -1,0 +1,10 @@
+import "../../../models"
+
+# How many wrong passwords in a row the account has had, and when too many
+# of them locked it, or empty while it is open.
+pub add_lock_to_accounts = [
+  (models/add_column "accounts" failures)
+  (models/add_column "accounts" (models/column "locked" blank_text))
+]
+
+failures = models/column "failures" "integer not null default 0"

@@ -41,6 +41,19 @@ type column_def
   name
   kind
 
+# The file a walk over a module's migrations saw last, and the first clash
+# it found: the constant, and what to say of it.
+type stamp_seen
+  file
+  name
+  said
+
+# The migrations of a module that keeps one to a file: the stamp each file's
+# name opens with, and beside it what the file holds.
+type filed_steps
+  stamps
+  changes
+
 # A model's record: its name and its fields, as the module wrote it or as the
 # derivation declares it from the table.
 type shape
@@ -84,6 +97,11 @@ pub type page
   rows
   number
   more
+
+# What the derived `all` of a migrations module is, when the module keeps
+# a migration to a file.
+pub fn filed stamps changes
+  filed_steps stamps changes
 
 pub fn create_table name columns
   new_table name columns
@@ -152,7 +170,8 @@ pub fn tables p
   each = (acc m -> list/concat acc (linked m schema fks))
   joined = list/fold p.modules [] each
   declared = list/concat [(derive/declare "schema" "schema" schema)] kinds
-  parts = [declared refused asked named given joined]
+  steps = list/fold p.modules [] (acc m -> list/concat acc (ordered m))
+  parts = [declared refused asked named given joined steps]
   list/fold parts [] list/concat
 
 # A module named for a table's rows, as `note` is for `notes`, holds the
@@ -200,14 +219,101 @@ fn migrations_of p
   kept = list/select p.modules (m -> m.name == "migrations")
   list/fold kept [] (acc m -> list/concat acc (listed m))
 
+# An app keeps its migrations one to a file, `migrations/<stamp>_<name>.kso`,
+# each a pub constant named for the file and holding a list of changes. They
+# run in the order of the files' names, which the stamp makes the order they
+# were written in. A module that writes `all` itself, as one file of
+# changes, is read as it is.
 fn listed m
-  changes_in m.constants["all"]
+  return changes_in m.constants["all"] if m.constants["all"] != none
+  each = (acc n -> list/concat acc (changes_in m.constants[n]))
+  list/fold (in_file_order m) [] each
+
+# The names of a migrations module's constants, in the order of the files
+# that declare them.
+fn in_file_order m
+  names = list/to_list (keys m.constants)
+  pairs = list/to_list (list/map names (n -> "{file_of m n} {n}"))
+  list/to_list (list/map (list/sort pairs) second_word)
+
+fn file_of m name
+  or_blank m.sources[name]
+
+fn second_word pair
+  parts = text/split pair " "
+  parts[2]
+
+# `all` for a migrations module that keeps a file to a migration: each
+# file's stamp beside its changes, oldest first, written into the module so
+# the entry runs `migrations/all` whichever way the module is kept. A file
+# whose name is not its stamp and its constant's name is refused, since the
+# name is what orders it.
+fn ordered m
+  return [] if m.name != "migrations" or m.constants["all"] != none
+  names = in_file_order m
+  odd = list/to_list (list/select names (n -> not stamped? (file_of m n) n))
+  return refused_name m odd[1] if length odd > 0
+  twice = list/fold names (stamp_seen "" "" "") (acc n -> clash m acc n)
+  at = "{m.name}/{twice.name}"
+  return [(derive/refuse at twice.said)] if twice.said != ""
+  stamps = list/to_list (list/map names (n -> "\"{stamp_of (file_of m n)}\""))
+  [(derive/define m.name (all_of stamps names))]
+
+fn all_of stamps names
+  line = "pub all = models/filed filed_stamps filed_changes"
+  lists = "{listing "filed_stamps" stamps}\n{listing "filed_changes" names}"
+  "import \"../models\"\n\n{line}\n\n{lists}"
+
+# A list as the formatter wants it: on one line when it fits in eighty
+# characters, and otherwise an element to a line.
+fn listing name items
+  flat = "{name} = [{text/join items " "}]"
+  return "{flat}\n" if length flat <= 80
+  "{name} = [\n  {text/join items "\n  "}\n]\n"
+
+fn refused_name m none
+  [(derive/refuse m.name "a migration's file is not named for it")]
+
+fn refused_name m name
+  [(derive/refuse "{m.name}/{name}" (misnamed (file_of m name) name))]
+
+# Two files with one stamp have no order between them, and a stamp is what
+# a migration is recorded under, so the second is refused.
+fn clash m seen name
+  file = file_of m name
+  again = stamp_of file == stamp_of seen.file and seen.said == ""
+  return stamp_seen file name (same_stamp seen.file file) if again
+  stamp_seen file seen.name seen.said
+
+fn same_stamp first second
+  "migrations/{second} has the stamp of migrations/{first}; give it its own"
+
+fn stamp_of file
+  or_blank (text/slice file 1 14)
+
+fn or_blank none
+  ""
+
+fn or_blank s
+  s
+
+fn stamped? file name
+  stamp = stamp_of file
+  digits = list/all? (text/chars stamp) (c -> c >= "0" and c <= "9")
+  length stamp == 14 and digits and file == "{stamp}_{name}.kso"
+
+fn misnamed file name
+  wanted = "<yyyymmddhhmmss>_{name}.kso"
+  "migrations/{file} holds `{name}`, so it is named {wanted}"
 
 fn changes_in none
   []
 
-fn changes_in changes
+fn changes_in changes:[]some
   changes
+
+fn changes_in change
+  [change]
 
 fn applied schema c:new_table
   put schema c.name (list/to_list (list/map c.columns spelled))
@@ -1140,12 +1246,13 @@ fn making table columns
 
 # The migrations of the app named `app` that have not yet run against `db`,
 # run in order, as Rails runs the ones `schema_migrations` does not list.
-# Each is recorded in `senro_migrations` under the app's name and its place
-# in `all`, beside the SQL it ran, inside the transaction that ran it, so a
-# migration runs once, and two apps can share a database. One whose SQL has
-# changed since it ran is refused, and the app does not start: a change that
-# has run is history, and a new one goes at the end of `all`. The session
-# comes back when every migration has run, so `.>` carries it on.
+# Each is recorded in `senro_migrations` under the app's name and its stamp,
+# or its place in `all` for a module kept as one file, beside the SQL it
+# ran, inside the transaction that ran it, so a migration runs once, and two
+# apps can share a database. One whose SQL has changed since it ran is
+# refused, and the app does not start: a change that has run is history, and
+# a new one is a new migration. The session comes back when every migration
+# has run, so `.>` carries it on.
 #
 # Each change does nothing when its work is already done, so a database made
 # before migrations were recorded takes the whole list safely the first time.
@@ -1154,9 +1261,14 @@ pub fn migrated db app steps
     .> (_ -> pg/query db history [app])
     .> (r -> pending db app steps (recorded r.rows))
 
+# A version is a migration's stamp, fourteen digits, or its place in `all`
+# for a module kept as one file; a table made when it was only ever a place
+# is widened to hold either.
 ledger = """
   create table if not exists senro_migrations
-    (app text, version int, change text not null, primary key (app, version))
+    (app text, version bigint, change text not null,
+     primary key (app, version));
+  alter table senro_migrations alter column version type bigint
 """
 
 history = "select version, change from senro_migrations where app = $1"
@@ -1165,9 +1277,20 @@ fn recorded rows
   each = (acc row -> put acc "{cell row "version"}" (cell row "change"))
   list/fold rows {} each
 
+fn pending db app f:filed_steps before
+  each = (acc s -> acc .> (n -> ran_file db app before n s f.changes))
+  list/fold f.stamps (effect 1) each .> (_ -> effect db)
+
 fn pending db app steps before
   each = (acc c -> acc .> (n -> ran db app before n c))
   list/fold steps (effect 1) each .> (_ -> effect db)
+
+# A migration kept in a file of its own is recorded under its stamp, with
+# every statement its changes make, and runs in one transaction.
+fn ran_file db app before n stamp changes
+  each = list/to_list (list/map (changes_in changes[n]) statement_of)
+  sql = text/join each ";\n"
+  stepped db app stamp sql before[stamp] .> (_ -> effect (n + 1))
 
 fn ran db app before n c
   version = "{n}"

@@ -36,6 +36,7 @@ cd notebook
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
 senro generate controller pages index show
+senro generate migration add_rating_to_notes rating:int
 senro generate authentication
 senro migrate
 senro server
@@ -67,8 +68,8 @@ of the seven the routing convention places (`index`, `show`, `new`,
 actions and no model behind them, and a view for each that shows a page.
 An action that writes answers with a redirect, to be filled in.
 
-`new` writes an entry, a home page, a layout and a migrations module with no
-changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
+`new` writes an entry, a home page, a layout and an empty `migrations`
+directory. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 `PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
 serves on port 3000.
 
@@ -89,10 +90,10 @@ for, as a Rails scaffold's do: `/notes.json` is the page's rows, each as
 `note_attributes` gives it, and `/notes/3.json` is one. Each `int` field
 gets a rule that the value is a whole number, so a form that says otherwise
 is shown again with the problem rather than
-refused by Postgres. It adds the migration that makes the table, whose last
-columns are `models/created_at` and `models/updated_at`, to the end of
-`migrations/all`, and both modules' imports to the entry, since a
-derivation reads the modules the entry names. The policies it
+refused by Postgres. It writes the migration that makes the table, whose last
+columns are `models/created_at` and `models/updated_at`, as
+`migrations/<stamp>_create_notes.kso`, and adds both modules' imports to the
+entry, since a derivation reads the modules the entry names. The policies it
 writes let anyone write; narrow them before the app is public.
 
 A `references` field nests the resource under another, as Rails' generator
@@ -130,6 +131,49 @@ Each generator prints the files it writes and changes. A file that is there
 already stops it before it writes anything, and so does a name or field it
 cannot read. `examples/notebook` is the app the four commands above write
 when they are given that path. The specs write it again and compare the two.
+
+### Migrations
+
+An app keeps its migrations one to a file, in `migrations`, as Rails keeps
+them in `db/migrate`. A file is named `<stamp>_<name>.kso`, where the stamp
+is the moment it was written as fourteen digits of UTC, and it holds one pub
+constant, `<name>`: a change, or a list of changes.
+
+```
+import "../../senro/models"
+
+pub add_rating_to_notes = [
+  (models/add_column "notes" (models/column "rating" "integer"))
+]
+```
+
+The migrations run in the order of the files' names, so the stamps decide the
+order and every machine builds the same schema from the same files. Each is
+recorded in `senro_migrations` under its stamp when it has run, so a branch
+that brings in an older migration still gets it run. The files share one
+module, so a name a file keeps to itself, such as a table's columns, is
+spelled so no other file uses it. A file whose name is not its stamp and its
+constant's name is refused when the app compiles, and so is a second file with
+a stamp another has.
+
+`senro generate migration <name> <field>...` writes one, stamped with now, and
+reads what to write from the name, as Rails' generator does:
+
+- `create_tags name:text` makes a table, as `scaffold` does: an id, the
+  fields, and the timestamps.
+- `add_rating_to_notes rating:int` adds a column for each field, with a
+  foreign key for a `references` field and an index for a `:uniq` one.
+- `remove_rating_from_notes rating` drops each column named.
+- `rename_title_to_heading_in_notes` renames one column.
+
+Any other name makes a migration with no changes in it and a comment listing
+the calls it can hold. A migration's name is lowercase words joined by
+underscores, at most 48 characters. Two written in the same second take that
+second and the next, so they keep their order.
+
+The schema the app is compiled against is folded from the same files, so a
+migration that renames a column the app reads is a compile error at the read
+until the app is changed with it.
 
 ## What is here
 
@@ -203,10 +247,14 @@ when they are given that path. The specs write it again and compare the two.
   either is ignored. As the app starts,
   `models/migrated db app migrations/all` runs the migrations the database has
   not yet run, in order, and records each in `senro_migrations` under the app's
-  name and its place in the list, beside the SQL it ran, as Rails records them
-  in `schema_migrations`; two apps can share a database. A migration runs once;
-  one whose SQL has changed since it ran stops the app, naming it, so a new
-  change goes at the end of the list. Each change does nothing when its work is
+  name and its stamp, beside the SQL it ran, as Rails records them in
+  `schema_migrations`; two apps can share a database. `migrations/all` is
+  derived from the files in `migrations` (see Migrations above). A module that
+  is one file, `migrations.kso`, and writes `pub all = [...]` itself is read as
+  it is and its changes are recorded by their place in the list, which suits a
+  spec or an app of a few lines. A migration runs once; one whose SQL has
+  changed since it ran stops the app, naming it, so a new change is a new
+  migration. Each change does nothing when its work is
   already done, so a database made before migrations were recorded takes the
   list safely the first time. Then `models/compared db schema` reads the live
   tables and answers the session when they agree with the schema, or an err

@@ -1,0 +1,7 @@
+import "../../../models"
+
+pub create_accounts = models/create_table "accounts" [
+  (models/column "id" "serial")
+  (models/column "name" "text")
+  (models/column "digest" "text")
+]

@@ -1,0 +1,5 @@
+import "../../../../models"
+
+pub add_stripes_to_zebras = [
+  (models/add_column "zebras" (models/column "stripes" "integer"))
+]

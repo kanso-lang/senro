@@ -1,0 +1,6 @@
+import "../../../models"
+
+# When the address was confirmed, or empty until it is.
+pub add_confirmed_to_accounts = [
+  (models/add_column "accounts" (models/column "confirmed" "text"))
+]

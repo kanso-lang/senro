@@ -1,0 +1,6 @@
+import "../../../models"
+
+# The key of the photo a signer chose, or empty for an entry without one.
+pub add_photo_to_signatures = [
+  (models/add_column "signatures" (models/column "photo" blank_text))
+]

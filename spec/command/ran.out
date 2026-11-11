@@ -1,6 +1,6 @@
   create blog/main.kso
   create blog/home.kso
-  create blog/migrations.kso
+  create blog/migrations/.keep
   create blog/views/layout.kata
   create blog/views/home.kata
 main.kso: ok
@@ -8,8 +8,50 @@ main.kso: ok
   create ./views/pages_index.kata
   create ./views/pages_show.kata
   change ./main.kso
+  create ./migrations/20261111180512_create_tags.kso
+  create ./migrations/20261111180513_add_color_to_tags.kso
+  create ./migrations/20261111180514_rename_color_to_shade_in_tags.kso
+  create ./migrations/20261111180515_remove_shade_from_tags.kso
+  create ./migrations/20261111180516_tidy_up.kso
+generate: ./migrations/20261111180516_tidy_up.kso is there already
+generate: cannot name a migration `Tidy-Up`: a migration's name is lowercase words joined by `_`
+generate: cannot read `weight:heavy`: a field is name:text, name:int, name:references or name:attachment
+generate: cannot write `create_the_longest_table_anyone_ever_named` in lines of 80 characters; write ./migrations/<stamp>_create_the_longest_table_anyone_ever_named.kso by hand
+== 20261111180512_create_tags.kso
+import "<senro>/models"
+
+pub create_tags = [tags_table (models/add_unique_index "tags" "name")]
+
+tags_table = models/create_table "tags" [
+  (models/column "id" "serial primary key")
+  (models/column "name" "text")
+  models/created_at
+  models/updated_at
+]
+== 20261111180513_add_color_to_tags.kso
+import "<senro>/models"
+
+pub add_color_to_tags = [
+  (models/add_column "tags" (models/column "color" "text"))
+  (models/add_column "tags" (models/column "post_id" "integer not null"))
+  (models/add_foreign_key "tags" "post_id" "posts")
+]
+== 20261111180514_rename_color_to_shade_in_tags.kso
+import "<senro>/models"
+
+pub rename_color_to_shade_in_tags = models/rename_column "tags" "color" "shade"
+== 20261111180515_remove_shade_from_tags.kso
+import "<senro>/models"
+
+pub remove_shade_from_tags = models/drop_column "tags" "shade"
+== 20261111180516_tidy_up.kso
+# The changes this migration makes, in order, each a call of senro's
+# models: create_table, add_column, rename_column, drop_column,
+# add_foreign_key or add_unique_index. Import models to write one.
+pub tidy_up = []
   scaffold
   controller
+  migration
   authentication
   greeting   (./generators/greeting.kso)
 greeting: ["one" "two"]
