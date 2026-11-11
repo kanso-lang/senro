@@ -1,0 +1,25 @@
+#!/bin/sh
+# senro's command. Put this directory on your PATH, then, in an app:
+#
+#   senro new blog                 a new app in ./blog
+#   senro generate ...             write code (`senro generate` lists how)
+#   senro server                   run the app
+#   senro migrate                  bring the database up to the migrations
+#
+# `server` and `migrate` run the app itself, which needs the terminal, so
+# they are handed to kanso here. Everything else is senro.kso. KANSO names
+# the kanso to run when it is not the one on the PATH.
+set -e
+kanso=${KANSO:-kanso}
+self=$(readlink -f "$0" 2>/dev/null || echo "$0")
+home=$(CDPATH= cd -- "$(dirname -- "$self")/.." && pwd)
+case "${1:-}" in
+  server|s)
+    shift
+    exec "$kanso" run . "$@"
+    ;;
+  migrate)
+    SENRO_ONLY=migrate exec "$kanso" run .
+    ;;
+esac
+SENRO_HOME="$home" exec "$kanso" run "$home/senro.kso" -- "$@"

@@ -33,7 +33,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock generate examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
+for d in routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -336,6 +336,51 @@ if diff -r examples/notebook "$gen" >/dev/null; then
 else
   bad "what generate writes is examples/notebook"
   diff -r examples/notebook "$gen"
+fi
+# The `senro` command, as an app's author runs it: `senro new` from a
+# directory outside senro, then from the app's directory a controller, the
+# list of generators with one the app ships, that generator, and each thing
+# the command refuses. The app must check as `new` leaves it and after the
+# controller. An app imports senro by the path from wherever it is, so what
+# is compared is what the command prints.
+case "$KANSO" in
+  */*) kanso_at=$(cd "$(dirname "$KANSO")" && pwd)/$(basename "$KANSO") ;;
+  *) kanso_at=$(command -v "$KANSO") ;;
+esac
+senro="$PWD/bin/senro"
+cmd=$(mktemp -d)
+ran=$(
+  cd "$cmd"
+  export KANSO="$kanso_at"
+  {
+    "$senro" new blog
+    cd blog
+    "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
+    "$senro" generate controller pages index show create
+    mkdir generators
+    printf 'import "std/io"\nimport "std/os"\n\n' > generators/greeting.kso
+    printf 'os/args .> (a -> io/write "greeting: {a}\\n")\n' \
+      >> generators/greeting.kso
+    "$senro" generate
+    "$senro" g greeting one two
+    "$senro" g nothing
+    "$senro" g controller pages index
+    "$senro" g controller things fly
+    "$senro" g controller Things index
+    "$senro" bogus
+    "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
+  } 2>&1
+)
+rm -rf "$cmd"
+if [ "${SPEC_WRITE:-}" = 1 ]; then
+  mkdir -p spec/command
+  printf '%s\n' "$ran" > spec/command/ran.out
+fi
+if printf '%s\n' "$ran" | diff spec/command/ran.out - >/dev/null; then
+  note "ok: the senro command writes, lists, runs and refuses"
+else
+  bad "the senro command writes, lists, runs and refuses"
+  printf '%s\n' "$ran" | diff spec/command/ran.out -
 fi
 # What the generators write and the pantry's modules go through their
 # models: none of them names the pg module (kanso#2394).

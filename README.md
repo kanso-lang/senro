@@ -27,15 +27,45 @@ adds, counts, renames and removes things on a shelf without a page reload.
 
 ## Generating an app
 
-senro's generators write an app and its resources, as Rails' do. They run
-from senro's own directory, and take the app's path relative to it:
+senro's command writes an app and its parts, as `rails` does. Put senro's
+`bin` directory on your PATH, and then:
 
 ```
-kanso run generate -- new apps/notebook
-kanso run generate -- scaffold apps/notebook note title:text pages:int cover:attachment
-kanso run generate -- scaffold apps/notebook page body:text note:references
-kanso run generate -- authentication apps/notebook
+senro new notebook
+cd notebook
+senro generate scaffold note title:text pages:int cover:attachment
+senro generate scaffold page body:text note:references
+senro generate controller pages index show
+senro generate authentication
+senro migrate
+senro server
 ```
+
+`senro generate` with nothing after it lists the generators. `g` is short
+for `generate` and `s` for `server`. `migrate` brings the database up to
+the app's migrations, checks the tables against the schema, and stops;
+`server` does the same and then serves. Both run the app, so they read the
+same `PG*` variables it does. `KANSO` names the kanso to use when it is not
+the one on your PATH.
+
+A generator senro does not ship is a kanso program at
+`generators/<name>.kso` or `generators/<name>/main.kso`, in the app or
+beside a library the app's entry imports by path: an import of
+`../lib/shop/carts` looks in `../lib/shop/generators`. `senro generate
+<name> <word>...` runs it in the app's directory with the words as its
+arguments, and `senro generate` lists it with where it was found. senro's
+own generators are looked for first, so one from outside cannot take the
+place of `scaffold`.
+
+The generators also run from senro's own directory with the app's path
+given, as `kanso run generate -- scaffold apps/notebook note title:text`,
+which is how senro's specs run them.
+
+`controller` takes a plural name and the actions it should have, each one
+of the seven the routing convention places (`index`, `show`, `new`,
+`create`, `edit`, `update`, `destroy`). It writes a module with those
+actions and no model behind them, and a view for each that shows a page.
+An action that writes answers with a redirect, to be filled in.
 
 `new` writes an entry, a home page, a layout and a migrations module with no
 changes in it. The entry connects to the Postgres that `PGHOST`, `PGPORT`,

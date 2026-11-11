@@ -76,6 +76,15 @@ type site
 # of their window is forgotten once the map has grown past `sweep_past`
 # clients (`remembered` says how many it holds).
 pub fn serve at routes connect
+  os/env "SENRO_ONLY" .> (only -> served only at routes connect)
+
+# `senro migrate` runs the app with SENRO_ONLY=migrate. The entry migrates
+# and compares the schema before it serves, so an app that stops here has
+# done both and opened no port.
+fn served "migrate" _ _ _
+  io/write "migrated\n"
+
+fn served _ at routes connect
   pool/make sessions
     .> (dbs -> filled dbs connect sessions)
     .> (dbs -> counting .> (calls -> watched at routes dbs connect calls))

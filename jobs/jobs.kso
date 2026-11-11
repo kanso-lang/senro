@@ -2,6 +2,7 @@ import "../pg"
 import "std/io"
 import "std/json"
 import "std/list"
+import "std/os"
 import "std/text"
 import "std/time"
 
@@ -130,6 +131,13 @@ pub fn worker db queue performers
 # fiber of its own, on a session `connect` opens. The worker makes the jobs
 # table when it is missing before it starts.
 pub fn beside connect queue performers served
+  os/env "SENRO_ONLY" .> (only -> started only connect queue performers served)
+
+# Under `senro migrate` there is nothing to work beside (web/serve).
+fn started "migrate" _ _ _ served
+  served
+
+fn started _ connect queue performers served
   connect .> (db -> prepared db) .> (db -> worker db queue performers)
   served
 

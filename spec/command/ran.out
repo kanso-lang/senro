@@ -1,0 +1,25 @@
+  create blog/main.kso
+  create blog/home.kso
+  create blog/migrations.kso
+  create blog/views/layout.kata
+  create blog/views/home.kata
+main.kso: ok
+  create ./pages.kso
+  create ./views/pages_index.kata
+  create ./views/pages_show.kata
+  change ./main.kso
+  scaffold
+  controller
+  authentication
+  greeting   (./generators/greeting.kso)
+greeting: ["one" "two"]
+senro: no generator named `nothing`; `senro generate` lists them
+generate: ./pages.kso is there already
+generate: `fly` has no route; an action is one of index, show, new, create, edit, update, destroy
+generate: cannot name a controller `Things`: a resource's name is spelled as a field's is
+senro: usage: senro new <app>
+       senro generate <generator> <word>...   (or `senro g`)
+       senro generate                         lists the generators
+       senro server                           (or `senro s`)
+       senro migrate
+main.kso: ok

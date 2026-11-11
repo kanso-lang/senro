@@ -70,14 +70,15 @@ home_lines = [
   ""
 ]
 
-pub fn migrations senro
-  lines = [
-    "import \"{senro}/models\""
-    ""
-    "# The app's schema, as the changes that built it, oldest first."
-    "pub all = []"
-  ]
-  "{text/join lines "\n"}\n"
+# A new app has no changes yet, and so nothing of senro's to import: the
+# first generator that adds one writes the import with it.
+pub migrations = text/join migrations_lines "\n"
+
+migrations_lines = [
+  "# The app's schema, as the changes that built it, oldest first."
+  "pub all = []"
+  ""
+]
 
 local = "import \"./"
 
