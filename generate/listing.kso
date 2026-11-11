@@ -1,0 +1,99 @@
+import "std/list"
+import "std/text"
+
+# What `senro routes` prints: every route the app's entry derives, as
+# `rails routes` lists them. A line is the verb, the path and the action
+# that answers it, then `open` for a route that asks for no sign-in and
+# `limited` for one that counts its calls. The routes come from what
+# `kanso derived` prints for the app, where `routes/rest` declares the
+# table as `routes`, so listing them compiles the app and opens no database.
+type route
+  verb
+  path
+  action
+  notes
+
+opening = "routes = \{ "
+
+# The lines for the table `derived` holds, or none when it holds no table.
+pub fn table derived
+  lines = list/to_list (text/split derived "\n")
+  found = list/to_list (list/select lines (l -> text/starts_with? l opening))
+  return none if length found == 0
+  lined (rows_of (text_or_blank found[1]))
+
+# A route is written `"GET /notes":{ "action":notes/index ... }`, so the
+# text between two actions ends with the next route's key.
+fn rows_of line
+  pieces = list/to_list (text/split line "\":\{ \"action\":")
+  before = list/to_list (list/take pieces (length pieces - 1))
+  each = (acc key -> list/concat acc [(row_of key pieces[length acc + 2])])
+  list/fold before [] each
+
+fn row_of key none
+  route "" key "" ""
+
+fn row_of key held
+  named = text_or_blank (list/last (list/to_list (text/split key "\"")))
+  words = list/to_list (text/split named " ")
+  action = text_or_blank (list/first (list/to_list (text/split held " ")))
+  route (text_or_blank words[1]) (text_or_blank words[2]) action (noted held)
+
+fn noted held
+  open = if (holds? held "\"open\":true") ["open"] []
+  limited = if (holds? held "\"limit\":\{") ["limited"] []
+  text/join (list/concat open limited) ", "
+
+fn holds? whole part
+  length (list/to_list (text/split whole part)) > 1
+
+# The rows by path, a named part before a parameter so `/notes/new` comes
+# before `/notes/:id`, and for one path in the order a resource is read:
+# GET, POST, PATCH, PUT, DELETE.
+fn lined rows
+  order = list/sort (list/to_list (list/map rows placed))
+  sorted = list/to_list (list/map order (k -> matching rows k))
+  wide = list/fold rows 0 (acc r -> longer acc r.path)
+  long = list/fold rows 0 (acc r -> longer acc r.action)
+  each = list/to_list (list/map sorted (r -> line_of r wide long))
+  "{text/join each "\n"}\n"
+
+fn longer acc word
+  return length word if length word > acc
+  acc
+
+fn placed r
+  "{text/replace r.path ":" "~"} {rank r.verb}"
+
+fn matching rows key
+  list/first (list/to_list (list/select rows (r -> placed r == key)))
+
+fn line_of none _ _
+  ""
+
+fn line_of r wide long
+  path = text/pad_end r.path wide " "
+  return "{text/pad_end r.verb 7 " "} {path}  {r.action}" if r.notes == ""
+  action = text/pad_end r.action long " "
+  "{text/pad_end r.verb 7 " "} {path}  {action}  {r.notes}"
+
+fn rank "GET"
+  1
+
+fn rank "POST"
+  2
+
+fn rank "PATCH"
+  3
+
+fn rank "PUT"
+  4
+
+fn rank _
+  5
+
+fn text_or_blank none
+  ""
+
+fn text_or_blank s
+  s

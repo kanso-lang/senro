@@ -55,6 +55,10 @@ pub tidy_up = []
   authentication
   greeting   (./generators/greeting.kso)
 greeting: ["one" "two"]
+GET     /           home/index
+GET     /pages      pages/index
+POST    /pages      pages/create
+GET     /pages/:id  pages/show
 senro: no generator named `nothing`; `senro generate` lists them
 generate: ./pages.kso is there already
 generate: `fly` has no route; an action is one of index, show, new, create, edit, update, destroy
@@ -62,6 +66,7 @@ generate: cannot name a controller `Things`: a resource's name is spelled as a f
 senro: usage: senro new <app>
        senro generate <generator> <word>...   (or `senro g`)
        senro generate                         lists the generators
+       senro routes                           lists the routes
        senro server                           (or `senro s`)
        senro migrate
 main.kso: ok
