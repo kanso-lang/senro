@@ -343,7 +343,7 @@ else
 fi
 # The `senro` command, as an app's author runs it: `senro new` from a
 # directory outside senro, then from the app's directory a controller, a
-# migration of each kind its name can ask for, the list of generators with
+# model, a migration of each kind its name can ask for, a mailer, the list of generators with
 # one the app ships, that generator, the app's routes, and each thing the
 # command refuses. The app must check as `new` leaves it and after the
 # controller. An app imports senro by the path from wherever it is, so what
@@ -363,7 +363,8 @@ ran=$(
     "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
     "$senro" generate controller pages index show create
     export KANSO_NOW=1794420312000
-    "$senro" generate migration create_tags name:text:uniq
+    "$senro" generate model tag name:text:uniq
+    "$senro" generate migration create_labels name:text
     "$senro" generate migration add_color_to_tags color:text post:references
     "$senro" generate migration rename_color_to_shade_in_tags
     "$senro" generate migration remove_shade_from_tags shade
@@ -372,6 +373,13 @@ ran=$(
     "$senro" g migration Tidy-Up
     "$senro" g migration add_weight_to_tags weight:heavy
     "$senro" g migration create_the_longest_table_anyone_ever_named a:text
+    "$senro" g model tag name:text
+    "$senro" g model Tag name:text
+    "$senro" generate mailer account welcome password_changed
+    "$senro" g mailer account welcome
+    "$senro" g mailer account Welcome
+    sed 's|^import ".*/mail"$|import "<senro>/mail"|' account_mailer.kso
+    "$KANSO" check account_mailer.kso
     ls migrations | while read -r f; do
       echo "== $f"
       sed 's|^import ".*/models"$|import "<senro>/models"|' "migrations/$f"

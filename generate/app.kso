@@ -3,11 +3,14 @@ import "std/text"
 
 # What `generate new` writes for an app, as `rails new` does: an entry that
 # connects to the Postgres the environment names, runs the app's migrations
-# and serves its routes; a home page; and a layout. Its migrations go in
+# and serves its routes, with a worker beside the server that sends the mail
+# the app queues; a home page; and a layout. Its migrations go in
 # `migrations/`, which starts empty. Each function answers a file's text.
 pub fn entry senro name
   lines = [
+    "import \"{senro}/jobs\""
     "import \"{senro}/kata\""
+    "import \"{senro}/mail\""
     "import \"{senro}/models\""
     "import \"{senro}/pg\""
     "import \"{senro}/routes\""
@@ -25,11 +28,14 @@ pub fn entry senro name
     "# sets them."
     "connected = pg/from_env"
     ""
+    "# A worker beside the server sends the mail the app queues."
+    "serving = web/serve 3000 routes connected"
+    ""
     "connected"
     "  .> (db -> models/migrated db \"{name}\" migrations/all)"
     "  .> (db -> models/compared db schema)"
     "  .> (db -> pg/close db)"
-    "  .> (_ -> web/serve 3000 routes connected)"
+    "  .> (_ -> jobs/beside connected \"mail\" mail/performers serving)"
   ]
   "{text/join lines "\n"}\n"
 

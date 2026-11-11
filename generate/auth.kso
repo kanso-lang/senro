@@ -42,19 +42,18 @@ pub fn secret_of bytes
 # The fields of the `users` table, as `scaffold` reads them.
 pub fields = ["email:text:uniq" "digest:text"]
 
-serve_line = "  .> (_ -> web/serve 3000 routes connected)"
+serve_line = "serving = web/serve 3000 routes connected"
 
-connect_line = "connected = pg/from_env"
+worker_line = "# A worker beside the server sends the mail the app queues."
 
 # The entry `generate new` wrote, signed: every action asks for a sign-in
-# unless its module says otherwise, and a worker beside the server sends the
-# mail the app queues. None when the entry no longer reads as `new` wrote
-# it.
-pub fn entry_signed main senro
+# unless its module says otherwise. None when the entry no longer reads as
+# `new` wrote it.
+pub fn entry_signed main
   lines = text/split main "\n"
   return none if not list/any? lines (l -> l == serve_line)
-  return none if not list/any? lines (l -> l == connect_line)
-  served = list/to_list (list/map lines (l -> signed_line l senro))
+  return none if not list/any? lines (l -> l == worker_line)
+  served = list/to_list (list/map lines signed_line)
   own = text/join served "\n"
   locals = list/fold imported own (e n -> with e n)
   locals
@@ -68,28 +67,17 @@ fn answered none entry
 fn answered changed _
   changed
 
-fn signed_line line senro
-  kata = "import \"{senro}/kata\""
-  models = "import \"{senro}/models\""
-  return walled if line == connect_line
-  return beside_line if line == serve_line
-  return "import \"{senro}/jobs\"\n{line}" if line == kata
-  return "import \"{senro}/mail\"\n{line}" if line == models
+fn signed_line line
+  return walled if line == worker_line
+  return "serving = web/serve 3000 signed connected" if line == serve_line
   line
-
-beside_line = "  .> (_ -> {beside})"
-
-beside = "jobs/beside connected \"mail\" mail/performers serving"
 
 walled = text/join walled_lines "\n"
 
 walled_lines = [
-  connect_line
-  ""
   "# Every action asks for a sign-in unless its module lists it in"
   "# `without_sign_in`, and a worker beside the server sends the mail the app"
   "# queues."
   "signed = web/requiring_sign_in routes session/secret session/signed_against"
   ""
-  "serving = web/serve 3000 signed connected"
 ]

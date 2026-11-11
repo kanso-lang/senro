@@ -1,0 +1,58 @@
+import "std/list"
+import "std/text"
+
+# What `generate mailer` writes, as Rails' mailer generator does: a module
+# named `<name>_mailer` with a function for each letter. A letter is
+# composed from the app's sender to an address and queued on `db`, and the
+# worker the entry runs beside the server sends it.
+pub fn module senro name letters
+  head = [
+    "import \"{senro}/mail\""
+    "import \"std/text\""
+    ""
+    "# The app's {worded_from name} mail, as a Rails mailer holds it: what each"
+    "# letter says. Each is queued on `db` and sent by the worker beside the"
+    "# server."
+    "#"
+    "# The address the app's mail comes from. Change it to one the mail"
+    "# server `SENRO_MAIL` names will send as."
+    "sender = \"noreply@example.com\""
+  ]
+  each = list/to_list (list/map letters letter_of)
+  "{text/join head "\n"}\n\n{text/join each "\n\n"}\n"
+
+pub fn file name
+  "{name}_mailer.kso"
+
+# A letter: the function an action calls, and what the letter says.
+fn letter_of letter
+  lines = [
+    "pub fn {letter} db to"
+    "  mail/delivered_later db ({letter}_letter to)"
+    ""
+    "fn {letter}_letter to"
+    "  lines = ["
+    "    \"Hello,\""
+    "    \"\""
+    "    \"Write what this letter says here, one line of it to a string.\""
+    "  ]"
+    "  body = text/join lines \"\\n\""
+    "  mail/composed sender to \"{subject_of letter}\" body"
+  ]
+  text/join lines "\n"
+
+# A letter's subject, from its name: `password_changed` is "Password
+# changed".
+fn subject_of letter
+  said = worded_from letter
+  first = text/uppercase (letter_or_blank (text/slice said 1 1))
+  "{first}{letter_or_blank (text/slice said 2 (length said))}"
+
+fn worded_from name
+  text/replace name "_" " "
+
+fn letter_or_blank none
+  ""
+
+fn letter_or_blank s
+  s

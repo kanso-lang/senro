@@ -2,6 +2,7 @@ import "../models"
 import "./app"
 import "./auth"
 import "./controller"
+import "./mailer"
 import "./migration"
 import "./scaffold"
 import "std/io"
@@ -14,7 +15,9 @@ import "std/time"
 #
 #   kanso run generate -- new apps/notebook
 #   kanso run generate -- scaffold apps/notebook note title:text body:int
+#   kanso run generate -- model apps/notebook tag name:text
 #   kanso run generate -- migration apps/notebook add_cover_to_notes cover:text
+#   kanso run generate -- mailer apps/notebook account welcome
 #   kanso run generate -- authentication apps/notebook
 #
 # Each prints the files it writes, as Rails' generators do. Nothing is
@@ -49,6 +52,27 @@ fn chosen "controller" rest
   os/exists "{app}/{plural}.kso"
     .> (there -> controlled there app plural actions)
 
+fn chosen "model" rest
+  app = said (list/first rest)
+  singular = said (list/first (list/drop rest 1))
+  words = list/to_list (list/drop rest 2)
+  return usage if app == "" or singular == ""
+  named = scaffold/resource_named singular
+  return refused "cannot name a model `{singular}`: {named}" if named != ""
+  modelled (scaffold/fields_of words) app singular
+
+fn chosen "mailer" rest
+  app = said (list/first rest)
+  name = said (list/first (list/drop rest 1))
+  letters = list/to_list (list/drop rest 2)
+  return usage if app == "" or name == "" or length letters == 0
+  named = scaffold/resource_named name
+  odd = list/to_list (list/select letters unnamed?)
+  return refused "cannot name a mailer `{name}`: {named}" if named != ""
+  return refused "cannot name a letter `{said odd[1]}`" if length odd > 0
+  os/exists "{app}/{mailer/file name}"
+    .> (there -> mailed there app name letters)
+
 fn chosen "migration" rest
   app = said (list/first rest)
   name = said (list/first (list/drop rest 1))
@@ -72,7 +96,9 @@ usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
   "       kanso run generate -- controller <app> <plural> <action>..."
+  "       kanso run generate -- model <app> <singular> <name:kind>..."
   "       kanso run generate -- migration <app> <name> <name:kind>..."
+  "       kanso run generate -- mailer <app> <name> <letter>..."
   "       kanso run generate -- authentication <app>"
   "a kind is text, int, references or attachment"
 ]
@@ -276,6 +302,57 @@ fn with_resource none _
 fn with_resource entry plural
   app/entry_with entry plural
 
+fn unnamed? letter
+  scaffold/resource_named letter != ""
+
+# `model` writes what `scaffold` writes for the model and stops there: the
+# module named for the record and the migration that makes its table.
+fn modelled f:scaffold/unreadable _ _
+  refused "cannot read `{f.word}`: {f.why}"
+
+fn modelled fields app singular
+  os/exists "{app}/{singular}.kso"
+    .> (there -> model_fresh there app singular fields)
+
+fn model_fresh true app singular _
+  refused "{app}/{singular}.kso is there already"
+
+fn model_fresh false app singular fields
+  os/read_file "{app}/main.kso" .> (main -> model_in app singular fields main)
+
+fn model_in app _ _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn model_in app singular fields main
+  migrations_in app .> (names -> model_wrote app singular fields main names)
+
+fn model_wrote app singular fields main names
+  plural = models/plural singular
+  senro = senro_in main (up_from app)
+  entry = app/entry_with main singular
+  made = "create_{plural}"
+  held = migration/holding names made
+  bare = "{app}/main.kso imports nothing of its own"
+  return refused bare if entry == none
+  return refused "{app}/migrations/{held} is there already" if held != ""
+  written "{app}/{singular}.kso" (scaffold/model senro singular fields)
+    .> (_ -> stamped app names made (migration/create senro plural fields))
+    .> (_ -> changed "{app}/main.kso" (said entry))
+
+fn mailed true app name _
+  refused "{app}/{mailer/file name} is there already"
+
+fn mailed false app name letters
+  os/read_file "{app}/main.kso" .> (main -> mail_in app name letters main)
+
+fn mail_in app _ _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn mail_in app name letters main
+  senro = senro_in main (up_from app)
+  path = "{app}/{mailer/file name}"
+  written path (mailer/module senro name letters)
+
 # The names in an app's `migrations/`, which is where each generator
 # writes a migration. An app that keeps its migrations in one file,
 # `migrations.kso`, is one the generators leave alone.
@@ -373,7 +450,7 @@ fn unwritten there _
 
 fn signing app main names
   senro = senro_in main (up_from app)
-  entry = auth/entry_signed main senro
+  entry = auth/entry_signed main
   held = migration/holding names "create_users"
   odd = "{app}/main.kso no longer serves as `new` wrote it"
   return refused odd if entry == none

@@ -8,15 +8,58 @@ main.kso: ok
   create ./views/pages_index.kata
   create ./views/pages_show.kata
   change ./main.kso
+  create ./tag.kso
   create ./migrations/20261111180512_create_tags.kso
-  create ./migrations/20261111180513_add_color_to_tags.kso
-  create ./migrations/20261111180514_rename_color_to_shade_in_tags.kso
-  create ./migrations/20261111180515_remove_shade_from_tags.kso
-  create ./migrations/20261111180516_tidy_up.kso
-generate: ./migrations/20261111180516_tidy_up.kso is there already
+  change ./main.kso
+  create ./migrations/20261111180513_create_labels.kso
+  create ./migrations/20261111180514_add_color_to_tags.kso
+  create ./migrations/20261111180515_rename_color_to_shade_in_tags.kso
+  create ./migrations/20261111180516_remove_shade_from_tags.kso
+  create ./migrations/20261111180517_tidy_up.kso
+generate: ./migrations/20261111180517_tidy_up.kso is there already
 generate: cannot name a migration `Tidy-Up`: a migration's name is lowercase words joined by `_`
 generate: cannot read `weight:heavy`: a field is name:text, name:int, name:references or name:attachment
 generate: cannot write `create_the_longest_table_anyone_ever_named` in lines of 80 characters; write ./migrations/<stamp>_create_the_longest_table_anyone_ever_named.kso by hand
+generate: ./tag.kso is there already
+generate: cannot name a model `Tag`: a resource's name is spelled as a field's is
+  create ./account_mailer.kso
+generate: ./account_mailer.kso is there already
+generate: cannot name a letter `Welcome`
+import "<senro>/mail"
+import "std/text"
+
+# The app's account mail, as a Rails mailer holds it: what each
+# letter says. Each is queued on `db` and sent by the worker beside the
+# server.
+#
+# The address the app's mail comes from. Change it to one the mail
+# server `SENRO_MAIL` names will send as.
+sender = "noreply@example.com"
+
+pub fn welcome db to
+  mail/delivered_later db (welcome_letter to)
+
+fn welcome_letter to
+  lines = [
+    "Hello,"
+    ""
+    "Write what this letter says here, one line of it to a string."
+  ]
+  body = text/join lines "\n"
+  mail/composed sender to "Welcome" body
+
+pub fn password_changed db to
+  mail/delivered_later db (password_changed_letter to)
+
+fn password_changed_letter to
+  lines = [
+    "Hello,"
+    ""
+    "Write what this letter says here, one line of it to a string."
+  ]
+  body = text/join lines "\n"
+  mail/composed sender to "Password changed" body
+account_mailer.kso: ok
 == 20261111180512_create_tags.kso
 import "<senro>/models"
 
@@ -28,7 +71,16 @@ tags_table = models/create_table "tags" [
   models/created_at
   models/updated_at
 ]
-== 20261111180513_add_color_to_tags.kso
+== 20261111180513_create_labels.kso
+import "<senro>/models"
+
+pub create_labels = models/create_table "labels" [
+  (models/column "id" "serial primary key")
+  (models/column "name" "text")
+  models/created_at
+  models/updated_at
+]
+== 20261111180514_add_color_to_tags.kso
 import "<senro>/models"
 
 pub add_color_to_tags = [
@@ -36,22 +88,24 @@ pub add_color_to_tags = [
   (models/add_column "tags" (models/column "post_id" "integer not null"))
   (models/add_foreign_key "tags" "post_id" "posts")
 ]
-== 20261111180514_rename_color_to_shade_in_tags.kso
+== 20261111180515_rename_color_to_shade_in_tags.kso
 import "<senro>/models"
 
 pub rename_color_to_shade_in_tags = models/rename_column "tags" "color" "shade"
-== 20261111180515_remove_shade_from_tags.kso
+== 20261111180516_remove_shade_from_tags.kso
 import "<senro>/models"
 
 pub remove_shade_from_tags = models/drop_column "tags" "shade"
-== 20261111180516_tidy_up.kso
+== 20261111180517_tidy_up.kso
 # The changes this migration makes, in order, each a call of senro's
 # models: create_table, add_column, rename_column, drop_column,
 # add_foreign_key or add_unique_index. Import models to write one.
 pub tidy_up = []
   scaffold
+  model
   controller
   migration
+  mailer
   authentication
   greeting   (./generators/greeting.kso)
 greeting: ["one" "two"]
