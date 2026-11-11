@@ -8,7 +8,10 @@
 # sent, and stays when the note is changed without choosing another. Then
 # the pages nested under a note: makes one, asks for it under another note
 # and under one that is not there, changes it, and removes its note, which
-# removes it. Then signing out, a wrong password, and a lost one: a link is
+# removes it. Then the readings, a resource with no pages: one is made
+# with JSON and one with a form, a field that breaks its rule is answered
+# with the problem, one is read, changed in part and listed, and both are
+# removed. Then signing out, a wrong password, and a lost one: a link is
 # mailed to <outbox>, followed, and the new password signs in. Last, runs
 # of wrong passwords: four leave the account open, and five in a row lock
 # it, after which the right password is told so. Prints each
@@ -87,6 +90,31 @@ echo "the pages then: $(page "$held/pages")"
 echo "removing its note: $(asked -d "_method=DELETE" "$at$held")"
 echo "the page then: $(asked "$at$kept")"
 c -o /dev/null -d "_method=DELETE" "$at$other"
+
+# The readings, which `generate resource` wrote: an API with no pages.
+# An id reads as N and a time as T, as above.
+j() { c -H "Content-Type: application/json" "$@"; }
+api() {
+  tr -d '\n' | sed -E 's/"id":[0-9]+/"id":N/g' |
+    sed -E 's/"(created|updated)_at":"[^"]*"/"\1_at":"T"/g'
+  echo
+}
+id_of() { grep -o '"id":[0-9]*' | head -1 | cut -d: -f2; }
+first=$(j -w " %{http_code}" -d '{"title":"Dune","minutes":45}' "$at/readings")
+second=$(c -w " %{http_code}" -d "title=Emma&minutes=30" "$at/readings")
+echo "a reading made with json: $(echo "$first" | api)"
+echo "one made with a form: $(echo "$second" | api)"
+long='{"title":"Ulysses","minutes":"many"}'
+echo "minutes that are no number: $(j -w " %{http_code}" -d "$long" "$at/readings" | api)"
+one="$at/readings/$(echo "$first" | id_of)"
+other="$at/readings/$(echo "$second" | id_of)"
+echo "it is read: $(c "$one" | api)"
+echo "changed in part: $(j -X PATCH -d '{"minutes":50}' "$one" | api)"
+echo "changed by nothing: $(j -X PATCH -d '{"pages":9}' "$one" | api)"
+echo "the readings: $(c "$at/readings" | api)"
+echo "removed: $(c -o /dev/null -w "%{http_code}" -X DELETE "$one")"
+echo "read again: $(c -o /dev/null -w "%{http_code}" "$one")"
+c -o /dev/null -X DELETE "$other"
 
 # Signing out, signing in with a wrong password, and a lost one.
 echo "signing out: $(sent /session "_method=DELETE")"

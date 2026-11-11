@@ -30,6 +30,15 @@ changing it: 303 /notes/N/pages/N
 the pages then:  Pages Pages New page Back to the note changed 
 removing its note: 303 /notes
 the page then: 404 
+a reading made with json: {"created_at":"T","id":N,"minutes":45,"title":"Dune","updated_at":"T"} 201
+one made with a form: {"created_at":"T","id":N,"minutes":30,"title":"Emma","updated_at":"T"} 201
+minutes that are no number: {"minutes":"Give a whole number."} 422
+it is read: {"created_at":"T","id":N,"minutes":45,"title":"Dune","updated_at":"T"}
+changed in part: {"created_at":"T","id":N,"minutes":50,"title":"Dune","updated_at":"T"}
+changed by nothing: {"created_at":"T","id":N,"minutes":50,"title":"Dune","updated_at":"T"}
+the readings: [{"created_at":"T","id":N,"minutes":50,"title":"Dune","updated_at":"T"},{"created_at":"T","id":N,"minutes":30,"title":"Emma","updated_at":"T"}]
+removed: 204
+read again: 404
 signing out: 303 to /session/new
 the notes then: 303 /session/new
 a wrong password: 422

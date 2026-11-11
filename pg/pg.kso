@@ -156,9 +156,6 @@ pub fn query s sql params
 pub fn row_by_id s table columns id
   query s "select {text/join columns ", "} from {table} where id = $1" ["{id}"]
 
-# Writes `changes`, a map from a field to its new value, into the row with
-# `id`. A key that is not one of `columns` is left out, so the SQL names only
-# the model's own fields, and every value goes as a parameter.
 # One more in the column `field` of the row with this id, added by Postgres
 # in the statement that answers the row as the change left it, so two
 # sessions that count at once each get a count of their own.
@@ -166,6 +163,10 @@ pub fn increment_by_id s table columns field id
   sql = "update {table} set {field} = coalesce({field}, 0) + 1"
   query s "{sql} where id = $1 returning {text/join columns ", "}" ["{id}"]
 
+# Writes `changes`, a map from a field to its new value, into the row with
+# `id`. A key that is not one of `columns` is left out, so the SQL names only
+# the model's own fields, and every value goes as a parameter. The answer's
+# rows hold the row as the change left it.
 pub fn update_by_id s table columns id changes
   named = list/select (keys changes) (k -> list/any? columns (c -> c == k))
   cols = list/to_list named
@@ -173,7 +174,7 @@ pub fn update_by_id s table columns id changes
   given = list/to_list (list/map cols (c -> "{changes[c]}"))
   at = length cols + 1
   sql = "update {table} set {text/join sets ", "} where id = ${at}"
-  query s sql (push given "{id}")
+  query s "{sql} returning {text/join columns ", "}" (push given "{id}")
 
 # A new row, from `given_row`, a map from a field to its value. As with an
 # update, a key that is not one of `columns` is left out and every value goes

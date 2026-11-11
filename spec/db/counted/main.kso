@@ -29,6 +29,7 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> counting/missed (models/as_app db) "the app counts" .> (_ -> db))
   .> (db -> counting/cleared db "a visitor clears" .> (_ -> db))
   .> (db -> counting/cleared (models/as_app db) "the app clears" .> (_ -> db))
+  .> (db -> counting/untouched (models/as_app db) "no change" .> (_ -> db))
   .> (db -> counting/raced db 8 .> (_ -> db))
   .> (db -> counting/missed_in db "name; drop table accounts")
   .? (u -> print u.reason)

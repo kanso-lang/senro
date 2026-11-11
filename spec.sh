@@ -302,6 +302,10 @@ made=$({
     cover:attachment
   "$KANSO" run generate -- scaffold "$gen" page body:text note:references
   "$KANSO" run generate -- authentication "$gen"
+  "$KANSO" run generate -- resource "$gen" reading title:text minutes:int
+  "$KANSO" run generate -- resource "$gen" reading title:text
+  "$KANSO" run generate -- resource "$gen" photo cover:attachment
+  "$KANSO" run generate -- resource "$gen" chapter body:text note:references
   "$KANSO" run generate -- scaffold "$gen" note title:text
   "$KANSO" run generate -- scaffold "$gen" book title:words
   "$KANSO" run generate -- scaffold "$gen" book Title:text
@@ -422,7 +426,8 @@ fi
 # What the generators write and the pantry's modules go through their
 # models: none of them names the pg module (kanso#2394).
 sql=$(grep -n "pg/" "$gen/note.kso" "$gen/notes.kso" "$gen/page.kso" \
-  "$gen/pages.kso" "$gen/user.kso" "$gen/registration.kso" \
+  "$gen/pages.kso" "$gen/reading.kso" "$gen/readings.kso" \
+  "$gen/user.kso" "$gen/registration.kso" \
   "$gen/session.kso" "$gen/resets.kso" examples/pantry/items.kso \
   examples/pantry/stock.kso)
 # The guestbook's modules hold no query either; its entry opens and closes
