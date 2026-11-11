@@ -397,14 +397,15 @@ fn read_source marks
     "  wire/drawn p"
     ""
     "pub fn rendered bs"
-    "  kata_drawn bs (wire/count_at bs (kata_opened bs))"
+    "  kata_drawn bs (kata_opened bs)"
     ""
     "fn kata_opened bs"
     "  first = {first}"
     "  second = {second}"
     "  if (first and second) 5 0"
     ""
-    "fn kata_drawn bs r"
+    "fn kata_drawn bs p"
+    "  r = wire/count_at bs p"
     "  kata_shown r.value bs r.next"
     ""
   ]
@@ -462,7 +463,7 @@ read_splice = """
     wire/drawn p
 
   fn kata_raw b:wire/blob
-    kata_drawn b.bytes (wire/count_at b.bytes 1)
+    kata_drawn b.bytes 1
 
   fn kata_raw x
     "\{x}"
