@@ -240,7 +240,8 @@ else
         sleep 0.1
         tries=$((tries + 1))
       done
-      got=$(curl -s -m 10 "http://127.0.0.1:$port/nested")
+      # Half a minute, since spec/serve/idle waits out a session's window.
+      got=$(curl -s -m 30 "http://127.0.0.1:$port/nested")
       # What the server wrote is read before it is stopped. A request's line
       # is written before its answer, so every line is there by now, and a
       # server being ended may add a word about the signal that ended it.

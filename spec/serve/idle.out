@@ -1,0 +1,5 @@
+HTTP/1.1 303 See Other, setting a session to /notes
+HTTP/1.1 200 OK: every note, read by ada
+HTTP/1.1 200 OK, setting a session: every note, read by ada
+HTTP/1.1 200 OK, setting a session: every note, read by ada
+HTTP/1.1 303 See Other, setting a session to /session/new

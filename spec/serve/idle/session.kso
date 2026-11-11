@@ -1,0 +1,17 @@
+import "../../../web"
+import "std/net/http"
+
+pub without_sign_in = ["create" "new"]
+
+pub secret = "the spec's secret"
+
+# How long a sign-in lasts with no request: three seconds, as minutes.
+pub idle_minutes = 0.05
+
+pub fn new _ _
+  effect (http/text_page "sign in here")
+
+# Anyone who asks is signed in as ada, for as long as she keeps asking.
+pub fn create req _
+  s = web/idle_after (web/session req secret) idle_minutes
+  effect (web/signed_in req (web/redirect "/notes") secret s "ada" "")

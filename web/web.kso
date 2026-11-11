@@ -5,6 +5,7 @@ import "std/base64"
 import "std/io"
 import "std/json"
 import "std/list"
+import "std/math"
 import "std/net"
 import "std/net/http"
 import "std/os"
@@ -1212,10 +1213,32 @@ fn admitted req db open secret bound_of go
   bound_of db who .> (b -> current req open secret s b go)
 
 fn current req open secret s bound go
-  return go req if said s["bound"] == fingerprint secret bound
+  fresh = said s["bound"] == fingerprint secret bound
+  return go req .> (r -> effect (seen_again r req secret s)) if fresh
   return turned_back req secret (forgotten s) if not open
   ended = forgotten s
   go (reheard req secret ended) .> (r -> effect (forgetting r secret ended))
+
+# A request from a session with an idle window moves the session's last
+# moment on to its own, at most once a second, unless the action set a
+# session itself.
+fn seen_again r req secret s
+  return r if s["idle"] == none or list/any? r.headers sets_session?
+  at = said req.headers["senro-at"]
+  return r if not later? (text/to_int at) (text/to_int (said s["seen"]))
+  kept r secret (put s "seen" at)
+
+fn later? none none
+  false
+
+fn later? none _
+  false
+
+fn later? _ none
+  true
+
+fn later? at seen
+  at - seen >= 1000
 
 # `req` as its action reads it once its sign-in is over: its cookie names
 # the session `held` first, which is the one `session` reads.
@@ -1269,7 +1292,31 @@ fn went path _
 pub fn session req secret
   m = verified (cookie req.headers["cookie"] "senro") secret
   at = text/to_int (said req.headers["senro-at"])
-  aged m at (text/to_int (said m["since"]))
+  still = aged m at (text/to_int (said m["since"]))
+  awake still at (text/to_int (said still["idle"]))
+
+# A session told to end after a while with no request (`idle_after`) keeps
+# the moment of its last one under "seen". Read later than its window
+# allows, its sign-in is over.
+fn awake m none none
+  m
+
+fn awake m none _
+  m
+
+fn awake m _ none
+  m
+
+fn awake m at window
+  seen = text/to_int (said m["seen"])
+  return m if not lapsed? at seen window
+  forgotten m
+
+fn lapsed? _ none _
+  true
+
+fn lapsed? at seen window
+  at - seen > window or at < seen
 
 pub session_days = 14
 
@@ -1289,7 +1336,7 @@ fn aged m at since
   m
 
 fn forgotten m
-  signing = ["viewer" "since" "bound" "lasting"]
+  signing = ["viewer" "since" "bound" "lasting" "idle" "seen"]
   list/fold signing m (acc k -> delete acc k)
 
 fn said none
@@ -1320,7 +1367,8 @@ fn signed_as v
 pub fn signed_in req r secret held id bound
   since = said req.headers["senro-at"]
   viewing = put (put held "viewer" id) "since" since
-  kept r secret (put viewing "bound" (fingerprint secret bound))
+  seen = put viewing "seen" since
+  kept r secret (put seen "bound" (fingerprint secret bound))
 
 fn fingerprint secret bound
   hexed (sha256/hmac (text/bytes secret) (text/bytes "signed in {bound}"))
@@ -1346,6 +1394,20 @@ fn aged_line line held
 # outlive the browser. Signing out forgets it with the viewer.
 pub fn lasting held
   put held "lasting" "yes"
+
+# The session `held`, whose sign-in ends after `minutes` with no request, as
+# Devise's `timeoutable` ends one. The session keeps the window and the
+# moment of its last request, and each request that asks for a sign-in
+# moves that moment on, so only a visitor who has gone quiet is signed out.
+# A sign-in still ends `session_days` after it began, however busy.
+pub fn idle_after held minutes
+  put held "idle" "{in_ms (math/round (minutes * 60 * 1000))}"
+
+fn in_ms none
+  0
+
+fn in_ms n
+  n
 
 # The session `held` without its sign-in: the viewer, when it began, what it
 # rests on, and whether it outlives the browser. Whatever else it keeps,
