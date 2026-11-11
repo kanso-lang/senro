@@ -1,0 +1,4 @@
+import "./generate/cli"
+import "std/os"
+
+os/args .> (a -> cli/run a)

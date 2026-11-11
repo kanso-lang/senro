@@ -1,6 +1,7 @@
 import "../models"
 import "./app"
 import "./auth"
+import "./controller"
 import "./scaffold"
 import "std/io"
 import "std/list"
@@ -33,6 +34,18 @@ fn chosen "scaffold" rest
   return refused "cannot name a resource `{singular}`: {named}" if named != ""
   given (scaffold/fields_of words) app singular
 
+fn chosen "controller" rest
+  app = said (list/first rest)
+  plural = said (list/first (list/drop rest 1))
+  actions = list/to_list (list/drop rest 2)
+  return usage if app == "" or plural == "" or length actions == 0
+  named = scaffold/resource_named plural
+  odd = list/to_list (list/select actions (a -> not controller/known? a))
+  return refused "cannot name a controller `{plural}`: {named}" if named != ""
+  return refused (controller/unknown odd[1]) if length odd > 0
+  os/exists "{app}/{plural}.kso"
+    .> (there -> controlled there app plural actions)
+
 fn chosen "authentication" rest
   app = said (list/first rest)
   return usage if app == ""
@@ -46,6 +59,7 @@ usage = refused (text/join usage_lines "\n")
 usage_lines = [
   "usage: kanso run generate -- new <app>"
   "       kanso run generate -- scaffold <app> <singular> <name:kind>..."
+  "       kanso run generate -- controller <app> <plural> <action>..."
   "       kanso run generate -- authentication <app>"
   "a kind is text, int, references or attachment"
 ]
@@ -73,8 +87,42 @@ fn made_new app
 fn new_app true app
   refused "{app} is there already"
 
+# Run as `senro new`, the command says where senro is (SENRO_HOME) and where
+# it was run from, and the app imports senro by the path between the two.
+# Run from senro's own directory, the path is the way back up from the app.
 fn new_app false app
-  senro = up_from app
+  os/env "SENRO_HOME"
+    .> (home -> os/env "PWD" .> (here -> laid app (senro_from home here app)))
+
+fn senro_from none _ app
+  up_from app
+
+fn senro_from home here app
+  return up_from app if said here == ""
+  between (parts_of (under (said here) app)) (parts_of home)
+
+fn under here app
+  return app if text/starts_with? app "/"
+  "{here}/{app}"
+
+fn parts_of path
+  list/to_list (list/select (text/split path "/") (s -> s != "" and s != "."))
+
+# The relative path from the directory `from` names to the one `to` names,
+# both given as their parts from the root.
+fn between from to
+  same = shared from to 0
+  ups = list/to_list (list/map (list/drop from same) (_ -> ".."))
+  steps = list/concat ups (list/to_list (list/drop to same))
+  return "." if length steps == 0
+  text/join steps "/"
+
+fn shared from to n
+  return n if n >= length from or n >= length to
+  return n if from[n + 1] != to[n + 1]
+  shared from to (n + 1)
+
+fn laid app senro
   name = last_of app
   os/make_dir app
     .> (_ -> os/make_dir "{app}/views")
@@ -83,6 +131,62 @@ fn new_app false app
     .> (_ -> written "{app}/migrations.kso" (app/migrations senro))
     .> (_ -> written "{app}/views/layout.kata" app/layout)
     .> (_ -> written "{app}/views/home.kata" app/home_view)
+
+# Where an app that is there already keeps senro: the path its entry
+# imports `models` by. An entry that imports none falls back to the way up
+# from the app's path, which is right when the command runs in senro's
+# directory.
+fn senro_in main fallback
+  lines = text/split main "\n"
+  found = list/to_list (list/select lines senro_line?)
+  return fallback if length found == 0
+  said (text/slice found[1] 9 (length found[1] - 8))
+
+fn senro_line? l
+  text/starts_with? l "import \"" and text/ends_with? l "/models\""
+
+fn controlled true app plural _
+  refused "{app}/{plural}.kso is there already"
+
+fn controlled false app plural actions
+  os/read_file "{app}/main.kso" .> (m -> with_actions app plural actions m)
+
+fn with_actions app _ _ _:os/file_not_found
+  refused "{app}/main.kso is not there; make the app with `new` first"
+
+fn with_actions app plural actions main
+  os/env "PWD" .> (here -> acted app plural actions main (app_name app here))
+
+fn acted app plural actions main name
+  senro = senro_in main (up_from app)
+  entry = app/entry_with main plural
+  bare = "{app}/main.kso imports nothing of its own"
+  return refused bare if entry == none
+  shown = list/to_list (list/select actions controller/shows?)
+  views = "{app}/views"
+  os/is_dir views
+    .> (there -> made_dir there views)
+    .> (_ -> written "{app}/{plural}.kso" (module_of senro name plural actions))
+    .> (_ -> list/fold shown (effect "") (viewed views plural))
+    .> (_ -> changed "{app}/main.kso" (said entry))
+
+fn module_of senro name plural actions
+  controller/module senro name plural actions
+
+fn viewed views plural
+  (acc a -> acc .> (_ -> view_written views plural a))
+
+fn view_written views plural a
+  path = "{views}/{controller/view_file plural a}"
+  written path (controller/view plural a)
+
+# The app's name is its directory's: the last part of its path, or of where
+# the command was run when the path is `.`.
+fn app_name "." here
+  last_of (said here)
+
+fn app_name app _
+  last_of app
 
 fn written path content
   os/write_file path content .> (_ -> io/write "  create {path}\n")
@@ -134,7 +238,7 @@ fn text_of m
 
 fn wrote app singular fields main old
   plural = models/plural singular
-  senro = up_from app
+  senro = senro_in main (up_from app)
   entry = with_resource (app/entry_with main singular) plural
   migrations = migrated old senro plural fields
   bare = "{app}/main.kso imports nothing of its own"
@@ -216,7 +320,7 @@ fn unwritten there _
   refused "{there} is there already"
 
 fn signing app main m
-  senro = up_from app
+  senro = senro_in main (up_from app)
   entry = auth/entry_signed main senro
   migrations = migrated (text_of m) senro "users" users
   moved = "{app}/main.kso no longer serves as `new` wrote it"
@@ -238,5 +342,5 @@ fn later app senro secret
   (acc f -> acc .> (_ -> copy app senro secret f))
 
 fn copy app senro secret f
-  os/read_file "{auth/source}/{f}"
+  os/read_file "{app}/{senro}/{auth/source}/{f}"
     .> (t -> written "{app}/{f}" (auth/localized t senro secret))

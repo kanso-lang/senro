@@ -1,0 +1,128 @@
+import "./command"
+import "std/io"
+import "std/list"
+import "std/os"
+import "std/text"
+
+# senro's command, as `bin/senro` runs it from an app's directory:
+#
+#   senro new blog
+#   senro generate scaffold post title:text body:text
+#   senro generate controller pages index show
+#   senro generate authentication
+#   senro generate              (lists every generator it can find)
+#
+# `server` and `migrate` are the launcher's, because they hand the terminal
+# to the app. A generator senro does not ship is a kanso program at
+# `generators/<name>.kso` or `generators/<name>/main.kso`, in the app or
+# beside a library the app's entry imports by path. It is run in the app's
+# directory with the words that followed its name.
+pub fn run args
+  rest = list/to_list (list/drop args 1)
+  asked (worded (list/first args)) rest
+
+fn asked "new" rest
+  command/run (list/concat ["new"] rest)
+
+fn asked "generate" rest
+  generated rest
+
+fn asked "g" rest
+  generated rest
+
+fn asked _ _
+  declined (text/join usage_lines "\n")
+
+usage_lines = [
+  "usage: senro new <app>"
+  "       senro generate <generator> <word>...   (or `senro g`)"
+  "       senro generate                         lists the generators"
+  "       senro server                           (or `senro s`)"
+  "       senro migrate"
+]
+
+pub built_in = ["scaffold" "controller" "authentication"]
+
+fn built_in? name
+  list/any? built_in (b -> b == name)
+
+fn generated rest
+  name = worded (list/first rest)
+  words = list/to_list (list/drop rest 1)
+  return found_all .> catalogued if name == ""
+  return command/run (list/concat [name "."] words) if built_in? name
+  found_all .> (all -> from_outside name words (picked all name))
+
+# Every generator from from_outside senro, as [name path] pairs: the app's own
+# first, then those beside each library the entry imports.
+found_all = os/read_file "main.kso" .> (main -> looked (roots_of main))
+
+fn roots_of _:os/file_not_found
+  ["."]
+
+fn roots_of main
+  lines = list/to_list (list/select (text/split main "\n") by_path?)
+  paths = list/to_list (list/map lines import_path_of)
+  list/fold paths ["."] with_root
+
+fn by_path? l
+  text/starts_with? l "import \"../" and text/ends_with? l "\""
+
+fn import_path_of l
+  worded (text/slice l 9 (length l - 1))
+
+# A library keeps its generators beside its modules, so an import of
+# `../lib/shop/carts` looks in `../lib/shop`.
+fn with_root roots path
+  parts = text/split path "/"
+  above = text/join (list/to_list (list/take parts (length parts - 1))) "/"
+  return roots if list/any? roots (r -> r == above)
+  list/concat roots [above]
+
+fn looked roots
+  list/fold roots (effect []) (acc r -> acc .> (seen -> in_root seen r))
+
+fn in_root seen root
+  dir = "{root}/generators"
+  os/is_dir dir .> (there -> catalogued_in there seen dir)
+
+fn catalogued_in false seen _
+  effect seen
+
+fn catalogued_in true seen dir
+  os/list_dir dir .> (names -> effect (list/fold names seen (gathered dir)))
+
+fn gathered dir
+  (seen n -> with_generator seen dir n)
+
+fn with_generator seen dir n
+  name = text/replace n ".kso" ""
+  return seen if text/starts_with? n "."
+  return seen if list/any? seen (g -> g[1] == name)
+  list/concat seen [[name "{dir}/{n}"]]
+
+fn picked all name
+  list/first (list/to_list (list/select all (g -> g[1] == name)))
+
+fn from_outside name _ none
+  declined "no generator named `{name}`; `senro generate` lists them"
+
+fn from_outside _ words g
+  os/run "kanso" (list/concat ["run" g[2] "--"] words) .> relayed
+
+fn relayed r
+  io/write r.stdout .> (_ -> io/write_err r.stderr) .> (_ -> os/exit r.status)
+
+fn catalogued all
+  own = list/to_list (list/map built_in (b -> "  {b}"))
+  theirs = list/to_list (list/map all (g -> "  {g[1]}   ({g[2]})"))
+  io/write "{text/join (list/concat own theirs) "\n"}\n"
+
+fn declined why
+  io/write_err "senro: {why}\n" .> (_ -> os/exit 2)
+
+fn worded none
+  ""
+
+fn worded s
+  s

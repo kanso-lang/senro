@@ -1,0 +1,81 @@
+import "std/list"
+import "std/text"
+
+# What `generate controller` writes: a module of actions with no model
+# behind it, and a view for each action that shows a page. An action is one
+# of the seven the routing convention places, because no other name has a
+# route (PRINCIPLES.md). An action that writes answers with a redirect to
+# the index, to be filled in.
+pub actions = ["index" "show" "new" "create" "edit" "update" "destroy"]
+
+pub fn known? action
+  list/any? actions (a -> a == action)
+
+pub fn unknown action
+  names = text/join actions ", "
+  "`{action}` has no route; an action is one of {names}"
+
+# The actions that show a page, and so have a view.
+pub fn shows? action
+  action == "index" or action == "show" or action == "new" or action == "edit"
+
+pub fn view_file plural action
+  "{plural}_{action}.kata"
+
+pub fn view plural action
+  lines = [
+    "takes title"
+    "h1 = title"
+    "p Find me in views/{view_file plural action}."
+  ]
+  "{text/join lines "\n"}\n"
+
+pub fn module senro name plural chosen
+  kept = list/to_list (list/select actions (a -> has? chosen a))
+  writes = list/any? kept (a -> not shows? a)
+  web = if writes ["import \"{senro}/web\""] []
+  head = list/concat web ["import \"./views\""]
+  bodies = list/to_list (list/map kept (a -> action_of name plural a))
+  "{text/join head "\n"}\n\n{text/join bodies "\n\n"}\n"
+
+fn has? chosen action
+  list/any? chosen (a -> a == action)
+
+fn action_of name plural action
+  written (shows? action) name plural action
+
+fn written true name plural action
+  lines = [
+    "pub fn {action} req _{id_of action}"
+    "  page = views/{plural}_{action}_view \"{titled plural action}\""
+    "  effect (views/answer req (views/layout_view \"{name}\" page))"
+  ]
+  text/join lines "\n"
+
+fn written false _ plural action
+  lines = [
+    "pub fn {action} _ _{id_of action}"
+    "  effect (web/redirect \"{sent_to plural action}\")"
+  ]
+  text/join lines "\n"
+
+# The actions on one of a kind take its id, and each uses it: in the page's
+# title, or in where the browser is sent.
+fn one? action
+  action == "show" or action == "edit" or action == "update"
+
+fn id_of action
+  if (one? action or action == "destroy") " id:int" ""
+
+fn titled plural action
+  return "{plural} {action} \{id}" if one? action
+  "{plural} {action}"
+
+fn sent_to plural "update"
+  "/{plural}/\{id}"
+
+fn sent_to plural "destroy"
+  "/{plural}?removed=\{id}"
+
+fn sent_to plural _
+  "/{plural}"
