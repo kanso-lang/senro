@@ -42,17 +42,13 @@ pub fn secret_of bytes
 # The fields of the `users` table, as `scaffold` reads them.
 pub fields = ["email:text:uniq" "digest:text"]
 
-serve_line = "serving = web/serve 3000 routes connected"
-
-worker_line = "# A worker beside the server sends the mail the app queues."
-
 # The entry `generate new` wrote, signed: every action asks for a sign-in
 # unless its module says otherwise. None when the entry no longer reads as
 # `new` wrote it.
 pub fn entry_signed main
   lines = text/split main "\n"
-  return none if not list/any? lines (l -> l == serve_line)
-  return none if not list/any? lines (l -> l == worker_line)
+  return none if not list/any? lines (l -> l == app/serve_line)
+  return none if not list/any? lines (l -> l == app/workers_note)
   served = list/to_list (list/map lines signed_line)
   own = text/join served "\n"
   locals = list/fold imported own (e n -> with e n)
@@ -68,16 +64,16 @@ fn answered changed _
   changed
 
 fn signed_line line
-  return walled if line == worker_line
-  return "serving = web/serve 3000 signed connected" if line == serve_line
+  return walled if line == app/workers_note
+  return "serving = web/serve 3000 signed connected" if line == app/serve_line
   line
 
 walled = text/join walled_lines "\n"
 
 walled_lines = [
   "# Every action asks for a sign-in unless its module lists it in"
-  "# `without_sign_in`, and a worker beside the server sends the mail the app"
-  "# queues."
+  "# `without_sign_in`."
   "signed = web/requiring_sign_in routes session/secret session/signed_against"
   ""
+  app/workers_note
 ]

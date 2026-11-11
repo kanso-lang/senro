@@ -1,4 +1,5 @@
 import "../pg"
+import "std/derive"
 import "std/io"
 import "std/json"
 import "std/list"
@@ -54,18 +55,105 @@ queued = """
   values ($1, $2, $3, $4::bigint)
 """
 
+# An app's own jobs, by convention. A module named `<name>_job` is the job
+# `<name>`, as a Rails job is a class named for it, and its `perform db args`
+# does the work: `db` is a database session and `args` the map of strings
+# the job was queued with. An entry that writes `derive jobs/performers` is
+# given `performers`, the table from each job's name to its `perform`, which
+# is what a worker on the queue below is handed.
+#
+# `perform_later db name args` queues the job `name` to run as soon as a
+# worker is free, and `perform_at` at the moment `t` or after. A name
+# written as a string is checked while the app compiles: one that names no
+# job is refused where it is written.
+pub default_queue = "default"
+
+pub fn perform_later db name args
+  time/now .> (t -> later db default_queue name args t)
+
+pub fn perform_at db name args t
+  later db default_queue name args t
+
+pub fn performers p
+  found = list/to_list (list/select p.modules (m -> job? m))
+  table = list/fold found {} held
+  lacking = list/fold found [] (acc m -> list/concat acc (unperformed m))
+  names = keys table
+  asked = list/fold p.modules [] (acc m -> list/concat acc (unnamed m names))
+  declared = [(derive/declare "performers" "performers" table)]
+  list/concat (list/concat declared lacking) asked
+
+fn job? m
+  text/ends_with? m.name suffix and length m.name > length suffix
+
+suffix = "_job"
+
+fn job_named m
+  text_of (text/slice m.name 1 (length m.name - length suffix))
+
+fn performing m
+  works = (f -> f.name == "perform" and length f.params == 2)
+  list/first (list/to_list (list/select m.functions works))
+
+fn held acc m
+  placed acc (job_named m) (performing m)
+
+fn placed acc _ none
+  acc
+
+fn placed acc name f
+  put acc name f.reference
+
+# A `_job` module that performs nothing is refused where it is declared.
+fn unperformed m
+  lacks = "the job `{job_named m}` has no `pub fn perform db args`"
+  refused_unless (performing m) (declared_at m (list/first m.functions)) lacks
+
+# Where a module is refused: at its first pub function, or, when it has
+# none, at the entry's `derive`.
+fn declared_at m none
+  m.name
+
+fn declared_at m f
+  "{m.name}/{f.name}"
+
+fn refused_unless none origin lacks
+  [(derive/refuse origin lacks)]
+
+fn refused_unless _ _ _
+  []
+
+# A `perform_later` or `perform_at` whose name is a string written whole
+# names one of the app's jobs.
+fn unnamed m names
+  calls = list/to_list (list/select m.calls (c -> asks? c.callee))
+  list/fold calls [] (acc c -> list/concat acc (stray c c.strings[2] names))
+
+fn asks? callee
+  callee == "jobs/perform_later" or callee == "jobs/perform_at"
+
+fn stray _ none _
+  []
+
+fn stray _ "" _
+  []
+
+fn stray c name names
+  return [] if list/any? names (n -> n == name)
+  [(derive/refuse_call c "`{name}` names no job")]
+
 # The attempts a job gets, and how long a claim holds it.
 pub attempts_allowed = 5
 
 lease_ms = 5 * 60 * 1000
 
-# Claims one job on `queue` that is due at `t`, and runs it. `performers` maps
+# Claims one job on `queue` that is due at `t`, and runs it. `table` maps
 # a job's name to a function of the session and the job's arguments that
 # answers an effect. The answer says what happened: `none` when no job was
 # due, or a line naming the job and how it went.
-pub fn worked db queue performers t
+pub fn worked db queue table t
   given = [queue "{t}" "{t + lease_ms}" "{attempts_allowed}"]
-  pg/query db claimed given .> (r -> ran db performers t (list/first r.rows))
+  pg/query db claimed given .> (r -> ran db table t (list/first r.rows))
 
 claimed = """
   update senro_jobs set run_at = $3::bigint, attempts = attempts + 1
@@ -85,9 +173,9 @@ fn ran _ _ _ none
 # A performer's failure was born in the app, so the worker may rescue it.
 # A job whose name has no performer is the worker's own finding, and is
 # recorded the same way without being raised.
-fn ran db performers t row
+fn ran db table t row
   j = job_of row
-  run_by db performers[j.name] j t
+  run_by db table[j.name] j t
 
 fn run_by db none j t
   failed db j t "no performer is named {j.name}"
@@ -121,24 +209,26 @@ kept = """
 
 # Works `queue` for as long as the process runs: a job when one is due, and
 # a second's sleep when none is. Each job's outcome goes to standard error.
-pub fn worker db queue performers
+pub fn worker db queue table
   time/now
-    .> (t -> worked db queue performers t)
+    .> (t -> worked db queue table t)
     .> (said -> told said)
-    .> (_ -> worker db queue performers)
+    .> (_ -> worker db queue table)
 
 # Runs `served`, such as `web/serve`, with a worker on `queue` beside it in a
 # fiber of its own, on a session `connect` opens. The worker makes the jobs
 # table when it is missing before it starts.
-pub fn beside connect queue performers served
-  os/env "SENRO_ONLY" .> (only -> started only connect queue performers served)
+pub fn beside connect queue table served
+  os/env "SENRO_ONLY" .> (only -> started only connect queue table served)
 
 # Under `senro migrate` there is nothing to work beside (web/serve).
 fn started "migrate" _ _ _ served
   served
 
-fn started _ connect queue performers served
-  connect .> (db -> prepared db) .> (db -> worker db queue performers)
+# A table with no performers has nothing to work, so no worker starts.
+fn started _ connect queue table served
+  return served if length (keys table) == 0
+  connect .> (db -> prepared db) .> (db -> worker db queue table)
   served
 
 fn told none

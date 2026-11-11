@@ -1,0 +1,2 @@
+pub fn perform _ args
+  print "tidying what is older than {args["older_than"]} days"

@@ -1,0 +1,6 @@
+import "../../../jobs"
+import "./tidy_job"
+
+derive jobs/performers
+
+print (tidy_job/tidied 3)

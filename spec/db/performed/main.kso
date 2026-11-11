@@ -1,0 +1,29 @@
+import "../../../jobs"
+import "../../../pg"
+import "./greet_job"
+import "./steps"
+import "./tidy_job"
+
+derive jobs/performers
+
+# An app with two jobs, each a module named for it. Neither is listed
+# anywhere: the derivation finds them and hands the entry `performers`. One
+# is queued for a moment the spec names and one for now, both by name, and
+# the default queue is worked until nothing is due. `steps` is no job, and
+# its functions are left alone. Last, a table with no performers is given
+# to `jobs/beside`, which starts no worker for it: the worker's connection
+# is one that fails, and nothing is heard of it.
+fresh = """
+  drop schema if exists senro_performed_spec cascade;
+  create schema senro_performed_spec;
+  set search_path to senro_performed_spec
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> jobs/prepared db)
+  .> (db -> jobs/perform_at db "greet" { "name":"Ada" } steps/t)
+  .> (db -> jobs/perform_later db "tidy" { "older_than":"30" })
+  .> (db -> steps/worked db performers)
+  .> (db -> pg/close db)
+  .> (_ -> jobs/beside steps/unreachable jobs/default_queue {} steps/served)
