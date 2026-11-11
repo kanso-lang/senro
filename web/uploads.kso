@@ -414,7 +414,7 @@ fn disposition false filename
   "attachment; filename=\"{bare}\""
 
 fn without s piece
-  text/join (text/split s piece) ""
+  text/replace s piece ""
 
 # Where a stored file is served, for a view's `src` or `href`.
 pub fn blob_path key

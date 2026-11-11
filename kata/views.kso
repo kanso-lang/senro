@@ -40,7 +40,7 @@ fn wrote acc _ _ _ none
 
 fn wrote acc m server f src
   return acc if not text/ends_with? f ".kata"
-  name = text/join (text/split f ".kata") ""
+  name = text/replace f ".kata" ""
   return push acc (derive/refuse m (reserved f name)) if taken? name
   return push acc (derive/define m (compiled name f src)) if bare? src
   push acc (component m server f name src)
@@ -200,7 +200,7 @@ leaned_on = """
     s
 
   fn swapped s true from to
-    text/join (text/split s from) to
+    text/replace s from to
 
   fn each xs f
     text/join (list/to_list (list/map xs f)) ""
@@ -317,7 +317,7 @@ fn page? f src
   text/ends_with? f ".kata" and bare? src
 
 fn page_name f
-  text/join (text/split f ".kata") ""
+  text/replace f ".kata" ""
 
 fn kinds_of _ _ none
   []

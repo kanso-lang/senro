@@ -43,7 +43,7 @@ fn knocking c k
 # "with", one after another.
 fn shown k
   parts = text/split k "|"
-  extra = text/join (text/split (list/last parts) "\r\n") ", "
+  extra = text/replace (list/last parts) "\r\n" ", "
   if (extra == "") (list/first parts) "{list/first parts} with {extra}"
 
 fn said answers
