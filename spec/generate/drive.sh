@@ -8,8 +8,10 @@
 # sent, and stays when the note is changed without choosing another. Then
 # the pages nested under a note: makes one, asks for it under another note
 # and under one that is not there, changes it, and removes its note, which
-# removes it. Last, signing out, a wrong password, and a lost one: a link is
-# mailed to <outbox>, followed, and the new password signs in. Prints each
+# removes it. Then signing out, a wrong password, and a lost one: a link is
+# mailed to <outbox>, followed, and the new password signs in. Last, runs
+# of wrong passwords: four leave the account open, and five in a row lock
+# it, after which the right password is told so. Prints each
 # answer's status and where it sends the browser, or the page's text with
 # its tags taken out. Postgres numbers a row by what was made before, so an
 # id reads as N, as a time in JSON reads as T, and each run makes an account
@@ -104,4 +106,26 @@ echo "choosing a new one: $(asked -d "_method=PATCH&password=second-password" "$
 echo "the link again: $(asked "$at$link")"
 echo "the old password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=first-password" "$at/session")"
 echo "the new one: $(sent /session "email=$email&password=second-password")"
+
+# Runs of wrong passwords. The sign-in above ended the run before it, so
+# four more leave the account open. Five in a row lock it: the right
+# password is then told so, and a wrong one is answered as ever. One
+# address may try ten times in three minutes, so each run here comes from
+# an address of its own.
+tried() { c --interface "$1" -o /dev/null -w "%{http_code}" -d "email=$email&password=$2" "$at/session"; }
+wrongs() {
+  n=0
+  while [ $n -lt "$2" ]; do
+    printf ' %s' "$(tried "$1" wrong)"
+    n=$((n + 1))
+  done
+}
+c -o /dev/null -d "_method=DELETE" "$at/session"
+echo "four wrong passwords:$(wrongs 127.0.0.2 4)"
+echo "the right one then: $(tried 127.0.0.2 second-password)"
+c -o /dev/null -d "_method=DELETE" "$at/session"
+echo "five wrong passwords:$(wrongs 127.0.0.3 5)"
+shut=$(c --interface 127.0.0.3 -w "\n%{http_code}" -d "email=$email&password=second-password" "$at/session")
+echo "the right one then: $(echo "$shut" | tail -1) $(echo "$shut" | grep -o 'This account is locked[^<]*')"
+echo "a wrong one then: $(tried 127.0.0.3 wrong)"
 rm -f "$jar"

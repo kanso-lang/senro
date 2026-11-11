@@ -1,0 +1,79 @@
+import "../clock"
+import "../models"
+import "../web"
+import "std/text"
+
+# What an account keeps beside its password, as Devise's lockable and
+# trackable keep it: a run of wrong passwords that locks the account for a
+# while, and a count and a stamp of each sign-in. An app's sign-in calls
+# these with its accounts' model, and its table holds the columns they
+# write, which `columns` lists. Each is written as the app itself
+# (`models/as_app`), since nobody is signed in while a sign-in is being
+# decided.
+#
+# The columns an accounts table holds for these, each a name and what
+# Postgres is told of it. `senro generate authentication` writes them into
+# the migration that makes `users`.
+pub columns = [
+  ["failures" "integer not null default 0"]
+  ["locked" blank]
+  ["sign_in_count" "integer not null default 0"]
+  ["current_sign_in_at" blank]
+  ["last_sign_in_at" blank]
+  ["current_sign_in_ip" blank]
+  ["last_sign_in_ip" blank]
+]
+
+blank = "text not null default ''"
+
+# Whether an account locked at `stamp`, the moment in milliseconds as text
+# or "" for one that is open, is still locked at `t`, when a lock lasts
+# `minutes`.
+pub fn locked? stamp minutes t
+  return false if stamp == ""
+  t < moment (text/to_int stamp) + minutes * 60 * 1000
+
+fn moment none
+  0
+
+fn moment n
+  n
+
+# A wrong password for the account `id`, whose lock is `locked`: one more
+# in its run, answering the account as it now stands. A lock that has run
+# out counts as none, so the run starts again. Postgres adds in the
+# statement that answers, so of several wrong passwords at once exactly one
+# sees the run reach a given length.
+pub fn missed db model id locked
+  reopened db model id locked
+    .> (_ -> models/increment (models/as_app db) model id "failures")
+
+fn reopened _ _ _ ""
+  effect ""
+
+fn reopened db model id _
+  open = { "failures":"0" "locked":"" }
+  models/update (models/as_app db) model id open .> (_ -> effect "")
+
+# Locks the account `id` at `t`, answering the stamp the lock is kept
+# under, which a link that unlocks it is bound to.
+pub fn locked_at db model id t
+  stamp = "{t}"
+  models/update (models/as_app db) model id { "locked":stamp }
+    .> (_ -> effect stamp)
+
+# A right password for the account `id`: its run of wrong ones ends, any
+# lock is lifted, and the sign-in is counted and stamped with the app's
+# clock, as UTC to the minute, and the address the request came from. The
+# sign-in before it, `was_at` from `was_ip`, is kept beside it.
+pub fn arrived req db model id was_at was_ip t
+  changes = {
+    "current_sign_in_at":(clock/utc_minute t)
+    "current_sign_in_ip":(web/peer req)
+    "failures":"0"
+    "last_sign_in_at":was_at
+    "last_sign_in_ip":was_ip
+    "locked":""
+  }
+  models/update (models/as_app db) model id changes
+    .> (_ -> models/increment (models/as_app db) model id "sign_in_count")

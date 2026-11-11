@@ -1,15 +1,22 @@
+import "../../accounts"
 import "../../models"
 import "../../passwords"
 import "../../web"
 import "./user"
 import "./views"
 import "std/text"
+import "std/time"
 
-# What a sign-in checks of the account an address holds. An address with no
-# account holds the stand-in digest, which no password matches.
+# What a sign-in checks of the account an address holds, and when and from
+# where it last signed in. An address with no account holds the stand-in
+# digest, which no password matches.
 type holder
+  id
   email
   digest
+  locked
+  was_at
+  was_ip
 
 # The key that signs every session. `generate authentication` made it at
 # random. Keep it out of any repository the public can read; changing it
@@ -22,6 +29,13 @@ pub secret = "made at random by generate authentication"
 pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub without_sign_in = ["create" "new"]
+
+# Five wrong passwords in a row lock an account for an hour, as Devise's
+# `lockable` does. A right password ends the run of wrong ones, and each
+# sign-in is counted and stamped, as its `trackable` does (`accounts`).
+pub locks_after = 5
+
+pub locked_minutes = 60
 
 # What a sign-in rests on: the digest the account keeps now. A new password
 # changes it, so a password reset signs out every session made before it.
@@ -50,17 +64,50 @@ pub fn create req db
   password = web/value f "password"
   user/find_by db "email" email
     .> (u -> held u)
-    .> (a -> entered req email a password)
+    .> (a -> time/now .> (t -> entered req db email a password t))
 
 fn held none
-  passwords/stand_in .> (d -> effect (holder "" d))
+  passwords/stand_in .> (d -> effect (holder "" "" d "" "" ""))
 
 fn held u
-  effect (holder u.email u.digest)
+  at = u.current_sign_in_at
+  effect (holder "{u.id}" u.email u.digest u.locked at u.current_sign_in_ip)
 
-fn entered req email a password
+# A locked account answers a wrong password as any wrong password is
+# answered, and tells only the holder of the right one that it is locked.
+fn entered req db email a password t
   right = passwords/matches? password a.digest
-  return effect (refused req email) if not right
+  return effect (shut req email right) if still_locked? a t
+  return missed req db email a t if not right
+  accounts/arrived req db user/user_model a.id a.was_at a.was_ip t
+    .> (_ -> signed req a)
+
+fn still_locked? a t
+  accounts/locked? a.locked locked_minutes t
+
+fn shut req email true
+  told = "This account is locked. Try again in {locked_minutes} minutes."
+  opened req email { "password":told } 403
+
+fn shut req email false
+  refused req email
+
+# A wrong password counts against the account, and the one that makes the
+# run long enough locks it.
+fn missed req db email a t
+  return effect (refused req email) if a.id == ""
+  accounts/missed db user/user_model a.id a.locked
+    .> (counted -> locking req db email a counted t)
+
+fn locking req _ email _ _:web/absent _
+  effect (refused req email)
+
+fn locking req db email a counted t
+  return effect (refused req email) if counted.failures != locks_after
+  accounts/locked_at db user/user_model a.id t
+    .> (_ -> effect (refused req email))
+
+fn signed req a
   s = web/session req secret
   back = web/return_to req secret "/"
   home = web/noticed (web/redirect back) "Signed in."
