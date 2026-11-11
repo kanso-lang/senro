@@ -5,7 +5,10 @@ import "std/text"
 
 # A note is made, and the list it redirects to shows the notice once. The
 # list read again shows nothing, and its answer sets no cookie. A note made
-# while a notice is still held leaves only the new one.
+# while a notice is still held leaves only the new one. Last, the same two
+# requests as a proxy hands them on after taking them over HTTPS: the
+# cookie that leaves the notice is marked `Secure`, and so is the one that
+# forgets it.
 pub fn index _ _
   asked "POST" "/notes" ""
     .> (a -> asked "GET" "/notes" (cookie_of a) .> (b -> listed a b))
@@ -14,13 +17,23 @@ fn listed a b
   asked "GET" "/notes" (jar (cookie_of a) b) .> (c -> made a b c)
 
 fn made a b c
-  asked "POST" "/notes" (cookie_of a) .> (d -> said [a b c d])
+  asked "POST" "/notes" (cookie_of a) .> (d -> over_tls [a b c d])
+
+fn over_tls heard_so_far
+  forwarded "POST" "/notes" ""
+    .> (e -> forwarded "GET" "/notes" (cookie_of e) .> (f -> [e f]))
+    .> (last -> said (list/concat heard_so_far last))
 
 fn asked method path cookie
-  net/dial "127.0.0.1" 24415 .> (c -> sent c method path cookie)
+  net/dial "127.0.0.1" 24415 .> (c -> sent c method path cookie "")
 
-fn sent c method path cookie
-  head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"
+fn forwarded method path cookie
+  proxied = "\r\nx-forwarded-proto: https"
+  net/dial "127.0.0.1" 24415 .> (c -> sent c method path cookie proxied)
+
+fn sent c method path cookie more
+  line = "{method} {path} HTTP/1.1\r\nhost: localhost"
+  head = "{line}{carried cookie}{more}"
   net/write c "{head}\r\ncontent-length: 0\r\n\r\n"
     .> (_ -> net/read c)
     .> (raw -> net/close_conn c .> (_ -> effect raw))
