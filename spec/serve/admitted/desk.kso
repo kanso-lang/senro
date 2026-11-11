@@ -1,0 +1,6 @@
+import "./ledger"
+
+# The desk shows what the ledger shows, to anyone who has signed in, so it
+# leans on the module that asks for the books' total.
+pub fn index req db
+  ledger/index req db

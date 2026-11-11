@@ -1,0 +1,11 @@
+import "../../../web"
+import "std/net/http"
+
+pub without_sign_in = ["create"]
+
+pub secret = "the spec's secret"
+
+# Whoever asks is signed in as the viewer their request names.
+pub fn create req _
+  s = web/session req secret
+  effect (web/signed_in req (http/text_page "signed in") secret s req.body "")

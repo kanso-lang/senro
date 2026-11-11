@@ -21,6 +21,9 @@ act with a state that is not JSON: 400
 act on a component the app does not serve: 404
 data without the page's header: 403
 data naming no provider: 404
+data from the page that asks for it: 200
+data from no page: 403
+data from a page that is not there: 403
 the other visitor sees green tea at 1, mark kept
 every page the shelf fetched came as data: true
 staples after a reload: ★ ☆

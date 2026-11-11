@@ -1,3 +1,4 @@
+import "../data"
 import "../pg"
 import "../wire"
 import "std/base64"
@@ -620,6 +621,27 @@ pub fn matched routes method path
   return found flat parts[3] if flat != none
   nested_in routes method parts
 
+# The row of the page at `path`: what a GET of it finds, by the steps
+# `matched` takes, and none for a path no page answers.
+pub fn page_at routes path
+  whole = routes["GET {path}"]
+  return whole if whole != none
+  parts = text/split path "/"
+  return none if length parts < 3
+  head = list/to_list (list/take parts 2)
+  tail = list/to_list (list/drop parts 3)
+  pattern = text/join (list/concat (push head ":id") tail) "/"
+  flat = routes["GET {pattern}"]
+  return flat if flat != none or length parts < 4
+  fits = list/select (entries routes) (e -> shaped? e.key "GET" parts)
+  fitted (list/first (list/to_list fits))
+
+fn fitted none
+  none
+
+fn fitted e
+  e.value
+
 fn nested_in routes method parts
   return none if length parts < 4
   fits = list/select (entries routes) (e -> shaped? e.key method parts)
@@ -877,22 +899,83 @@ fn act_row c secret
 #
 # The page sends every call one round of an action asks for in one request,
 # POST /senro/data, and gets their answers back in one, in the order asked.
-# A provider is reached from any page by anyone the session names, with
-# arguments a page can choose, so it checks what the viewer may read itself,
-# as a model's policy does.
+#
+# A request says which page it comes from, and it is answered as that page
+# would be. The page must be one whose module leans on a module that asks
+# for each provider called, which the derivation worked out from the app's
+# calls. Behind `requiring_sign_in`, a page that asks for a sign-in answers
+# only a visitor who has signed in, and a module's `admits` is asked once
+# for the request, for the page's action. Whoever may see the page may ask
+# what the page asks, so a provider checks nothing about the viewer that the
+# page has checked already. Its arguments are still the page's to choose,
+# so what it reads for them goes through a model's policy as any read does.
 pub fn providers routes secret table
-  put routes "POST /senro/data" (provider_row table secret)
+  put routes data_route (provider_row routes table secret)
 
-fn provider_row table secret
-  asking = (req db -> asked_as table req (asking_for db req secret))
-  { "action":asking "id":"" "open":true }
+data_route = "POST /senro/data"
 
-fn asked_as table req db
-  asked_of table req db (pg/asker db)
+fn provider_row pages table secret
+  asking = (req db -> asked_as pages table req (asking_for db req secret))
+  { "action":asking "id":"" "open":true "provided":table }
 
-fn asked_of table req db who
+fn asked_as pages table req db
+  asked_of pages table req db (pg/asker db)
+
+fn asked_of pages table req db who
   return effect forbidden if req.headers["senro-page"] == none
-  answers table (json/decode req.body) who db .> (a -> effect (sent_back a))
+  page = page_at pages (unformatted (said req.headers["senro-from"]))
+  heard_from page table (json/decode req.body) who db
+
+fn heard_from _ _ none _ _
+  effect (sent_back none)
+
+fn heard_from page table calls who db
+  return effect (sent_back none) if not well_asked? table calls
+  return effect forbidden if not asked_from? table calls page who
+  page_admits page who db .> (ok -> answered_if ok table calls who db)
+
+# Whether the page a request names may ask for every provider it calls, and
+# whether this visitor may be on it at all.
+fn asked_from? _ _ none _
+  false
+
+fn asked_from? table calls page who
+  closed = page["walled"] != none and page["open"] == none and who == ""
+  module = module_of (said page["name"])
+  used = list/all? (listed calls) (c -> uses? table module c)
+  used and not closed
+
+fn uses? table module call:[]some
+  list/any? (data/pages_asking table call[1]) (m -> m == module)
+
+fn uses? _ _ _
+  false
+
+fn page_admits none _ _
+  effect false
+
+fn page_admits page who db
+  admits_as page["admits"] (action_of (said page["name"])) who db
+
+fn admits_as none _ _ _
+  effect true
+
+fn admits_as asking action who db
+  asking action who db
+
+fn answered_if false _ _ _ _
+  effect forbidden
+
+fn answered_if true table calls who db
+  answers table calls who db .> (a -> effect (sent_back a))
+
+# `notes/index` is the action `index` of the module `notes`.
+fn module_of name
+  parts = list/to_list (text/split name "/")
+  text/join (list/to_list (list/take parts (length parts - 1))) "/"
+
+fn action_of name
+  said (list/last (list/to_list (text/split name "/")))
 
 fn sent_back none
   http/not_found
@@ -918,7 +1001,7 @@ fn well_asked? _ _
   false
 
 fn known? table call:[]some
-  length call == 2 and list/any? (keys table) (k -> k == call[1])
+  length call == 2 and data/provides? table call[1]
 
 fn known? _ _
   false
@@ -930,7 +1013,7 @@ fn listed _
   []
 
 fn one table call who db got
-  provider = table[call[1]]
+  provider = data/answer_named table call[1]
   provider who db call[2] .> (a -> effect (push got a))
 
 # The body is the action's name and the state as the page holds it, its
@@ -1025,7 +1108,24 @@ fn unformatted path
 # `signed_in`.
 pub fn requiring_sign_in routes secret bound_of
   each = (acc e -> put acc e.key (guarded e.value secret bound_of))
-  list/fold (entries routes) {} each
+  walled = list/fold (entries routes) {} each
+  asked_within walled secret bound_of routes[data_route]
+
+# A table that answers providers already answers them from behind the wall:
+# its row is made again over the wrapped pages, so a request that names a
+# page which asks for a sign-in is answered only for a visitor who has one.
+fn asked_within walled _ _ none
+  walled
+
+fn asked_within walled secret bound_of row
+  rewalled walled secret bound_of row["provided"]
+
+fn rewalled walled _ _ none
+  walled
+
+fn rewalled walled secret bound_of table
+  again = provider_row walled table secret
+  put walled data_route (guarded again secret bound_of)
 
 # What a sign-in rests on, for an app whose sign-ins rest on nothing.
 pub unbound = (_ _ -> effect "")
@@ -1034,9 +1134,26 @@ fn guarded row secret bound_of
   return row if row["to"] != none
   kind = id_kind row["id"]
   open = row["open"] != none
-  gate = (req db go -> admitted req db open secret bound_of go)
+  asking = (db go -> (req -> entering row req secret db go))
+  gate = (req db go -> admitted req db open secret bound_of (asking db go))
   nested = row["within"] != none
-  put row "action" (gated row["action"] kind nested gate secret)
+  walled = put row "walled" true
+  put walled "action" (gated row["action"] kind nested gate secret)
+
+# A module's `admits action viewer db` is asked once a request is past the
+# sign-in, with the session asking as the viewer, and an action it refuses
+# is answered 403 without running. A module that defines none admits
+# whoever the sign-in does.
+fn entering row req secret db go
+  who = viewer req secret
+  asked = pg/asked_by db who
+  page_admits row who asked .> (ok -> entered ok req go)
+
+fn entered true req go
+  go req
+
+fn entered false _ _
+  effect forbidden
 
 fn id_kind none
   ""
