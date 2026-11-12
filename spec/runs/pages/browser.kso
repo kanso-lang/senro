@@ -4,4 +4,4 @@ import "./views"
 
 derive kata/views
 
-browser/answer_pages {} views/rendered
+browser/answer_pages [] views/rendered

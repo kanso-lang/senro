@@ -6,6 +6,4 @@ import "./views"
 derive kata/views
 
 # The app's browser module: its pages and its component.
-kept = browser/component reading/act reading/view
-
-browser/answer_pages { "reading":kept } views/rendered
+browser/answer_pages [reading/component] views/rendered

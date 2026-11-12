@@ -7,6 +7,4 @@ import "./stock"
 derive data/providers
 derive kata/views
 
-wired = browser/component shelf/act shelf/view
-
-browser/answer { "shelf":wired }
+browser/answer [shelf/component]

@@ -7,4 +7,4 @@ derive kata/views
 # The guestbook's pages, compiled for the browser with
 # `kanso build browser.kso --wasm`. Its one component, the remove button,
 # runs on the server, so the module holds no component of its own.
-browser/answer_pages {} views/rendered
+browser/answer_pages [] views/rendered

@@ -126,14 +126,18 @@ A component takes one value, its state, and an action takes the state and
 answers the next one. kata wraps what the template draws in an element that
 names the component and holds its state as its bytes in base64 (`wire`), and
 writes `act`, which runs an action by the name a template bound it under.
+It also writes `component` into the module: the component's name, its
+`act`, and the one template that draws its state. A module with two
+templates that bind actions is refused, since neither could be that one
+(`spec/errors/component_drawn_by_two`).
 
 Where an action runs depends on its parameters. One that takes only the
-state runs in the browser: the app builds its browser module (`browser.kso`,
-built by `browser/build.sh`), and a click runs the action there without
-asking the server. An action that also asks for `req` or `db` needs the
-server, and so does every action of its component. kata writes
-`component` into the module of each such one, and the app lists them:
-`web/components routes [stars/component]`. The click posts the state to
+state runs in the browser: the app's browser module (`browser.kso`, built
+by `browser/build.sh`) lists the component, `browser/answer
+[planner/component]`, and a click runs the action there without asking the
+server. An action that also asks for `req` or `db` needs the server, and so
+does every action of its component. The app's entry lists such a component
+instead: `web/components routes [stars/component]`. The click posts the state to
 `/senro/act/<component>`, with the path of the page it was on. Only an
 action a template binds can be reached that way, only by a request carrying
 the page's `senro-page` header, and only from a page whose module leans on
@@ -200,7 +204,7 @@ natively, interpreted and as wasm. A template named `answer`, `rendered` or
 `packed` is refused, since it would take one of these names.
 
 The browser module hands `rendered` to `browser/answer_pages`, with the
-app's browser components, here none:
+list of the app's browser components, here empty:
 
 ```
 import "../../browser"
@@ -209,7 +213,7 @@ import "./views"
 
 derive kata/views
 
-browser/answer_pages {} views/rendered
+browser/answer_pages [] views/rendered
 ```
 
 A program that names `rendered` but not `answer`, as this one does, holds

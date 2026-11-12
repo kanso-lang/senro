@@ -1,0 +1,4 @@
+takes count
+div.down
+  span.count = count
+  button on-click=decrement −

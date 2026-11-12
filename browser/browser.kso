@@ -4,15 +4,15 @@ import "std/json"
 import "std/os"
 import "std/text"
 
-# A component as the browser runs it: the `act` kata wrote for its module,
-# which takes an action's name and the state and answers the next state, and
-# the view that renders a state.
-type wired
+# A component as `derive kata/views` records it in its module, which an app
+# hands `answer` as `counter/component`: its name, the `act` that takes an
+# action's name and the state and answers the next state, the view that
+# renders a state, and the modules that lean on it.
+type component
+  name
   act
   view
-
-pub fn component act view
-  wired act view
+  pages
 
 # The page's script runs the app's browser module once for each event, and
 # hands it the event in SENRO_EVENT as three lines: the component's name, the
@@ -80,7 +80,22 @@ fn decoded _ _ none
 
 fn decoded components parts state
   rounds = given_rounds (json/decode (part parts 4))
-  found components[part parts 1] (part parts 2) state rounds
+  found (called components (part parts 1)) (part parts 2) state rounds
+
+# The component an event is for, found in the list the app handed `answer`
+# by the name kata recorded for it.
+fn called components name
+  among components name 1
+
+fn among components name at
+  picked components[at] components name at
+
+fn picked none _ _ _
+  none
+
+fn picked c components name at
+  return c if c.name == name
+  among components name (at + 1)
 
 fn found none _ _ _
   ""

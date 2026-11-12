@@ -13,6 +13,4 @@ derive kata/views
 
 # The pantry's planner and its pages, compiled for the browser with
 # `kanso build browser.kso --wasm`.
-planned = browser/component planner/act planner/view
-
-browser/answer_pages { "planner":planned } views/rendered
+browser/answer_pages [planner/component] views/rendered

@@ -1,0 +1,4 @@
+error[derive]: `counter` is a component, so one template draws its state, and 2 of its templates bind actions
+  --> ./main.kso:4:1
+   4 | derive kata/views
+       ^

@@ -1,0 +1,4 @@
+takes count
+div.up
+  span.count = count
+  button on-click=increment +
