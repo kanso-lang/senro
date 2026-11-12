@@ -1,5 +1,6 @@
 import "../../accounts"
 import "../../passwords"
+import "../../routes"
 import "../../web"
 import "./account"
 import "./account_mailer"
@@ -129,7 +130,7 @@ fn locking req db name a counted t
 
 fn signed req name a remember
   s = web/session req entries/secret
-  back = web/return_to req entries/secret "/"
+  back = web/return_to req entries/secret (routes/path_to "home/index")
   signing = kept_if (delete s "return_to") remember
   home = web/redirect back "Signed in as {name}."
   effect (web/signed_in req home entries/secret signing name a.digest)
@@ -162,10 +163,10 @@ pub fn over_limit req
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
   s = web/signed_out (web/session req entries/secret)
-  r = web/redirect "/" "Signed out."
+  r = web/redirect (routes/path_to "home/index") "Signed out."
   effect (web/kept r entries/secret s)
 
 fn opened req name problems code
-  to = "/session"
+  to = routes/path_to "session/create"
   page = views/door_view "Sign in" to "Sign in" name "" problems false true
   views/answer req code "Sign in · Guestbook" page

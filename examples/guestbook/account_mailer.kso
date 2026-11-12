@@ -1,5 +1,6 @@
 import "../../mail"
 import "../../passwords"
+import "../../routes"
 import "../../tokens"
 import "./entries"
 import "std/text"
@@ -12,8 +13,12 @@ import "std/time"
 # it works once.
 pub fn reset db id email kept
   time/now
-    .> (t -> mail/url_for "/resets/{reset_token id kept t}/edit")
+    .> (t -> mail/url_for (reset_path id kept t))
     .> (link -> mail/delivered_later db (reset_letter email link))
+
+# The page the link opens, with the token in its path.
+fn reset_path id kept t
+  routes/path_to "resets/edit" (reset_token id kept t)
 
 fn reset_token id kept t
   passwords/reset_token entries/secret id kept t
@@ -37,8 +42,12 @@ fn reset_letter email link
 # changes. It lasts a day.
 pub fn confirmation db id email
   time/now
-    .> (t -> mail/url_for "/confirmations/{confirm_token id email t}/edit")
+    .> (t -> mail/url_for (confirm_path id email t))
     .> (link -> mail/delivered_later db (confirm_letter email link))
+
+# The page the link opens, with the token in its path.
+fn confirm_path id email t
+  routes/path_to "confirmations/edit" (confirm_token id email t)
 
 fn confirm_token id email t
   tokens/made "confirm" entries/secret id (bound email "") t 1440
@@ -69,8 +78,12 @@ fn confirm_letter email link
 # lock has ended.
 pub fn unlock db id email stamp
   time/now
-    .> (t -> mail/url_for "/unlocks/{unlock_token id stamp t}/edit")
+    .> (t -> mail/url_for (unlock_path id stamp t))
     .> (link -> mail/delivered_later db (unlock_letter email link))
+
+# The page the link opens, with the token in its path.
+fn unlock_path id stamp t
+  routes/path_to "unlocks/edit" (unlock_token id stamp t)
 
 fn unlock_token id stamp t
   tokens/made "unlock" entries/secret id stamp t 1440

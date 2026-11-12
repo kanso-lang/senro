@@ -1,4 +1,5 @@
 import "../../models"
+import "../../routes"
 import "../../web"
 import "./item"
 import "./planner"
@@ -43,7 +44,7 @@ fn stepped db id i by
 fn changed db id changes
   item/update db id changes .> (_ -> back)
 
-back = effect (web/redirect "/")
+back = effect (web/redirect (routes/path_to "home/index"))
 
 fn shelf req db editing
   item/all db .> (items -> shown req items editing)

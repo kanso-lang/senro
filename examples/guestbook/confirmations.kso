@@ -1,4 +1,5 @@
 import "../../models"
+import "../../routes"
 import "../../tokens"
 import "../../web"
 import "./account"
@@ -21,7 +22,7 @@ pub fn edit req db id
   held db id .> (a -> offered req id a)
 
 fn offered _ _ none
-  effect (web/redirect "/" stale)
+  effect (web/redirect (routes/path_to "home/index") stale)
 
 fn offered req id a
   effect (shown req id a.email)
@@ -34,12 +35,12 @@ pub fn update req db id
   held db id .> (a -> confirmed req db a)
 
 fn confirmed _ _ none
-  effect (web/redirect "/" stale)
+  effect (web/redirect (routes/path_to "home/index") stale)
 
 fn confirmed _ db a
   time/now
     .> (t -> account/update (models/as_app db) a.id { "confirmed":"{t}" })
-    .> (_ -> effect (web/redirect "/" confirmed_notice))
+    .> (_ -> effect (web/redirect home confirmed_notice))
 
 confirmed_notice = "Your address is confirmed. Sign in with it."
 
@@ -70,5 +71,9 @@ fn id_text n
   "{n}"
 
 fn shown req id email
-  page = views/confirm_offered_view "/confirmations/{id}" email
+  to = routes/path_to "confirmations/update" id
+  page = views/confirm_offered_view to email
   views/answer req 200 "Confirm your address · Guestbook" page
+
+# The book, where a visitor lands once the link has done its work.
+home = routes/path_to "home/index"

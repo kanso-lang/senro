@@ -1,5 +1,6 @@
 import "../../models"
 import "../../passwords"
+import "../../routes"
 import "../../web"
 import "./account"
 import "./account_mailer"
@@ -33,7 +34,7 @@ pub fn create req db
   account/find_by db "email" email
     .> (a -> sent db a)
     .? (u -> io/write_err "guestbook: no reset mail: {u.reason}\n")
-    .> (_ -> effect (web/redirect "/" on_its_way))
+    .> (_ -> effect (web/redirect (routes/path_to "home/index") on_its_way))
 
 on_its_way = "If that address has an account, a link is on its way to it."
 
@@ -51,7 +52,7 @@ fn offered req token true
   effect (chosen req token {} 200)
 
 fn offered _ _ false
-  effect (web/redirect "/resets/new" expired)
+  effect (web/redirect (routes/path_to "resets/new") expired)
 
 expired = "That link has expired or was used. Ask for another."
 
@@ -62,7 +63,7 @@ pub fn update req db id
   checked db id .> (good -> chose req db id password good)
 
 fn chose _ _ _ _ false
-  effect (web/redirect "/resets/new" expired)
+  effect (web/redirect (routes/path_to "resets/new") expired)
 
 fn chose req db token password true
   short = { "password":"Use eight characters or more." }
@@ -70,7 +71,7 @@ fn chose req db token password true
   id = id_of (passwords/reset_id token)
   passwords/digested password
     .> (d -> time/now .> (t -> account/find db id .> (a -> renewed db a d t)))
-    .> (_ -> effect (web/redirect "/" changed))
+    .> (_ -> effect (web/redirect (routes/path_to "home/index") changed))
 
 # A reset link proves the address as well as a confirmation link does, so
 # setting a password through one confirms an address that was not yet, and
@@ -122,5 +123,5 @@ fn asked req code
   views/answer req code "Forgot your password · Guestbook" page
 
 fn chosen req token problems code
-  page = views/reset_chosen_view "/resets/{token}" problems
+  page = views/reset_chosen_view (routes/path_to "resets/update" token) problems
   views/answer req code "A new password · Guestbook" page

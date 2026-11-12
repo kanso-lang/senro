@@ -1,5 +1,6 @@
 import "../../models"
 import "../../passwords"
+import "../../routes"
 import "../../web"
 import "./password_mailer"
 import "./session"
@@ -33,7 +34,7 @@ pub fn create req db
   user/find_by db "email" email
     .> (u -> sent db u)
     .? (u -> io/write_err "no reset mail: {u.reason}\n")
-    .> (_ -> effect (web/redirect "/session/new" on_its_way))
+    .> (_ -> effect (web/redirect (routes/path_to "session/new") on_its_way))
 
 on_its_way = "If that address has an account, a link is on its way to it."
 
@@ -51,7 +52,7 @@ fn offered req token true
   effect (chosen req token {} 200)
 
 fn offered _ _ false
-  effect (web/redirect "/resets/new" expired)
+  effect (web/redirect (routes/path_to "resets/new") expired)
 
 expired = "That link has expired or was used. Ask for another."
 
@@ -63,7 +64,7 @@ pub fn update req db id
   checked db id .> (good -> chose req db id password good)
 
 fn chose _ _ _ _ false
-  effect (web/redirect "/resets/new" expired)
+  effect (web/redirect (routes/path_to "resets/new") expired)
 
 fn chose req db token password true
   short = { "password":"Use eight characters or more." }
@@ -71,7 +72,7 @@ fn chose req db token password true
   id = id_of (passwords/reset_id token)
   passwords/digested password
     .> (d -> user/update (models/as_app db) id { "digest":d })
-    .> (_ -> effect (web/redirect "/session/new" changed))
+    .> (_ -> effect (web/redirect (routes/path_to "session/new") changed))
 
 changed = "Your password is changed. Sign in with it."
 
@@ -97,5 +98,5 @@ fn asked req code
   views/answer req code "Forgot your password" page
 
 fn chosen req token problems code
-  page = views/reset_chosen_view "/resets/{token}" problems
+  page = views/reset_chosen_view (routes/path_to "resets/update" token) problems
   views/answer req code "A new password" page

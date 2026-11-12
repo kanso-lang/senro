@@ -1,4 +1,5 @@
 import "../../models"
+import "../../routes"
 import "../../web"
 import "./note"
 import "./page"
@@ -80,10 +81,10 @@ fn removing db id _
   page/destroy db id
 
 fn listed_path note_id
-  "/notes/{note_id}/pages"
+  routes/path_to "pages/index" note_id
 
 fn shown_path note_id id
-  "{listed_path note_id}/{id}"
+  routes/path_to "pages/show" note_id id
 
 fn listing req note_id p
   as_json = page/page_attributes
