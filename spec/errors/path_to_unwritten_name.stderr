@@ -1,0 +1,4 @@
+error[derive]: name the route as written: path_to "posts/show" id
+  --> ./main.kso:10:8
+  10 | print (routes/path_to route)
+              ^

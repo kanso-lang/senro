@@ -1,0 +1,10 @@
+import "../../../routes"
+import "./home"
+import "./posts"
+
+derive routes/rest
+
+# A route is named as written, so the check can read the name.
+route = "posts/index"
+
+print (routes/path_to route)

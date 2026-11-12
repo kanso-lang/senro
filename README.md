@@ -290,11 +290,10 @@ until the app is changed with it.
   and its name place it: `posts/index` answers GET /posts, `posts/show` GET
   /posts/:id. Any other pub function is refused where it is declared, and
   two routes that can answer the same request are refused at the later one.
-  `routes/path_to post` answers a record's show path, through an arm the
-  derivation writes into the module that declares the record.
-  `routes/path_to "posts/index"` and `routes/path_to "posts/show" 3` name the
-  route by its action. A name that is no route, or an id where the route
-  takes none, is refused at the call. A module whose name ends in
+  `routes/path_to "posts/index"` and `routes/path_to "posts/show" 3` name a
+  route by its action, with the ids its path takes. A name that is no route,
+  the wrong number of ids, or a name not written out as a string is refused
+  at the call. A template names its links the same way. A module whose name ends in
   `_mailer` makes the app's mail, as a Rails mailer does: its pub functions
   are called by actions in other modules, and none of them is a route. Nor
   is the `perform` of a module whose name ends in `_job`, which a worker
@@ -308,8 +307,7 @@ until the app is changed with it.
   /posts/:post_id/comments/:id. Nesting goes one level deep, and an action
   of a nested module that takes no `post_id`, or takes it after `id`, is
   refused. `routes/path_to "comments/show" 3 4` names a nested route with
-  the parent's id first, and `path_to comment` reads it from the record's
-  own `post_id`. An app
+  the parent's id first. An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
   modules, mapping each old path to the action now answering it, as in
   `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308

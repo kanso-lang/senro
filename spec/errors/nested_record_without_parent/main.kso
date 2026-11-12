@@ -1,6 +1,0 @@
-import "../../../routes"
-import "./comments"
-
-derive routes/rest
-
-print "unreached"
