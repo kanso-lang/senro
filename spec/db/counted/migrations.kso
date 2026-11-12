@@ -2,11 +2,9 @@ import "../../../models"
 
 pub all = [accounts tallies]
 
-accounts = models/create_table "accounts" [id name failures]
+accounts = models/create_table "accounts" [name failures]
 
-tallies = models/create_table "tallies" [id seen]
-
-id = models/column "id" "serial primary key"
+tallies = models/create_table "tallies" [seen]
 
 name = models/column "name" "text not null"
 

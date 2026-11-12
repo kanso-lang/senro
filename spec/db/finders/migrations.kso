@@ -2,11 +2,9 @@ import "../../../models"
 
 pub all = [posts comments]
 
-posts = models/create_table "posts" [id title]
+posts = models/create_table "posts" [title]
 
-comments = models/create_table "comments" [id post_id body author]
-
-id = models/column "id" "serial"
+comments = models/create_table "comments" [post_id body author]
 
 title = models/column "title" "text not null"
 

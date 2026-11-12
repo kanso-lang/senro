@@ -1,6 +1,3 @@
 import "../../../../models"
 
-pub create_zebras = models/create_table "zebras" [
-  (models/column "id" "serial")
-  (models/column "name" "text")
-]
+pub create_zebras = models/create_table "zebras" [(models/column "name" "text")]

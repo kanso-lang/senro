@@ -1,8 +1,8 @@
 import "../../models"
 import "../../web"
+import "./item"
 import "./planner"
 import "./staple"
-import "./stock"
 import "./views"
 import "std/list"
 import "std/text"
@@ -16,7 +16,7 @@ pub fn edit req db id:int
 
 pub fn create req db
   name = web/value (web/input req) "name"
-  stock/create db { "name":name "quantity":"0" } .> (_ -> back)
+  item/create db { "name":name "quantity":"0" } .> (_ -> back)
 
 # Two forms update an item: one renames it, and the plus and minus buttons
 # send `by`, which moves its count and never below zero.
@@ -28,10 +28,10 @@ fn moved db id name none
   changed db id { "name":name }
 
 fn moved db id _ by
-  stock/find db id .> (i -> stepped db id i by)
+  item/find db id .> (i -> stepped db id i by)
 
 pub fn destroy _ db id:int
-  stock/destroy db id .> (_ -> back)
+  item/destroy db id .> (_ -> back)
 
 fn stepped _ _ none _
   back
@@ -41,12 +41,12 @@ fn stepped db id i by
   changed db id { "quantity":"{if (left > 0) left 0}" }
 
 fn changed db id changes
-  stock/update db id changes .> (_ -> back)
+  item/update db id changes .> (_ -> back)
 
 back = effect (web/redirect "/")
 
 fn shelf req db editing
-  stock/all db .> (items -> shown req items editing)
+  item/all db .> (items -> shown req items editing)
 
 # The shelf goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the

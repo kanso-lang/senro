@@ -23,9 +23,9 @@ it makes its `items` table on first run.
 - `items.kso` is the resource: `index`, `create`, `edit`, `update` and
   `destroy`, each a REST route by its name. `update` takes two forms, one
   renaming the item and one stepping its count by `by`.
-- `items.kso` holds no SQL. It reads the shelf with `stock/all db` and one
-  item with `stock/find db id`, and writes with `stock/create`,
-  `stock/update` and `stock/destroy`.
+- `items.kso` holds no SQL. It reads the shelf with `item/all db` and one
+  item with `item/find db id`, and writes with `item/create`,
+  `item/update` and `item/destroy`.
 - The plus, minus and remove buttons are forms that POST with a `_method`
   field of `PATCH` or `DELETE`, which senro reads as the method they stand
   for.
@@ -37,7 +37,7 @@ it makes its `items` table on first run.
   counting never reaches the server, and the pages, rendered from the data
   the server sends.
 - The planner's check button asks the server which staples the week would
-  run short of. Its action calls `stock/short meals`, a provider in
-  `stock.kso` that reads the starred items through the item's model. The
+  run short of. Its action calls `item/short meals`, a provider in
+  `item.kso` that reads the starred items through the item's model. The
   page sends that call to `/senro/data`, gets the names back, and runs the
   action again with them; one click is one request.

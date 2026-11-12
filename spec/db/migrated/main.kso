@@ -15,13 +15,11 @@ fresh = """
   insert into notes (title) values ('kept')
 """
 
-id = models/column "id" "serial"
-
 title = models/column "title" "text"
 
 body = models/column "body" "text"
 
-notes = models/create_table "notes" [id title]
+notes = models/create_table "notes" [title]
 
 bodied = models/add_column "notes" body
 
@@ -29,7 +27,7 @@ renamed = models/rename_column "notes" "title" "heading"
 
 edited = models/add_column "notes" (models/column "body" "varchar(80)")
 
-shelved = models/create_table "shelf" [id title]
+shelved = models/create_table "shelf" [title]
 
 columns = """
   select string_agg(column_name, ' ' order by ordinal_position) as names

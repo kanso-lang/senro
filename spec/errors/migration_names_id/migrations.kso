@@ -1,0 +1,10 @@
+import "../../../models"
+
+# `create_table` supplies the id, so a migration that names one is refused.
+pub all = [notes]
+
+notes = models/create_table "notes" [id body]
+
+id = models/column "id" "serial"
+
+body = models/column "body" "text"

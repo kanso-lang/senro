@@ -81,21 +81,11 @@ import "<senro>/models"
 
 pub create_tags = [tags_table (models/add_unique_index "tags" "name")]
 
-tags_table = models/create_table "tags" [
-  (models/column "id" "serial primary key")
-  (models/column "name" "text")
-  models/created_at
-  models/updated_at
-]
+tags_table = models/create_table "tags" [(models/column "name" "text")]
 == 20261111180513_create_labels.kso
 import "<senro>/models"
 
-pub create_labels = models/create_table "labels" [
-  (models/column "id" "serial primary key")
-  (models/column "name" "text")
-  models/created_at
-  models/updated_at
-]
+pub create_labels = models/create_table "labels" [(models/column "name" "text")]
 == 20261111180514_add_color_to_tags.kso
 import "<senro>/models"
 

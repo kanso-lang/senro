@@ -1,14 +1,8 @@
 import "std/list"
 
-# A thing on the shelf, as the `items` table stores it. senro/models checks
-# each field against the table's columns and writes `item_from` and
-# `item_model`.
-pub type item
-  id
-  name
-  quantity
-  staple
-
+# A thing on the shelf. The module is named for the record, so the models
+# derivation declares `item` here from the `items` table's columns, with
+# `item_from` and `item_model`.
 # The pantry is one household's shelf, and anyone at the page may change what
 # is on it. The policies say so outright: without one, a write through the
 # model is refused.
@@ -22,7 +16,7 @@ pub fn destroy? _ _
   true
 
 # The staples the shelf holds fewer of than `meals`, by name. The planner asks
-# for them as `stock/short meals`, and this body runs only on the server.
+# for them as `item/short meals`, and this body runs only on the server.
 pub fn short _ db meals
   where db "staple" true .> (items -> effect (under items meals))
 

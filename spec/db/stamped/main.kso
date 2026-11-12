@@ -6,7 +6,7 @@ import "./stamping"
 
 derive models/tables
 
-# A table made with `models/timestamps` has `created_at` and `updated_at`.
+# A table `create_table` makes has `created_at` and `updated_at`.
 # Postgres sets both when a note is made, a form that names either is not
 # believed, and a change through the model moves `updated_at` alone.
 fresh = """

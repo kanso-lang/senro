@@ -1,4 +1,4 @@
 error[derive]: migrations/create_notes.kso holds `create_notes`, so it is named <yyyymmddhhmmss>_create_notes.kso
   --> ./migrations/create_notes.kso:3:5
-   3 | pub create_notes = models/create_table "notes" [
+   3 | pub create_notes = models/create_table "notes" [(models/column "title" "text")]
            ^

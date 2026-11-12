@@ -1,5 +1,5 @@
 import "../../../data"
-import "../stock"
+import "../item"
 import "std/text"
 
 # The week's meal plan, counted in the browser, and the staples it would run
@@ -15,7 +15,7 @@ pub fn fewer plan
   planned (if (n > 0) (n - 1) 0)
 
 pub fn checked plan
-  asked = stock/short (meals_of plan)
+  asked = item/short (meals_of plan)
   data/then asked (names -> put plan "note" (noted names))
 
 fn meals_of plan

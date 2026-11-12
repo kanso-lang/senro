@@ -2,9 +2,7 @@ import "../../../models"
 
 pub all = [notes]
 
-notes = models/create_table "notes" [id owner body]
-
-id = models/column "id" "serial"
+notes = models/create_table "notes" [owner body]
 
 owner = models/column "owner" "text not null"
 

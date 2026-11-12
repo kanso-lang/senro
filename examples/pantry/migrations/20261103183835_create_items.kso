@@ -1,7 +1,6 @@
 import "../../../models"
 
 pub create_items = models/create_table "items" [
-  (models/column "id" "serial")
   (models/column "name" "text")
   (models/column "quantity" "integer not null default 0")
 ]
