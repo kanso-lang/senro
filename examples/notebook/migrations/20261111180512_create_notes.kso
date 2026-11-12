@@ -1,10 +1,7 @@
 import "../../../models"
 
 pub create_notes = models/create_table "notes" [
-  (models/column "id" "serial primary key")
   (models/column "title" "text")
   (models/column "pages" "integer")
   (models/column "cover" "text not null default ''")
-  models/created_at
-  models/updated_at
 ]

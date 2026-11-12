@@ -6,9 +6,6 @@ pub create_pages = [
 ]
 
 pages_table = models/create_table "pages" [
-  (models/column "id" "serial primary key")
   (models/column "body" "text")
   (models/column "note_id" "integer not null")
-  models/created_at
-  models/updated_at
 ]

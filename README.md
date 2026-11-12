@@ -134,9 +134,9 @@ for, as a Rails scaffold's do: `/notes.json` is the page's rows, each as
 `note_attributes` gives it, and `/notes/3.json` is one. Each `int` field
 gets a rule that the value is a whole number, so a form that says otherwise
 is shown again with the problem rather than
-refused by Postgres. It writes the migration that makes the table, whose last
-columns are `models/created_at` and `models/updated_at`, as
-`migrations/<stamp>_create_notes.kso`, and adds both modules' imports to the
+refused by Postgres. It writes the migration that makes the table, naming
+the fields' columns, as `migrations/<stamp>_create_notes.kso`, and adds both
+modules' imports to the
 entry, since a derivation reads the modules the entry names. The policies it
 writes let anyone write; narrow them before the app is public.
 
@@ -252,8 +252,8 @@ a stamp another has.
 `senro generate migration <name> <field>...` writes one, stamped with now, and
 reads what to write from the name, as Rails' generator does:
 
-- `create_tags name:text` makes a table, as `scaffold` does: an id, the
-  fields, and the timestamps.
+- `create_tags name:text` makes a table, as `scaffold` does: the fields'
+  columns, beside the id and timestamps `create_table` supplies.
 - `add_rating_to_notes rating:int` adds a column for each field, with a
   foreign key for a `references` field and an index for a `:uniq` one.
 - `remove_rating_from_notes rating` drops each column named.
@@ -370,12 +370,13 @@ until the app is changed with it.
   of the same name, or "" when the row has none. It gets
   `signature_attributes s` too, the record as a map from each field's name to
   its value, as Rails' `attributes` gives one, which `web/json` writes as an
-  object; a module that declares the function keeps its own. A table made with
-  `models/timestamps` among its columns, or `models/created_at` and
-  `models/updated_at` one at a time, has `created_at` and `updated_at`, as
-  Rails' `t.timestamps` gives: Postgres sets both when a row is made,
-  `models/updated` sets `updated_at` on every change, and a form's value for
-  either is ignored. As the app starts, `app/run` runs the migrations the
+  object; a module that declares the function keeps its own.
+  `models/create_table name columns` makes a table with an `id` that is its
+  primary key, then the columns named, then `created_at` and `updated_at`,
+  as Rails' `create_table` gives with `t.timestamps`: Postgres sets both
+  when a row is made, `models/updated` sets `updated_at` on every change,
+  and a form's value for either is ignored. A migration names only the
+  app's own columns, and one that names `id` or a timestamp is refused. As the app starts, `app/run` runs the migrations the
   database has not yet run, in order, and records each in `senro_migrations` under the app's
   name and its stamp, beside the SQL it ran, as Rails records them in
   `schema_migrations`; two apps can share a database. A program that runs

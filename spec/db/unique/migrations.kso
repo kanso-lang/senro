@@ -2,10 +2,8 @@ import "../../../models"
 
 pub all = [accounts accounts_handle]
 
-accounts = models/create_table "accounts" [id handle]
+accounts = models/create_table "accounts" [handle]
 
 accounts_handle = models/add_unique_index "accounts" "handle"
-
-id = models/column "id" "serial primary key"
 
 handle = models/column "handle" "text not null"

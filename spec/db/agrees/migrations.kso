@@ -2,11 +2,9 @@ import "../../../models"
 
 pub all = [notes tags]
 
-notes = models/create_table "notes" [id body seen title]
+notes = models/create_table "notes" [body seen title]
 
-tags = models/create_table "tags" [id]
-
-id = models/column "id" "serial"
+tags = models/create_table "tags" []
 
 body = models/column "body" "text not null"
 

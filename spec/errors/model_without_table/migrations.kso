@@ -2,8 +2,6 @@ import "../../../models"
 
 pub all = [notes]
 
-notes = models/create_table "notes" [id body]
-
-id = models/column "id" "serial"
+notes = models/create_table "notes" [body]
 
 body = models/column "body" "text"

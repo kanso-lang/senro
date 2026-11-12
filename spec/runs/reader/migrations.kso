@@ -2,9 +2,7 @@ import "../../../models"
 
 pub all = [notes marginalia]
 
-notes = models/create_table "notes" [id title]
-
-id = models/column "id" "serial"
+notes = models/create_table "notes" [title]
 
 title = models/column "title" "text"
 
@@ -12,4 +10,4 @@ first = models/column "the_first_rather_long_column" "text"
 
 second = models/column "the_second_rather_long_column" "text"
 
-marginalia = models/create_table "marginal_entries" [id first second]
+marginalia = models/create_table "marginal_entries" [first second]

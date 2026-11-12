@@ -2,7 +2,4 @@ import "../../../../models"
 
 pub create_apples = [apples_table (models/add_unique_index "apples" "name")]
 
-apples_table = models/create_table "apples" [
-  (models/column "id" "serial")
-  (models/column "name" "text")
-]
+apples_table = models/create_table "apples" [(models/column "name" "text")]

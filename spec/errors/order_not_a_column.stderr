@@ -1,4 +1,4 @@
-error[derive]: `written_at` is not a column of `comments`: it has id, post_id, body, author
+error[derive]: `written_at` is not a column of `comments`: it has id, post_id, body, author, created_at, updated_at
   --> ./main.kso:11:13
   11 |   .> (db -> comment/ordered db "written_at")
                    ^

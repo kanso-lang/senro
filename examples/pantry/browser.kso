@@ -2,9 +2,9 @@ import "../../browser"
 import "../../data"
 import "../../kata"
 import "../../models"
+import "./item"
 import "./migrations"
 import "./planner"
-import "./stock"
 import "./views"
 
 derive data/providers

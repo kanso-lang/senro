@@ -170,7 +170,7 @@ const stars = await page.evaluate(() =>
 console.log(`staples after starring the first: ${stars}`);
 
 // The planner's check reads the shelf, which only the server holds. The click
-// runs `checked` in the browser, which calls the provider `stock/short`; the
+// runs `checked` in the browser, which calls the provider `item/short`; the
 // page sends the call to /senro/data, runs the action again with the answer,
 // and renders the plan it comes to. Rice, at 4, is the one staple.
 const calls = [];
@@ -215,12 +215,12 @@ const ask = async (body, headers) => {
   });
   return r.status;
 };
-console.log(`data without the page's header: ${await ask(`[["stock/short",[1]]]`, {})}`);
+console.log(`data without the page's header: ${await ask(`[["item/short",[1]]]`, {})}`);
 const shelf = { ...ours, "senro-from": "/items" };
-console.log(`data naming no provider: ${await ask(`[["stock/update?",[1]]]`, shelf)}`);
-console.log(`data from the page that asks for it: ${await ask(`[["stock/short",[1]]]`, shelf)}`);
-console.log(`data from no page: ${await ask(`[["stock/short",[1]]]`, ours)}`);
-console.log(`data from a page that is not there: ${await ask(`[["stock/short",[1]]]`, { ...ours, "senro-from": "/nowhere" })}`);
+console.log(`data naming no provider: ${await ask(`[["item/update?",[1]]]`, shelf)}`);
+console.log(`data from the page that asks for it: ${await ask(`[["item/short",[1]]]`, shelf)}`);
+console.log(`data from no page: ${await ask(`[["item/short",[1]]]`, ours)}`);
+console.log(`data from a page that is not there: ${await ask(`[["item/short",[1]]]`, { ...ours, "senro-from": "/nowhere" })}`);
 
 // A second visitor, in a browser context of its own, has the shelf open. A
 // change the first makes reaches the second's page with no click there.

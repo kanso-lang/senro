@@ -1,0 +1,4 @@
+error[derive]: `create_table` supplies `id`; leave it out of the migration's columns
+  --> ./migrations.kso:4:5
+   4 | pub all = [notes]
+           ^

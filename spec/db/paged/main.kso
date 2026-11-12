@@ -14,11 +14,9 @@ fresh = """
   set search_path to senro_spec
 """
 
-id = models/column "id" "serial primary key"
-
 title = models/column "title" "text"
 
-all = [(models/create_table "items" [id title])]
+all = [(models/create_table "items" [title])]
 
 written = "insert into items (title) values ('a'), ('b'), ('c'), ('d'), ('e')"
 

@@ -2,11 +2,11 @@ import "../../app"
 import "../../pg"
 import "../../web"
 import "./home"
+import "./item"
 import "./items"
 import "./migrations"
 import "./planner"
 import "./staple"
-import "./stock"
 import "./views"
 
 derive app/conventions
@@ -20,9 +20,9 @@ secret = "the pantry's development secret"
 served = { "staple":(web/component staple/act staple/view) }
 
 # The planner asks the server for the staples the week runs short of, through
-# the provider in stock.kso.
+# the provider in item.kso.
 answering = web/components routes secret served
-served_with_data = web/providers answering secret stock/provided
+served_with_data = web/providers answering secret item/provided
 
 connected = pg/from_env
 

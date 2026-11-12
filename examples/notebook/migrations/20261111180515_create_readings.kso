@@ -1,9 +1,6 @@
 import "../../../models"
 
 pub create_readings = models/create_table "readings" [
-  (models/column "id" "serial primary key")
   (models/column "title" "text")
   (models/column "minutes" "integer")
-  models/created_at
-  models/updated_at
 ]

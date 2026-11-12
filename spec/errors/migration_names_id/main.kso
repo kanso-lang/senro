@@ -1,0 +1,6 @@
+import "../../../models"
+import "./migrations"
+
+derive models/tables
+
+print schema

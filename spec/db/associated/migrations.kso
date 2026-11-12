@@ -2,13 +2,11 @@ import "../../../models"
 
 pub all = [notes pages pages_to_notes]
 
-notes = models/create_table "notes" [id title]
+notes = models/create_table "notes" [title]
 
-pages = models/create_table "pages" [id note_id body]
+pages = models/create_table "pages" [note_id body]
 
 pages_to_notes = models/add_foreign_key "pages" "note_id" "notes"
-
-id = models/column "id" "serial primary key"
 
 title = models/column "title" "text not null"
 

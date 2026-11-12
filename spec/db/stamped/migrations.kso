@@ -1,10 +1,7 @@
 import "../../../models"
-import "std/list"
 
 pub all = [notes]
 
-notes = models/create_table "notes" (list/concat [id body] models/timestamps)
-
-id = models/column "id" "serial primary key"
+notes = models/create_table "notes" [body]
 
 body = models/column "body" "text not null"
