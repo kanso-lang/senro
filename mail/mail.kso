@@ -73,6 +73,18 @@ pub fn delivered_later db m
   fields = { "body":m.body "from":m.from "subject":m.subject "to":m.to }
   time/now .> (t -> jobs/later db "mail" "deliver" fields t)
 
+# The mail queued on `db` and not yet sent, newest first. The worker sends
+# each one and deletes it, so inside a test's transaction these are what the
+# test's requests mailed.
+pub fn queued db
+  jobs/queued_on db "mail" .> (rows -> effect (letters_of rows))
+
+fn letters_of rows
+  list/to_list (list/map rows letter_of)
+
+fn letter_of f
+  message f["from"] f["to"] f["subject"] f["body"]
+
 # The performers a worker on the `mail` queue runs.
 pub performers = { "deliver":deliver }
 
