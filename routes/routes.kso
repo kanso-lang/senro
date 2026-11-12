@@ -75,18 +75,16 @@ type limits
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
 pub fn rest p
-  apps = list/to_list (list/select p.modules (m -> routed? m))
-  conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
-  start = aliases [] []
-  aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
-  placed = list/concat conventional aliased.routes
+  apps = apps_of p
+  laid = laid_out apps
+  placed = laid.routes
   limited = list/fold apps (limits {} []) limits_in
   open = list/fold apps (limits {} []) opens_in
   asked = list/fold apps {} admitting_in
   each = (acc r -> put acc (spelled r) (row r limited open asked))
   rows = list/fold placed {} each
   turned = list/concat limited.refused open.refused
-  given = list/concat aliased.refused turned
+  given = list/concat laid.refused turned
   calls = data/calls_of_program p
   odd = list/fold apps given (acc m -> list/concat acc (strays m calls))
   clashing = list/fold placed (clashes [] []) clashed
@@ -95,6 +93,20 @@ pub fn rest p
   links = list/fold apps [] (acc m -> list/concat acc (links_of m placed))
   told = list/concat (list/concat declared odd) clashing.out
   list/concat (list/concat told arms) links
+
+# The routes `rest` places, conventional and aliased, which kata reads to
+# write the paths a template names.
+pub fn routes_in p
+  (laid_out (apps_of p)).routes
+
+fn apps_of p
+  list/to_list (list/select p.modules (m -> routed? m))
+
+fn laid_out apps
+  conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
+  start = aliases [] []
+  aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
+  aliases (list/concat conventional aliased.routes) aliased.refused
 
 # A module holding templates is the app's views or one of its components.
 # A component's pub functions are its actions, which its template binds, and
@@ -215,13 +227,26 @@ fn named _ "" _
   []
 
 fn named c name placed
+  why = unlinked name (length c.arguments - 1) placed
+  if (why == "") [] [(derive/refuse_call c why)]
+
+# Why naming the route `name` with `given` ids links nowhere, or "" when it
+# links to a route.
+pub fn unlinked name given placed
   found = list/to_list (list/select placed (r -> r.origin == name))
-  return [(derive/refuse_call c "`{name}` names no route")] if length found == 0
+  return "`{name}` names no route" if length found == 0
   r = found[1]
-  wanted = ids_of r
-  given = length c.arguments - 1
-  return [] if wanted == given
-  miscounted c name r
+  return "" if ids_of r == given
+  miscounted name r
+
+# The path of the route `name` names with its ids written as `ids` spell
+# them, the parent's first, for a route `unlinked` finds no fault with.
+pub fn path_with name ids placed
+  r = (list/to_list (list/select placed (r -> r.origin == name)))[1]
+  parent = blank_if_none ids[1]
+  own = blank_if_none ids[length ids]
+  nested = if (r.within == "") r.path (text/replace r.path ":{r.within}" parent)
+  if (r.id == "") nested (text/replace nested ":id" own)
 
 # How many ids a route's path takes: its parent's, then its own.
 fn ids_of r
@@ -233,10 +258,9 @@ fn count ""
 fn count _
   1
 
-fn miscounted c name r
+fn miscounted name r
   third = blank_if_none (text/split r.path "/")[3]
-  parent = text/replace third ":" ""
-  [(derive/refuse_call c (how name parent r.within r.id))]
+  how name (text/replace third ":" "") r.within r.id
 
 fn how name _ "" ""
   "`{name}` takes no id"
