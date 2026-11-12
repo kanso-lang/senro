@@ -99,7 +99,7 @@ fn acting m names
 
 # A server action writes through a model, whose policy checks the write
 # (`models/updated`, `models/destroyed`), and never with SQL of its own. The
-# check bytes_read the action's own calls.
+# check reads the action's own calls.
 fn around? names c
   bound = list/any? names (n -> n == c.caller)
   bound and (c.callee == "pg/query" or c.callee == "pg/run")
@@ -250,7 +250,7 @@ fn head_of bound use bytes_read
 # draws pages from bytes, so it gets each page's reader, `{name}_shown`, and
 # `rendered` itself: the app's browser module is one. A server does not,
 # and that is what keeps a field a record lacks a compile error there: the
-# reader's record types hold every field a template bytes_read, so a program
+# reader's record types hold every field a template reads, so a program
 # with them has some record with any field a template names.
 fn pages_of m use keep bytes_read
   files = list/to_list (list/sort (keys m.files))
@@ -273,7 +273,7 @@ fn readers_of m pages numbers marks
   push readers (derive/define m.name dispatch)
 
 # The types the module's pages lean on: the records its readers build, when
-# it bytes_read pages, and what each view holds, when it answers them. A type
+# it reads pages, and what each view holds, when it answers them. A type
 # comes before any function in the file a module's definitions share, so
 # these are answered first.
 fn types_of m use keep bytes_read

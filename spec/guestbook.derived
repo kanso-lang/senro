@@ -82,7 +82,7 @@ type layout_page
   body
 # in views, by kata/views
 type reset_asked_page
-  flash
+  notice
   problems
 # in views, by kata/views
 type reset_chosen_page
@@ -92,7 +92,7 @@ type reset_chosen_page
 type signed_page
   signatures
   form
-  flash
+  notice
   removals
   viewer
 # in views, by kata/views
@@ -252,21 +252,21 @@ pub fn layout title body
     "</head><body><main>{kata_raw body}</main></body></html>"
   ]
 # in views, by kata/views
-fn reset_asked_6 flash
+fn reset_asked_6 notice
   # from reset_asked.kata:7
-  "<p class=\"flash\">{escape flash}</p>"
+  "<p class=\"notice\">{escape notice}</p>"
 
 fn reset_asked_10 problems
   # from reset_asked.kata:11
   "<p class=\"problem\">{escape problems["email"]}</p>"
 
 # from reset_asked.kata:1
-pub fn reset_asked flash problems
+pub fn reset_asked notice problems
   joined [
     "<header><h1>Forgot your password?</h1><p class=\"lede\"><a "
     "href=\"/session/new\">Back to signing in</a></p></header>"
     # from reset_asked.kata:6
-    "{if (flash != "") (reset_asked_6 flash) ""}<form method=\"post\" "
+    "{if (notice != "") (reset_asked_6 notice) ""}<form method=\"post\" "
     "action=\"/resets\"><input type=\"email\" name=\"email\" "
     "placeholder=\"the address your account has\" required=\"required\">"
     # from reset_asked.kata:10
@@ -305,9 +305,9 @@ fn signed_9 viewer
     "<button>Sign out</button></form>"
   ]
 
-fn signed_15 flash
+fn signed_15 notice
   # from signed.kata:16
-  "<p class=\"flash\">{escape flash}</p>"
+  "<p class=\"notice\">{escape notice}</p>"
 
 fn signed_20 form
   # from signed.kata:21
@@ -347,13 +347,13 @@ fn signed_27 removals e
   ]
 
 # from signed.kata:1
-pub fn signed signatures form flash removals viewer
+pub fn signed signatures form notice removals viewer
   joined [
     "<header><h1>Guestbook</h1><p class=\"lede\">Leave a line for whoever "
     # from signed.kata:5
     "comes next.</p></header>{if (viewer == "") signed_5 (signed_9 viewer)}"
     # from signed.kata:15
-    "{if (flash != "") (signed_15 flash) ""}"
+    "{if (notice != "") (signed_15 notice) ""}"
     # from signed.kata:17
     "{if (viewer != "") (signed_17 form) ""}<ol class=\"entries\">"
     # from signed.kata:27
@@ -369,7 +369,7 @@ pub fn unlock_offered path
     "value=\"PATCH\"><button>Unlock it</button></form>"
   ]
 # in views, by kata/views
-kata_marks = [226 164 104 178]
+kata_marks = [77 140 82 130]
 # in views, by kata/views
 fn account_pack acc h
   a1 = wire/add (wire/add_count acc 1) h.path
@@ -423,14 +423,14 @@ pub fn layout_view title body
   wire/paged kata_held layout_pack layout_drawn
 # in views, by kata/views
 fn reset_asked_pack acc h
-  a1 = wire/add (wire/add_count acc 5) h.flash
+  a1 = wire/add (wire/add_count acc 5) h.notice
   wire/add a1 h.problems
 
 fn reset_asked_drawn h
-  reset_asked h.flash h.problems
+  reset_asked h.notice h.problems
 
-pub fn reset_asked_view flash problems
-  kata_held = reset_asked_page flash problems
+pub fn reset_asked_view notice problems
+  kata_held = reset_asked_page notice problems
   wire/paged kata_held reset_asked_pack reset_asked_drawn
 # in views, by kata/views
 fn reset_chosen_pack acc h
@@ -467,15 +467,15 @@ fn signed_pack_form acc x
 fn signed_pack acc h
   a1 = signed_pack_signatures (wire/add_count acc 7) h.signatures
   a2 = signed_pack_form a1 h.form
-  a3 = wire/add a2 h.flash
+  a3 = wire/add a2 h.notice
   a4 = wire/add a3 h.removals
   wire/add a4 h.viewer
 
 fn signed_drawn h
-  signed h.signatures h.form h.flash h.removals h.viewer
+  signed h.signatures h.form h.notice h.removals h.viewer
 
-pub fn signed_view signatures form flash removals viewer
-  kata_held = signed_page signatures form flash removals viewer
+pub fn signed_view signatures form notice removals viewer
+  kata_held = signed_page signatures form notice removals viewer
   wire/paged kata_held signed_pack signed_drawn
 # in views, by kata/views
 fn unlock_offered_pack acc h

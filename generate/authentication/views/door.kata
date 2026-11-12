@@ -1,8 +1,8 @@
-takes heading path email problems flash signing_in
+takes heading path email problems notice signing_in
 header
   h1 = heading
-if flash != ""
-  p.flash = flash
+if notice != ""
+  p.notice = notice
 form method="post" action=path
   input type="email" name="email" placeholder="email" required="required" value=email
   if problems["email"] != none

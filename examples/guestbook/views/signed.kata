@@ -1,4 +1,4 @@
-takes signatures form flash removals viewer
+takes signatures form notice removals viewer
 header
   h1 Guestbook
   p.lede Leave a line for whoever comes next.
@@ -12,8 +12,8 @@ else
     span Signed in as {viewer}.
     a href="/password/edit" Your account
     button Sign out
-if flash != ""
-  p.flash = flash
+if notice != ""
+  p.notice = notice
 if viewer != ""
   form.sign method="post" action="/entries" enctype="multipart/form-data"
     textarea name="message" placeholder="say something" required="required" = form.message

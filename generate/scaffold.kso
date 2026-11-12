@@ -332,7 +332,7 @@ fn helpers singular plural fields
     "fn shown req record"
     "  attributes = {singular}/{singular}_attributes record"
     "  return web/json 200 attributes if web/wants_json? req"
-    "  page = views/{singular}_shown_view record"
+    "  page = views/{plural}_show_view record"
     "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
     ""
     "fn editing _ _ none"
@@ -373,7 +373,7 @@ fn helpers singular plural fields
     ""
     (comment (form_about singular))
     "fn form req path method fields problems code"
-    "  page = views/{singular}_form_view path method fields problems"
+    "  page = views/{plural}_form_view path method fields problems"
     "  views/answer_as req code (views/layout_view \"{title}\" page)"
     ""
     (map_line "blank" "" fields (_ -> "\"\""))
@@ -497,7 +497,7 @@ fn nested_helpers singular plural fields parent
     "fn shown req record"
     "  attributes = {singular}/{singular}_attributes record"
     "  return web/json 200 attributes if web/wants_json? req"
-    "  page = views/{singular}_shown_view record"
+    "  page = views/{plural}_show_view record"
     "  views/answer_as req 200 (views/layout_view \"{title}\" page)"
     ""
     "fn editing _ _ _ none"
@@ -540,7 +540,7 @@ fn nested_helpers singular plural fields parent
     ""
     (comment (form_about singular))
     "fn form req path method fields problems code"
-    "  page = views/{singular}_form_view path method fields problems"
+    "  page = views/{plural}_form_view path method fields problems"
     "  views/answer_as req code (views/layout_view \"{title}\" page)"
     ""
     (map_line "blank" "" mine (_ -> "\"\""))

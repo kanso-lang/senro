@@ -22,7 +22,7 @@ import "std/text"
 #   fn listed v
 #     visit/post v "/notes" { "title":"milk" }
 #       .> (v -> visit/followed v)
-#       .> (v -> effect (visit/sees? v "milk"))
+#       .> (v -> effect (expect v.body . to (contain "milk")))
 #
 # `signed` and `connected` are the names the app's entry binds: the routes
 # it serves and the effect that opens its database. `kanso test` lends a
@@ -108,14 +108,6 @@ pub fn header v name
   lines = list/to_list (list/select v.headers (h -> named? h name))
   return "" if length lines == 0
   after lines[1] ": "
-
-# Whether the last answer's body holds `words`.
-pub fn sees? v words
-  length (text/split v.body words) > 1
-
-# Whether the last answer sent the visitor on to `path`.
-pub fn sent_to? v path
-  v.status >= 300 and v.status < 400 and location v == path
 
 fn asked v method path lines body
   held = text/join (list/to_list (list/map (keys v.cookies) (crumb v))) "; "

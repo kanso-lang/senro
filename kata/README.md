@@ -27,11 +27,11 @@ its field accesses and its parameters, and both engines run it.
 ## The format
 
 ```
-takes signatures name flash
+takes signatures name notice
 header
   h1 Guestbook
-if flash != ""
-  p.flash = flash
+if notice != ""
+  p.notice = notice
 form method="post" action="/entries"
   input name="name" value=name
   button Sign
@@ -134,7 +134,7 @@ rendered in the browser. The action describes the page instead of rendering
 it, and answers with `answer`, or with `answer_as` and a status:
 
 ```
-page = views/signed_view book form flash removals
+page = views/signed_view book form notice removals
 views/answer req (views/layout_view "Guestbook" page)
 ```
 
