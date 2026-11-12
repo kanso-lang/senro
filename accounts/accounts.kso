@@ -1,6 +1,7 @@
 import "../clock"
 import "../models"
 import "../passwords"
+import "../tokens"
 import "../web"
 import "std/text"
 
@@ -137,3 +138,26 @@ fn arrived req db model id was_at was_ip t
   }
   models/update (models/as_app db) model id changes
     .> (_ -> models/increment (models/as_app db) model id "sign_in_count")
+
+# The links an account's mail carries, as Devise's confirmable and lockable
+# send them. A confirmation is bound to the address and to the `confirmed`
+# column, which is empty until the link is followed, so it works once, and
+# not at all once the address changes. An unlock is bound to the moment of
+# the lock, so it works once, and not at all once the lock has ended. Each
+# lasts a day.
+pub fn confirm_token req id email t
+  tokens/made "confirm" req id (confirm_bound email "") t day
+
+pub fn confirms? req token email confirmed t
+  tokens/valid? "confirm" req token (confirm_bound email confirmed) t
+
+pub fn unlock_token req id stamp t
+  tokens/made "unlock" req id stamp t day
+
+pub fn unlocks? req token stamp t
+  tokens/valid? "unlock" req token stamp t
+
+fn confirm_bound email confirmed
+  "{email} {confirmed}"
+
+day = 1440
