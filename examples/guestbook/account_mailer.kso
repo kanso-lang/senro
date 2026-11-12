@@ -1,3 +1,4 @@
+import "../../accounts"
 import "../../mail"
 import "../../passwords"
 import "../../routes"
@@ -34,10 +35,8 @@ fn reset_letter email link
   subject = "Reset your guestbook password"
   mail/composed entries/sender email subject (text/join lines "\n")
 
-# A link to confirm the address an account was made with. It is bound to the
-# address and to the account's `confirmed` column, which is empty until the
-# link is followed, so it works once, and not at all once the address
-# changes. It lasts a day.
+# A link to confirm the address an account was made with, which
+# `accounts/confirm_token` signs. It lasts a day and works once.
 pub fn confirmation req db id email
   time/now
     .> (t -> mail/url_for (confirm_path req id email t))
@@ -45,16 +44,7 @@ pub fn confirmation req db id email
 
 # The page the link opens, with the token in its path.
 fn confirm_path req id email t
-  token = tokens/made "confirm" req id (bound email "") t 1440
-  routes/path_to "confirmations/edit" token
-
-# Whether `token` confirms the account that holds `email` and `confirmed`
-# now, at `t`.
-pub fn confirms? req token email confirmed t
-  tokens/valid? "confirm" req token (bound email confirmed) t
-
-fn bound email confirmed
-  "{email} {confirmed}"
+  routes/path_to "confirmations/edit" (accounts/confirm_token req id email t)
 
 fn confirm_letter email link
   lines = [
@@ -69,9 +59,9 @@ fn confirm_letter email link
   subject = "Confirm your guestbook address"
   mail/composed entries/sender email subject (text/join lines "\n")
 
-# A link to unlock an account that too many wrong passwords locked. It is
-# bound to the moment of the lock, so it works once, and not at all once the
-# lock has ended.
+# A link to unlock an account that too many wrong passwords locked, which
+# `accounts/unlock_token` signs over the moment of the lock. It lasts a day
+# and works once.
 pub fn unlock req db id email stamp
   time/now
     .> (t -> mail/url_for (unlock_path req id stamp t))
@@ -79,12 +69,7 @@ pub fn unlock req db id email stamp
 
 # The page the link opens, with the token in its path.
 fn unlock_path req id stamp t
-  token = tokens/made "unlock" req id stamp t 1440
-  routes/path_to "unlocks/edit" token
-
-# Whether `token` unlocks the account whose lock began at `stamp`, at `t`.
-pub fn unlocks? req token stamp t
-  tokens/valid? "unlock" req token stamp t
+  routes/path_to "unlocks/edit" (accounts/unlock_token req id stamp t)
 
 fn unlock_letter email link
   lines = [

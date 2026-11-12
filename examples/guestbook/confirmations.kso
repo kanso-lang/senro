@@ -1,9 +1,9 @@
+import "../../accounts"
 import "../../models"
 import "../../routes"
 import "../../tokens"
 import "../../web"
 import "./account"
-import "./account_mailer"
 import "./views"
 import "std/time"
 
@@ -56,7 +56,7 @@ fn checked _ _ _ none _
 
 fn checked req token id a t
   email = a.email
-  good = account_mailer/confirms? req token email (said a.confirmed) t
+  good = accounts/confirms? req token email (said a.confirmed) t
   if good (unconfirmed id email) none
 
 fn said none

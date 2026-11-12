@@ -1,9 +1,9 @@
+import "../../accounts"
 import "../../models"
 import "../../routes"
 import "../../tokens"
 import "../../web"
 import "./account"
-import "./account_mailer"
 import "./views"
 import "std/time"
 
@@ -47,7 +47,7 @@ fn good? _ _ none _
   false
 
 fn good? req token a t
-  account_mailer/unlocks? req token a.locked t
+  accounts/unlocks? req token a.locked t
 
 fn id_text none
   "0"
