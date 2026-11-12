@@ -37,12 +37,12 @@ async function joined(p, name, password, remember = false) {
   await p.fill("input[name=password]", password);
   const since = mails().length;
   await p.click("form button");
-  await p.waitForSelector("p.flash, p.problem");
-  if (await p.$("p.flash")) {
+  await p.waitForSelector("p.notice, p.problem");
+  if (await p.$("p.notice")) {
     await p.goto(linkIn(await mailTo(email, since)));
     await p.click("form button");
     await p.waitForFunction(() =>
-      document.querySelector("p.flash")?.textContent.startsWith("Your address"));
+      document.querySelector("p.notice")?.textContent.startsWith("Your address"));
   }
   await p.goto(at("/session/new"));
   await p.fill("input[name=name]", name);
@@ -90,7 +90,7 @@ const bob = await (await browser.newContext()).newPage();
 await joined(bob, "Bob", "bobs password");
 await bob.fill("textarea[name=message]", "from Bob");
 await bob.click("form.sign button");
-await bob.waitForSelector("p.flash");
+await bob.waitForSelector("p.notice");
 
 // A visitor who is not signed in is offered the door and no form.
 const visitor = await (await browser.newContext()).newPage();
@@ -136,8 +136,8 @@ await di.fill("input[name=email]", "di@guestbook.test");
 await di.fill("input[name=password]", "dis password");
 const beforeDi = mails().length;
 await di.click("form button");
-await di.waitForSelector("p.flash, p.problem");
-if (await di.$("p.flash")) await mailTo("di@guestbook.test", beforeDi);
+await di.waitForSelector("p.notice, p.problem");
+if (await di.$("p.notice")) await mailTo("di@guestbook.test", beforeDi);
 const sentToDi = mails().length;
 await di.goto(at("/session/new"));
 await di.fill("input[name=name]", "Di");
@@ -160,20 +160,20 @@ await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.fill("input[name=password]", "cys first password");
 const beforeCy = mails().length;
 await cy.click("form button");
-await cy.waitForSelector("p.flash, p.problem");
-if (await cy.$("p.flash")) await mailTo("cy@guestbook.test", beforeCy);
+await cy.waitForSelector("p.notice, p.problem");
+if (await cy.$("p.notice")) await mailTo("cy@guestbook.test", beforeCy);
 await cy.goto(at("/session/new"));
 await cy.click("a[href='/resets/new']");
 const sentBefore = mails().length;
 await cy.fill("input[name=email]", "nobody@guestbook.test");
 await cy.click("form button");
-await cy.waitForFunction(() => document.querySelector("p.flash"));
-const nobody = await cy.evaluate(() => document.querySelector("p.flash").textContent);
+await cy.waitForFunction(() => document.querySelector("p.notice"));
+const nobody = await cy.evaluate(() => document.querySelector("p.notice").textContent);
 console.log(`a link for an address with no account: ${nobody}`);
 await cy.goto(at("/resets/new"));
 await cy.fill("input[name=email]", "cy@guestbook.test");
 await cy.click("form button");
-await cy.waitForFunction(() => document.querySelector("p.flash"));
+await cy.waitForFunction(() => document.querySelector("p.notice"));
 // The worker sends mail in the order it was queued, so once Cy's has come,
 // any for the address with no account would have come before it.
 const mail = await mailTo("cy@guestbook.test", sentBefore);
@@ -183,8 +183,8 @@ const link = mail.match(/^(http:\/\/\S+\/edit)\r$/m)[1];
 await cy.goto(link);
 await cy.fill("input[name=password]", "cys second password");
 await cy.click("form button");
-await cy.waitForFunction(() => document.querySelector("p.flash"));
-console.log(`after choosing: ${await cy.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await cy.waitForFunction(() => document.querySelector("p.notice"));
+console.log(`after choosing: ${await cy.evaluate(() => document.querySelector("p.notice").textContent)}`);
 await cy.goto(at("/session/new"));
 await cy.fill("input[name=name]", "Cy");
 await cy.fill("input[name=password]", "cys second password");
@@ -192,8 +192,8 @@ await cy.click("form button");
 await cy.waitForSelector("form.out");
 console.log(`signing in with the new password: ${await cy.evaluate(() => document.querySelector("form.out span").textContent)}`);
 await cy.goto(link);
-await cy.waitForSelector("p.flash");
-console.log(`the link again: ${await cy.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await cy.waitForSelector("p.notice");
+console.log(`the link again: ${await cy.evaluate(() => document.querySelector("p.notice").textContent)}`);
 
 // Signed in, Cy changes her password from her account page. A wrong current
 // password is refused; the right one changes it and leaves her signed in, so
@@ -206,8 +206,8 @@ async function changed(current, password) {
   await cy.fill("input[name=current]", current);
   await cy.fill("input[name=password]", password);
   await cy.click("form button");
-  await cy.waitForSelector("p.flash, p.problem");
-  return cy.evaluate(() => document.querySelector("p.flash, p.problem").textContent);
+  await cy.waitForSelector("p.notice, p.problem");
+  return cy.evaluate(() => document.querySelector("p.notice, p.problem").textContent);
 }
 console.log(`changing with a wrong password: ${await changed("not hers", "cys third password")}`);
 console.log(`changing with hers: ${await changed("cys second password", "cys third password")}`);
@@ -236,11 +236,11 @@ await fay.fill("input[name=email]", "fay@guestbook.test");
 await fay.fill("input[name=password]", "fays password");
 const beforeJoining = mails().length;
 await fay.click("form button");
-await fay.waitForSelector("p.flash, p.problem");
-if (await fay.$("p.flash")) {
+await fay.waitForSelector("p.notice, p.problem");
+if (await fay.$("p.notice")) {
   await fay.goto(linkIn(await mailTo("fay@guestbook.test", beforeJoining)));
   await fay.click("form button");
-  await fay.waitForSelector("p.flash");
+  await fay.waitForSelector("p.notice");
 }
 async function tried(password) {
   await fay.goto(at("/session/new"));
@@ -259,11 +259,11 @@ console.log(`and then her own: ${await tried("fays password")}`);
 console.log(`mail to Fay: ${unlocking.match(/^Subject: (.*)\r$/m)[1]}`);
 await fay.goto(linkIn(unlocking));
 await fay.click("form button");
-await fay.waitForSelector("p.flash");
-console.log(`following its link: ${await fay.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await fay.waitForSelector("p.notice");
+console.log(`following its link: ${await fay.evaluate(() => document.querySelector("p.notice").textContent)}`);
 await fay.goto(linkIn(unlocking));
-await fay.waitForSelector("p.flash");
-console.log(`the link again: ${await fay.evaluate(() => document.querySelector("p.flash").textContent)}`);
+await fay.waitForSelector("p.notice");
+console.log(`the link again: ${await fay.evaluate(() => document.querySelector("p.notice").textContent)}`);
 
 // The mail the app has written so far, oldest first.
 function mails() {
@@ -295,13 +295,13 @@ console.log(`a message of spaces: ${turned}`);
 await page.fill("textarea[name=message]", "signed without a reload");
 await page.click("form.sign button");
 await page.waitForFunction(() =>
-  document.querySelector("p.flash")?.textContent === "Thank you for signing.");
+  document.querySelector("p.notice")?.textContent === "Thank you for signing.");
 
 const seen = await page.evaluate(() => ({
   mark: window.senroMark || "lost",
   path: location.pathname,
   title: document.title,
-  flash: document.querySelector("p.flash").textContent,
+  notice: document.querySelector("p.notice").textContent,
   first: document.querySelector("ol.entries li p.message").textContent,
   who: document.querySelector("ol.entries li p.who").textContent,
   signed: document.querySelector("form.out span").textContent,
@@ -310,7 +310,7 @@ const seen = await page.evaluate(() => ({
 console.log(`window mark: ${seen.mark}`);
 console.log(`path: ${seen.path}`);
 console.log(`title: ${seen.title}`);
-console.log(`flash: ${seen.flash}`);
+console.log(`notice: ${seen.notice}`);
 console.log(`newest entry: ${seen.first}, by ${seen.who}`);
 console.log(`signed in: ${seen.signed}`);
 console.log(`message field: "${seen.message}"`);
@@ -380,7 +380,7 @@ console.log(`Ada asking to remove Bob's entry: ${asked}`);
 // Signing out leaves the door where the form was.
 await page.click("form.out button");
 await page.waitForSelector("nav.door");
-const out = await page.evaluate(() => document.querySelector("p.flash").textContent);
+const out = await page.evaluate(() => document.querySelector("p.notice").textContent);
 console.log(`after signing out: ${out}`);
 console.log(`and her cookie: ${await cookieLife(page)}`);
 
@@ -419,11 +419,11 @@ await helper.goto(at("/resets/new"));
 await helper.fill("input[name=email]", "bob@guestbook.test");
 const beforeHelp = mails().length;
 await helper.click("form button");
-await helper.waitForFunction(() => document.querySelector("p.flash"));
+await helper.waitForFunction(() => document.querySelector("p.notice"));
 await helper.goto(linkIn(await mailTo("bob@guestbook.test", beforeHelp)));
 await helper.fill("input[name=password]", "bobs password");
 await helper.click("form button");
-await helper.waitForFunction(() => document.querySelector("p.flash"));
+await helper.waitForFunction(() => document.querySelector("p.notice"));
 const stale = await bob.evaluate(async (state) => {
   const r = await fetch("/senro/act/removal", {
     method: "POST", headers: { "senro-page": "spec" }, body: `removed\n${state}`,
