@@ -1,6 +1,7 @@
 import "../../accounts"
 import "../../models"
 import "../../passwords"
+import "../../routes"
 import "../../web"
 import "./user"
 import "./views"
@@ -109,7 +110,7 @@ fn locking req db email a counted t
 
 fn signed req a
   s = web/session req secret
-  back = web/return_to req secret "/"
+  back = web/return_to req secret (routes/path_to "home/index")
   home = web/redirect back "Signed in."
   effect (web/signed_in req home secret (delete s "return_to") a.email a.digest)
 
@@ -124,12 +125,13 @@ pub fn over_limit req
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
   s = web/signed_out (web/session req secret)
-  r = web/redirect "/session/new" "Signed out."
+  r = web/redirect (routes/path_to "session/new") "Signed out."
   effect (web/kept r secret s)
 
 # The sign-in form shows the address as typed, the problem if any, and the
 # notice the request carries.
 fn opened req email problems code
   notice = web/notice req
-  page = views/door_view "Sign in" "/session" email problems notice true
+  to = routes/path_to "session/create"
+  page = views/door_view "Sign in" to email problems notice true
   views/answer req code "Sign in" page

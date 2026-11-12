@@ -351,7 +351,7 @@ fn helpers singular plural fields
     "  web/refusal w"
     ""
     "fn made _ w"
-    "  web/redirect (routes/path_to w)"
+    "  web/redirect (routes/path_to \"{plural}/show\" w.id)"
     ""
     "fn changed req id w:models/invalid"
     "  path = routes/path_to \"{plural}/update\" id"
