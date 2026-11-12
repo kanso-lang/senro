@@ -1,7 +1,6 @@
 import "../data"
 import "../wire"
 import "std/json"
-import "std/list"
 import "std/os"
 import "std/text"
 
@@ -21,8 +20,7 @@ type component
 # (`wire`). The module prints an empty line, then the component rendered in
 # its next state, which holds that state in turn.
 pub fn answer components
-  named = by_name components
-  os/env "SENRO_EVENT" .> (e -> print (heard named (said e)))
+  os/env "SENRO_EVENT" .> (e -> print (heard components (said e)))
 
 # A module that renders the app's pages as well, with the `rendered` that
 # `derive kata/views` wrote for its views. A page arrives as an event with
@@ -31,11 +29,7 @@ pub fn answer components
 # where a spec runs the module outside a browser. The module prints the page
 # rendered, or nothing when the bytes are not a page of this app's.
 pub fn answer_pages components rendered
-  named = by_name components
-  os/env "SENRO_EVENT" .> (e -> paged named rendered (said e))
-
-fn by_name components
-  list/fold components {} (acc c -> put acc c.name c)
+  os/env "SENRO_EVENT" .> (e -> paged components rendered (said e))
 
 fn paged components rendered event
   parts = text/split event "\n"
@@ -86,7 +80,22 @@ fn decoded _ _ none
 
 fn decoded components parts state
   rounds = given_rounds (json/decode (part parts 4))
-  found components[part parts 1] (part parts 2) state rounds
+  found (called components (part parts 1)) (part parts 2) state rounds
+
+# The component an event is for, found in the list the app handed `answer`
+# by the name kata recorded for it.
+fn called components name
+  among components name 1
+
+fn among components name at
+  picked components[at] components name at
+
+fn picked none _ _ _
+  none
+
+fn picked c components name at
+  return c if c.name == name
+  among components name (at + 1)
 
 fn found none _ _ _
   ""
