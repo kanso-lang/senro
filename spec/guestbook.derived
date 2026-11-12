@@ -1,4 +1,10 @@
-# in removal, by kata/views
+derived = { "mailing":true "migrations":[["20261030014602" "create table if not exists signatures (id serial, name text, message text)"] ["20261104045753" "create table if not exists accounts (id serial, name text, digest text)"] ["20261105044946" "alter table accounts add column if not exists email text"] ["20261105050729" "alter table accounts add column if not exists confirmed text"] ["20261105065821" "alter table accounts add column if not exists failures integer not null default 0;
+alter table accounts add column if not exists locked text not null default ''"] ["20261105070000" "alter table accounts add column if not exists sign_in_count integer not null default 0;
+alter table accounts add column if not exists current_sign_in_at text not null default '';
+alter table accounts add column if not exists last_sign_in_at text not null default '';
+alter table accounts add column if not exists current_sign_in_ip text not null default '';
+alter table accounts add column if not exists last_sign_in_ip text not null default ''"] ["20261105100325" "alter table signatures add column if not exists photo text not null default ''"]] "performers":{  } "schema":{ "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] } }    # app/conventions
+# in removal, by app/conventions
 import "../wire"
 import "std/list"
 import "std/text"
@@ -37,7 +43,7 @@ fn kata_raw none
 
 fn kata_raw x
   "{x}"
-# in removal, by kata/views
+# in removal, by app/conventions
 # from view.kata:1
 pub fn view_body id
   joined [
@@ -51,22 +57,22 @@ pub fn view id
   kata_inside = view_body id
   kata_open = "<div data-component=\"removal\" data-runs=\"server\""
   "{kata_open} data-state=\"{kata_state}\">{kata_inside}</div>"
-# in removal, by kata/views
+# in removal, by app/conventions
 pub fn act "removed" kata_given state
   removed kata_given.db state
 
 pub fn act _ _ _
   none
-# in views, by kata/views
+# in views, by app/conventions
 type account_page
   path
   problems
   seen
-# in views, by kata/views
+# in views, by app/conventions
 type confirm_offered_page
   path
   email
-# in views, by kata/views
+# in views, by app/conventions
 type door_page
   heading
   path
@@ -76,29 +82,29 @@ type door_page
   problems
   asks
   remembers
-# in views, by kata/views
+# in views, by app/conventions
 type layout_page
   title
   body
-# in views, by kata/views
+# in views, by app/conventions
 type reset_asked_page
   notice
   problems
-# in views, by kata/views
+# in views, by app/conventions
 type reset_chosen_page
   path
   problems
-# in views, by kata/views
+# in views, by app/conventions
 type signed_page
   signatures
   form
   notice
   removals
   viewer
-# in views, by kata/views
+# in views, by app/conventions
 type unlock_offered_page
   path
-# in views, by kata/views
+# in views, by app/conventions
 import "../wire"
 import "std/list"
 import "std/net/http"
@@ -141,7 +147,7 @@ fn kata_raw p:wire/page
 
 fn kata_raw x
   "{x}"
-# in views, by kata/views
+# in views, by app/conventions
 fn account_6 seen
   # from account.kata:7
   "<p class=\"seen\">{escape seen}</p>"
@@ -172,7 +178,7 @@ pub fn account path problems seen
     "{if (problems["password"] != none) (account_14 problems) ""}<button>"
     "Change it</button></form>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 # from confirm_offered.kata:1
 pub fn confirm_offered path email
   joined [
@@ -183,7 +189,7 @@ pub fn confirm_offered path email
     "value=\"PATCH\"><p class=\"lede\">{escape email}</p><button>Confirm "
     "it</button></form>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 fn door_8 problems
   # from door.kata:9
   "<p class=\"problem\">{escape problems["name"]}</p>"
@@ -239,7 +245,7 @@ pub fn door heading path button name email problems asks remembers
     # from door.kata:22
     "{if remembers door_22 ""}"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 # from layout.kata:1
 pub fn layout title body
   joined [
@@ -251,7 +257,7 @@ pub fn layout title body
     # from layout.kata:12
     "</head><body><main>{kata_raw body}</main></body></html>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 fn reset_asked_6 notice
   # from reset_asked.kata:7
   "<p class=\"notice\">{escape notice}</p>"
@@ -273,7 +279,7 @@ pub fn reset_asked notice problems
     "{if (problems["email"] != none) (reset_asked_10 problems) ""}<button>"
     "Send me a link</button></form>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 fn reset_chosen_7 problems
   # from reset_chosen.kata:8
   "<p class=\"problem\">{escape problems["password"]}</p>"
@@ -290,7 +296,7 @@ pub fn reset_chosen path problems
     "{if (problems["password"] != none) (reset_chosen_7 problems) ""}<button>"
     "Save it</button></form>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 signed_5 = joined [
   "<nav class=\"door\"><a href=\"/session/new\">Sign in</a><a "
   "href=\"/registration/new\">Make an account</a></nav>"
@@ -359,7 +365,7 @@ pub fn signed signatures form notice removals viewer
     # from signed.kata:27
     "{each signatures (e -> signed_27 removals e)}</ol>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 # from unlock_offered.kata:1
 pub fn unlock_offered path
   joined [
@@ -368,9 +374,9 @@ pub fn unlock_offered path
     "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
     "value=\"PATCH\"><button>Unlock it</button></form>"
   ]
-# in views, by kata/views
+# in views, by app/conventions
 kata_marks = [77 140 82 130]
-# in views, by kata/views
+# in views, by app/conventions
 fn account_pack acc h
   a1 = wire/add (wire/add_count acc 1) h.path
   a2 = wire/add a1 h.problems
@@ -382,7 +388,7 @@ fn account_drawn h
 pub fn account_view path problems seen
   kata_held = account_page path problems seen
   wire/paged kata_held account_pack account_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn confirm_offered_pack acc h
   a1 = wire/add (wire/add_count acc 2) h.path
   wire/add a1 h.email
@@ -393,7 +399,7 @@ fn confirm_offered_drawn h
 pub fn confirm_offered_view path email
   kata_held = confirm_offered_page path email
   wire/paged kata_held confirm_offered_pack confirm_offered_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn door_pack acc h
   a1 = wire/add (wire/add_count acc 3) h.heading
   a2 = wire/add a1 h.path
@@ -410,7 +416,7 @@ fn door_drawn h
 pub fn door_view heading path button name email problems asks remembers
   kata_held = door_page heading path button name email problems asks remembers
   wire/paged kata_held door_pack door_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn layout_pack acc h
   a1 = wire/add (wire/add_count acc 4) h.title
   wire/add a1 h.body
@@ -421,7 +427,7 @@ fn layout_drawn h
 pub fn layout_view title body
   kata_held = layout_page title body
   wire/paged kata_held layout_pack layout_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn reset_asked_pack acc h
   a1 = wire/add (wire/add_count acc 5) h.notice
   wire/add a1 h.problems
@@ -432,7 +438,7 @@ fn reset_asked_drawn h
 pub fn reset_asked_view notice problems
   kata_held = reset_asked_page notice problems
   wire/paged kata_held reset_asked_pack reset_asked_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn reset_chosen_pack acc h
   a1 = wire/add (wire/add_count acc 6) h.path
   wire/add a1 h.problems
@@ -443,7 +449,7 @@ fn reset_chosen_drawn h
 pub fn reset_chosen_view path problems
   kata_held = reset_chosen_page path problems
   wire/paged kata_held reset_chosen_pack reset_chosen_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn signed_pack_signatures_each acc x
   # from signed.kata:33
   a1 = wire/add acc x.id
@@ -477,7 +483,7 @@ fn signed_drawn h
 pub fn signed_view signatures form notice removals viewer
   kata_held = signed_page signatures form notice removals viewer
   wire/paged kata_held signed_pack signed_drawn
-# in views, by kata/views
+# in views, by app/conventions
 fn unlock_offered_pack acc h
   wire/add (wire/add_count acc 8) h.path
 
@@ -487,10 +493,10 @@ fn unlock_offered_drawn h
 pub fn unlock_offered_view path
   kata_held = unlock_offered_page path
   wire/paged kata_held unlock_offered_pack unlock_offered_drawn
-# in views, by kata/views
+# in views, by app/conventions
 pub fn packed page
   wire/written (text/to_bytes kata_marks) page
-# in views, by kata/views
+# in views, by app/conventions
 pub fn answer req page
   answer_as req 200 page
 
@@ -508,8 +514,8 @@ fn kata_answered _ code page
     "senro-view: 1"
   ]
   http/respond code heard (packed page)
-schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # models/tables
-# in account, by models/tables
+schema = { "accounts":["id serial" "name text" "digest text" "email text" "confirmed text" "failures integer not null default 0" "locked text not null default ''" "sign_in_count integer not null default 0" "current_sign_in_at text not null default ''" "last_sign_in_at text not null default ''" "current_sign_in_ip text not null default ''" "last_sign_in_ip text not null default ''"] "signatures":["id serial" "name text" "message text" "photo text not null default ''"] }    # app/conventions
+# in account, by app/conventions
 pub type account
   id
   name
@@ -523,13 +529,13 @@ pub type account
   last_sign_in_at
   current_sign_in_ip
   last_sign_in_ip
-# in signature, by models/tables
+# in signature, by app/conventions
 pub type signature
   id
   name
   message
   photo
-# in account, by models/tables
+# in account, by app/conventions
 pub fn account_from row
   id = account_cell row["id"]
   name = account_cell row["name"]
@@ -556,13 +562,13 @@ pub fn account_from row
     last_sign_in_at
     current_sign_in_ip
     last_sign_in_ip
-# in account, by models/tables
+# in account, by app/conventions
 fn account_cell none
   ""
 
 fn account_cell v
   v
-# in account, by models/tables
+# in account, by app/conventions
 pub fn account_attributes v
   {
     "confirmed":v.confirmed
@@ -578,7 +584,7 @@ pub fn account_attributes v
     "name":v.name
     "sign_in_count":v.sign_in_count
   }
-# in account, by models/tables
+# in account, by app/conventions
 pub account_model = {
   "columns":account_columns
   "create":create?
@@ -586,7 +592,7 @@ pub account_model = {
   "table":"accounts"
   "update":update?
 }
-# in account, by models/tables
+# in account, by app/conventions
 pub account_columns = [
   "id"
   "name"
@@ -601,7 +607,7 @@ pub account_columns = [
   "current_sign_in_ip"
   "last_sign_in_ip"
 ]
-# in account, by models/tables
+# in account, by app/conventions
 import "../models"
 
 pub fn find db id
@@ -639,23 +645,23 @@ pub fn destroy db id
 
 pub fn increment db id field
   models/increment db account_model id field
-# in signature, by models/tables
+# in signature, by app/conventions
 pub fn signature_from row
   id = signature_cell row["id"]
   name = signature_cell row["name"]
   message = signature_cell row["message"]
   photo = signature_cell row["photo"]
   signature id name message photo
-# in signature, by models/tables
+# in signature, by app/conventions
 fn signature_cell none
   ""
 
 fn signature_cell v
   v
-# in signature, by models/tables
+# in signature, by app/conventions
 pub fn signature_attributes v
   { "id":v.id "message":v.message "name":v.name "photo":v.photo }
-# in signature, by models/tables
+# in signature, by app/conventions
 pub signature_model = {
   "columns":signature_columns
   "create":create?
@@ -664,9 +670,9 @@ pub signature_model = {
   "read":signature_from
   "table":"signatures"
 }
-# in signature, by models/tables
+# in signature, by app/conventions
 pub signature_columns = ["id" "name" "message" "photo"]
-# in signature, by models/tables
+# in signature, by app/conventions
 import "../models"
 
 pub fn find db id
@@ -704,7 +710,7 @@ pub fn destroy db id
 
 pub fn increment db id field
   models/increment db signature_model id field
-# in migrations, by models/tables
+# in migrations, by app/conventions
 import "../models"
 
 pub all = models/filed filed_stamps filed_changes
@@ -728,4 +734,5 @@ filed_changes = [
   add_sign_ins_to_accounts
   add_photo_to_signatures
 ]
-routes = { "DELETE /session":{ "action":session/destroy "id":"" "name":"session/destroy" } "GET /":{ "action":home/index "id":"" "name":"home/index" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "name":"confirmations/edit" "open":true } "GET /entries":{ "action":entries/index "id":"" "name":"entries/index" "open":true } "GET /password/edit":{ "action":password/edit "id":"" "name":"password/edit" } "GET /registration/new":{ "action":registration/new "id":"" "name":"registration/new" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "name":"resets/edit" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "name":"resets/new" "open":true } "GET /session/new":{ "action":session/new "id":"" "name":"session/new" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "name":"unlocks/edit" "open":true } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "name":"confirmations/update" "open":true } "PATCH /password":{ "action":password/update "id":"" "limit":{ "count":10 "key":"password/update" "over":password/over_limit "within":180000 } "name":"password/update" } "PATCH /resets/:id":{ "action":resets/update "id":"any" "name":"resets/update" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "name":"unlocks/update" "open":true } "POST /entries":{ "action":entries/create "id":"" "name":"entries/create" } "POST /registration":{ "action":registration/create "id":"" "name":"registration/create" "open":true } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "name":"resets/create" "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "name":"session/create" "open":true } }    # routes/rest
+routes = { "DELETE /session":{ "action":session/destroy "id":"" "name":"session/destroy" } "GET /":{ "action":home/index "id":"" "name":"home/index" "open":true } "GET /confirmations/:id/edit":{ "action":confirmations/edit "id":"any" "name":"confirmations/edit" "open":true } "GET /entries":{ "action":entries/index "id":"" "name":"entries/index" "open":true } "GET /password/edit":{ "action":password/edit "id":"" "name":"password/edit" } "GET /registration/new":{ "action":registration/new "id":"" "name":"registration/new" "open":true } "GET /resets/:id/edit":{ "action":resets/edit "id":"any" "name":"resets/edit" "open":true } "GET /resets/new":{ "action":resets/new "id":"" "name":"resets/new" "open":true } "GET /session/new":{ "action":session/new "id":"" "name":"session/new" "open":true } "GET /unlocks/:id/edit":{ "action":unlocks/edit "id":"any" "name":"unlocks/edit" "open":true } "PATCH /confirmations/:id":{ "action":confirmations/update "id":"any" "name":"confirmations/update" "open":true } "PATCH /password":{ "action":password/update "id":"" "limit":{ "count":10 "key":"password/update" "over":password/over_limit "within":180000 } "name":"password/update" } "PATCH /resets/:id":{ "action":resets/update "id":"any" "name":"resets/update" "open":true } "PATCH /unlocks/:id":{ "action":unlocks/update "id":"any" "name":"unlocks/update" "open":true } "POST /entries":{ "action":entries/create "id":"" "name":"entries/create" } "POST /registration":{ "action":registration/create "id":"" "name":"registration/create" "open":true } "POST /resets":{ "action":resets/create "id":"" "limit":{ "count":10 "key":"resets/create" "within":180000 } "name":"resets/create" "open":true } "POST /session":{ "action":session/create "id":"" "limit":{ "count":10 "key":"session/create" "over":session/over_limit "within":180000 } "name":"session/create" "open":true } }    # app/conventions
+performers = {  }    # app/conventions

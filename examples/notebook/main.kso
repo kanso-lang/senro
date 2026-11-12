@@ -1,9 +1,5 @@
-import "../../jobs"
-import "../../kata"
-import "../../mail"
-import "../../models"
+import "../../app"
 import "../../pg"
-import "../../routes"
 import "../../web"
 import "./home"
 import "./migrations"
@@ -19,10 +15,7 @@ import "./session"
 import "./user"
 import "./views"
 
-derive jobs/performers
-derive kata/views
-derive models/tables
-derive routes/rest
+derive app/conventions
 
 # The database comes from PGHOST, PGPORT, PGUSER, PGDATABASE and
 # PGPASSWORD, as libpq reads them, so the app runs wherever its host
@@ -33,14 +26,4 @@ connected = pg/from_env
 # `without_sign_in`.
 signed = web/requiring_sign_in routes session/secret session/signed_against
 
-# Two workers run beside the server. One sends the mail the app queues,
-# and the other does the jobs its `_job` modules perform.
-serving = web/serve 3000 signed connected
-
-working = jobs/beside connected jobs/default_queue performers serving
-
-connected
-  .> (db -> models/migrated db "notebook" migrations/all)
-  .> (db -> models/compared db schema)
-  .> (db -> pg/close db)
-  .> (_ -> jobs/beside connected "mail" mail/performers working)
+app/run "notebook" signed connected derived

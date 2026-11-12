@@ -76,12 +76,18 @@ pub fn perform_at db name args t
 
 pub fn performers p
   found = list/to_list (list/select p.modules (m -> job? m))
-  table = list/fold found {} held
+  table = performed p
   lacking = list/fold found [] (acc m -> list/concat acc (unperformed m))
   names = keys table
   asked = list/fold p.modules [] (acc m -> list/concat acc (unnamed m names))
   declared = [(derive/declare "performers" "performers" table)]
   list/concat (list/concat declared lacking) asked
+
+# The table `derive jobs/performers` declares: each job's name to its
+# `perform`.
+pub fn performed p
+  found = list/to_list (list/select p.modules (m -> job? m))
+  list/fold found {} held
 
 fn job? m
   text/ends_with? m.name suffix and length m.name > length suffix

@@ -54,6 +54,12 @@ type filed_steps
   stamps
   changes
 
+# A migration as it is run and recorded: its version, which is its stamp or
+# its place in a module kept as one file, and the SQL it runs.
+type migration
+  version
+  sql
+
 # A model's record: its name and its fields, as the module wrote it or as the
 # derivation declares it from the table.
 type shape
@@ -157,7 +163,7 @@ pub updated_at = column_def "updated_at" "timestamptz not null default now()"
 # checks in `pg_dump --schema-only` output as `schema.sql` beside its entry,
 # and the schema is read from that instead.
 pub fn tables p
-  schema = schema_of p p.files["schema.sql"]
+  schema = schema_in p
   kinds = list/fold p.modules [] (acc m -> list/concat acc (typed_in m schema))
   refused = list/fold p.modules [] (acc m -> list/concat acc (models m schema))
   asked = list/fold p.modules [] (acc m -> list/concat acc (wheres m schema))
@@ -208,6 +214,28 @@ fn column_names none
 
 fn column_names columns
   list/to_list (list/map columns name_of)
+
+# The schema a derivation reads from the app, as `derive models/tables`
+# declares it: each table's columns, from `schema.sql` beside the entry when
+# the app checks one in, and otherwise from its migrations.
+pub fn schema_in p
+  schema_of p p.files["schema.sql"]
+
+# The migrations a derivation finds in the app's `migrations` module, oldest
+# first, as `applied` runs them: each one's version and its SQL, a pair of
+# strings, since what a derivation declares is plain data.
+pub fn migrations_in p
+  kept = list/to_list (list/select p.modules (m -> m.name == "migrations"))
+  return [] if length kept == 0
+  each = (m -> [m.version m.sql])
+  list/to_list (list/map (migrations_of (steps_of kept[1])) each)
+
+fn steps_of m
+  return changes_in m.constants["all"] if m.constants["all"] != none
+  names = in_file_order m
+  stamps = list/to_list (list/map names (n -> stamp_of (file_of m n)))
+  changes = list/to_list (list/map names (n -> m.constants[n]))
+  filed_steps stamps changes
 
 fn schema_of p none
   list/fold (migrations_of p) {} applied
@@ -1268,9 +1296,21 @@ fn making table columns
 # Each change does nothing when its work is already done, so a database made
 # before migrations were recorded takes the whole list safely the first time.
 pub fn migrated db app steps
+  ran db app (migrations_of steps)
+
+# `applied db app pairs` runs the migrations `migrations_in` reads, as
+# `migrated` runs a module's, which is how `app/run` runs the ones `derive
+# app/conventions` read.
+pub fn applied db app pairs
+  ran db app (list/to_list (list/map pairs paired))
+
+fn paired pair
+  migration (or_blank pair[1]) (or_blank pair[2])
+
+fn ran db app migrations
   pg/run db ledger
     .> (_ -> pg/query db history [app])
-    .> (r -> pending db app steps (recorded r.rows))
+    .> (r -> pending db app migrations (recorded r.rows))
 
 # A version is a migration's stamp, fourteen digits, or its place in `all`
 # for a module kept as one file; a table made when it was only ever a place
@@ -1288,36 +1328,43 @@ fn recorded rows
   each = (acc row -> put acc "{cell row "version"}" (cell row "change"))
   list/fold rows {} each
 
-fn pending db app f:filed_steps before
-  each = (acc s -> acc .> (n -> ran_file db app before n s f.changes))
-  list/fold f.stamps (effect 1) each .> (_ -> effect db)
-
-fn pending db app steps before
-  each = (acc c -> acc .> (n -> ran db app before n c))
-  list/fold steps (effect 1) each .> (_ -> effect db)
+fn pending db app migrations before
+  each = (acc m -> acc .> (_ -> stepped db app m before[m.version]))
+  list/fold migrations (effect db) each
 
 # A migration kept in a file of its own is recorded under its stamp, with
-# every statement its changes make, and runs in one transaction.
-fn ran_file db app before n stamp changes
-  each = list/to_list (list/map (changes_in changes[n]) statement_of)
-  sql = text/join each ";\n"
-  stepped db app stamp sql before[stamp] .> (_ -> effect (n + 1))
+# every statement its changes make, and runs in one transaction; a module
+# kept as one file records each change under its place.
+fn migrations_of f:filed_steps
+  each = (acc s -> list/concat acc [(one_file s f.changes[length acc + 1])])
+  list/fold f.stamps [] each
 
-fn ran db app before n c
-  version = "{n}"
-  sql = statement_of c
-  stepped db app version sql before[version] .> (_ -> effect (n + 1))
+fn migrations_of steps:[]some
+  each = (acc c -> list/concat acc [(placed_at (length acc + 1) c)])
+  list/fold steps [] each
 
-fn stepped db app version sql none
-  pg/run db "begin; {sql}"
-    .> (_ -> pg/query db record [app version sql])
+# The derivation writes a module's stamps and its changes side by side, one
+# for each file, so a stamp always has changes beside it.
+fn one_file stamp none
+  migration stamp ""
+
+fn one_file stamp changes
+  each = list/to_list (list/map (changes_in changes) statement_of)
+  migration stamp (text/join each ";\n")
+
+fn placed_at n c
+  migration "{n}" (statement_of c)
+
+fn stepped db app m none
+  pg/run db "begin; {m.sql}"
+    .> (_ -> pg/query db record [app m.version m.sql])
     .> (_ -> pg/run db "commit")
     .> (_ -> effect db)
 
-fn stepped db app version sql was
-  return effect db if was == sql
-  changed = "{app}'s migration {version} has changed since it ran"
-  err "{changed}:\n  ran: {was}\n  now: {sql}"
+fn stepped db app m was
+  return effect db if was == m.sql
+  changed = "{app}'s migration {m.version} has changed since it ran"
+  err "{changed}:\n  ran: {was}\n  now: {m.sql}"
 
 record = """
   insert into senro_migrations (app, version, change)

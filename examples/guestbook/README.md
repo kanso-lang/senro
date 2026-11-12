@@ -7,7 +7,7 @@ sha256's HMAC and PBKDF2 with base64, and a view kata wrote.
 ```
 KANSO=kanso sh browser/build.sh examples/guestbook <runtime.wasm>
 cd examples/guestbook
-kanso run .        # Postgres on 127.0.0.1:54329, trust login
+PGHOST=127.0.0.1 PGPORT=54329 kanso run .   # a Postgres that trusts the login
 kanso derived .    # the schema and route table derived
 ```
 
@@ -23,14 +23,14 @@ The third line builds the browser module the page loads, which renders the
 guestbook's pages in the browser. Without it the pages still update in
 place, rendered on the server.
 
-- `main.kso` connects, creates each table the schema names if it is
-  missing, compares the database's tables with the schema it was compiled
-  with, and serves the route table that `derive routes/rest` declares. A
+- `main.kso` connects, runs the migrations, compares the database's tables
+  with the schema it was compiled with, and serves the route table that
+  `derive app/conventions` declares, through `app/run`. A
   table that differs, say one an older build made with another column, stops
   the app before it serves anything, with each difference named. Beside the
-  server, `jobs/beside` runs a worker that sends the mail the app queues.
+  server, a worker sends the mail the app queues, since it has a mailer.
 - `migrations/` keeps the schema as the changes that built it, a file to a
-  migration, run in the order of the files' names. `derive models/tables`
+  migration, run in the order of the files' names. `derive app/conventions`
   folds them into `schema` while the app
   compiles, and refuses a record type whose table is missing or whose field
   has no column: `mesage` in `entries/signature` is a compile error at the
@@ -129,7 +129,7 @@ place, rendered on the server.
   not stored: the page comes back with a 422, the form as the visitor
   filled it in, and each problem beside its field.
 - `views/signed.kata` is the page and `views/layout.kata` the frame around
-  it. `derive kata/views` in `main.kso` compiles each to a function of the
+  it. `derive app/conventions` in `main.kso` compiles each to a function of the
   `views` module while the app compiles. The page reads the `signature`
   records `entries.kso` builds by their fields, which needs no import.
   `entries.kso` describes the page with `views/signed_view` and answers

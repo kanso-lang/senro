@@ -157,7 +157,9 @@ fn routed r
   listed_routes (listing/table r.stdout)
 
 fn listed_routes none
-  declined "this app derives no routes; its entry has no `derive routes/rest`"
+  declined "this app derives no routes; its entry has no {conventions}"
+
+conventions = "`derive app/conventions`"
 
 fn listed_routes lines
   io/write lines

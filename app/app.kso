@@ -1,0 +1,118 @@
+import "../data"
+import "../jobs"
+import "../kata"
+import "../mail"
+import "../models"
+import "../pg"
+import "../routes"
+import "../web"
+import "std/derive"
+import "std/list"
+import "std/os"
+import "std/text"
+
+# How an app starts. Its entry writes `derive app/conventions`, binds the
+# routes it serves and the effect that opens its database, and ends with
+# one call:
+#
+#   derive app/conventions
+#
+#   connected = pg/from_env
+#
+#   app/run "notebook" routes connected derived
+#
+# `conventions` is every convention senro has an app follow, run at once:
+# the views from `views/` (`kata/views`), the tables and their models
+# (`models/tables`), the routes from the controllers (`routes/rest`), the
+# jobs (`jobs/performers`) and the data providers (`data/providers`). Each
+# is also a derivation of its own. Beside what they declare, it declares
+# `derived`, what `run` needs from the app that only a derivation can read:
+# the schema its migrations make, the table from each job's name to its
+# `perform`, the migrations themselves, and whether it has a mailer. A
+# declaration is plain data, so `derived` is a map.
+pub fn conventions p
+  found = [
+    (kata/views p)
+    (models/tables p)
+    (routes/rest p)
+    (jobs/performers p)
+    (data/providers p)
+  ]
+  made = {
+    "mailing":(mails? p)
+    "migrations":(models/migrations_in p)
+    "performers":(jobs/performed p)
+    "schema":(models/schema_in p)
+  }
+  declared = [(derive/declare "derived" "derived" made)]
+  list/concat declared (list/fold found [] list/concat)
+
+# An app has a mailer when one of the modules the entry reads is one or
+# calls one, or calls `mail` itself: a mailer an action calls need not be
+# imported by the entry.
+fn mails? p
+  list/any? p.modules (m -> mailer? m.name or list/any? m.calls sends?)
+
+fn sends? c
+  sender? (list/first (text/split c.callee "/"))
+
+fn sender? none
+  false
+
+fn sender? name
+  name == "mail" or mailer? name
+
+fn mailer? name
+  text/ends_with? name "_mailer"
+
+# `run name routes connected d` runs the app's migrations, recorded in
+# `senro_migrations` under `name`, compares the database's schema with the
+# one they make, and serves `routes` on the port `PORT` names, 3000 when it
+# is unset. A worker beside the server does the app's jobs when it has
+# any, and another sends its mail when it has a mailer. `senro migrate`
+# stops after the comparison.
+pub fn run name routes connected d
+  os/env "PORT" .> (port -> started name routes connected d (port_of port))
+
+fn started name routes connected d port
+  serving = web/serve port routes connected
+  performers = or_empty d["performers"]
+  working = jobs/beside connected jobs/default_queue performers serving
+  connected
+    .> (db -> models/applied db name (or_none d["migrations"]))
+    .> (db -> models/compared db (or_empty d["schema"]))
+    .> (db -> pg/close db)
+    .> (_ -> mailed connected d["mailing"] working)
+
+fn mailed connected true working
+  jobs/beside connected "mail" mail/performers working
+
+fn mailed _ none working
+  working
+
+fn mailed _ false working
+  working
+
+fn or_empty none
+  {}
+
+fn or_empty m
+  m
+
+fn or_none none
+  []
+
+fn or_none l
+  l
+
+fn port_of none
+  3000
+
+fn port_of p
+  or_default (text/to_int p)
+
+fn or_default none
+  3000
+
+fn or_default n
+  n

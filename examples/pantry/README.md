@@ -9,7 +9,7 @@ module renders it.
 
 ```
 KANSO=kanso sh browser/build.sh examples/pantry <runtime.wasm>
-cd examples/pantry && kanso run .
+cd examples/pantry && PGHOST=127.0.0.1 PGPORT=54329 PORT=3001 kanso run .
 ```
 
 The server reads `public/` under the directory it starts in, which holds the
@@ -17,8 +17,8 @@ stylesheet and the browser module, so it runs from the pantry's own
 directory. Started from senro's root, the page arrives unstyled and the
 planner does nothing.
 
-It serves on port 3001 against the Postgres the guestbook uses, at
-127.0.0.1:54329, and makes its `items` table on first run.
+`PORT=3001` serves it beside the guestbook, against the same Postgres, and
+it makes its `items` table on first run.
 
 - `items.kso` is the resource: `index`, `create`, `edit`, `update` and
   `destroy`, each a REST route by its name. `update` takes two forms, one
