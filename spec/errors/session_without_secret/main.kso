@@ -1,0 +1,6 @@
+import "../../../routes"
+import "./notes"
+
+derive routes/rest
+
+print (keys routes)

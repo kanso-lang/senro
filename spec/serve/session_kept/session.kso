@@ -4,5 +4,5 @@ pub secret = "the spec's secret"
 
 # Anyone who asks is signed in as ada.
 pub fn create req _
-  s = web/session req secret
-  effect (web/signed_in req (web/redirect "/notes") secret s "ada" "now")
+  s = web/session req
+  effect (web/signed_in req (web/redirect "/notes") s "ada" "now")

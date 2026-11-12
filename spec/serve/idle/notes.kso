@@ -1,8 +1,7 @@
 import "../../../web"
-import "./session"
 import "std/net/http"
 
 # The notes, which need a visitor who has signed in.
 pub fn index req _
-  who = web/viewer req session/secret
+  who = web/viewer req
   effect (http/text_page "every note, read by {who}")

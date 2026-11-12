@@ -1,0 +1,12 @@
+import "../../../web"
+import "std/net/http"
+
+# Who the request's session names.
+pub fn index req _
+  effect (http/text_page "viewer: {named (web/viewer req)}")
+
+fn named ""
+  "nobody"
+
+fn named who
+  who

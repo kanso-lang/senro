@@ -1,0 +1,6 @@
+import "../../../web"
+import "std/net/http"
+
+# A session is signed, and this app keeps no secret to sign it with.
+pub fn index req _
+  effect (http/text_page "viewer: {web/viewer req}")

@@ -164,9 +164,11 @@ with their views. The three read and write through `user` and hold no
 SQL; a reset link sets the new digest as the app (`models/as_app`), since
 nobody is signed in when it is followed. The entry then serves every route
 behind `web/requiring_sign_in`, so an action asks for a sign-in unless its
-module lists it in `without_sign_in`. `session.kso` holds the secret that signs sessions, 32
-random bytes made when the generator ran; keep it out of a public
-repository.
+module lists it in `without_sign_in`. `session.kso` holds `secret`, which
+signs sessions: 32 random bytes made when the generator ran, for
+development. senro reads it by its name, and no call takes it. A deployed
+app sets `SENRO_SECRET`, which the server signs with in its place, so the
+real secret stays out of the repository.
 
 The sign-in it writes locks an account after five wrong passwords in a row,
 for an hour, as Devise's lockable does. A locked account answers a wrong
@@ -328,12 +330,16 @@ until the app is changed with it.
   out, and `web/remembered` says how many it holds. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
-  An app that wraps its table in `web/requiring_sign_in routes secret
+  The request an action is handed carries the app's secret, `session/secret`
+  or `SENRO_SECRET` when the environment sets it, and every session function
+  reads it there: `web/session req`, `web/viewer req`, `web/kept req r held`.
+  An app that calls one with no `secret` in `session.kso` is refused at the
+  call. An app that wraps its table in `web/requiring_sign_in routes
   bound_of` asks every action for a visitor who has signed in, except those
   its module lists in `pub without_sign_in`, as Rails 8's generated
   authentication does. A visitor who has not is sent to `/session/new`, the
   path a GET asked for is kept in the session, and `web/return_to req
-  secret fallback` answers it once the visitor has signed in. A sign-in
+  fallback` answers it once the visitor has signed in. A sign-in
   rests on something the account holds, which `web/signed_in` is given and
   keeps an HMAC of in the session; the guestbook's is the password's
   digest. `bound_of db id` reads it at every action, open or not, and a
@@ -637,18 +643,17 @@ until the app is changed with it.
   refusal's timing does not say whether the name exists. The rounds are
   `SENRO_PASSWORD_ROUNDS`, or 100,000 when it is unset; the comment above
   `default_rounds` says why that is below OWASP's figure. The specs set 30.
-  `passwords/reset_token secret id kept t` makes the token a password reset
-  link carries: a `tokens` token bound to the digest the account keeps, so
-  a new password retires it, good for fifteen minutes. `passwords/reset_id`
-  reads the id to look the digest up by, and `passwords/reset_valid?` checks
-  the token against it.
+  A password reset link carries a `tokens` token with the purpose "reset",
+  bound to the digest the account keeps, so a new password retires it, and
+  good for `passwords/reset_minutes`, fifteen.
 - `tokens`: signed tokens for links an app mails out, as Rails 8's
-  `generates_token_for` makes them. `tokens/made purpose secret id bound t
+  `generates_token_for` makes them. `tokens/made purpose req id bound t
   minutes` names a record, an expiry, and an HMAC over both, the purpose and
   a value the record holds now. Nothing is stored: when the bound value
   changes, the tokens made over the old one stop working, and a token made
-  for one purpose opens nothing else. `tokens/id_of` reads the record's id,
-  and `tokens/valid? purpose secret token bound t` checks the rest.
+  for one purpose opens nothing else. The HMAC is made under the secret the
+  request carries. `tokens/id_of` reads the record's id, and `tokens/valid?
+  purpose req token bound t` checks the rest.
 - `clock`: the calendar arithmetic senro needs. `clock/utc_minute t` writes
   a moment of the app's clock as UTC to the minute, "2026-11-10 02:31 UTC",
   which is how a table keeps a time as text, and `clock/civil days` is the
@@ -743,7 +748,7 @@ until the app is changed with it.
   function of its state and those answers alone, so it comes to the same
   question and goes on past it. A call that needs another's answer, inside
   `data/then`, waits a round; calls that need none share one. The server
-  names its providers with `web/providers routes secret stock/provided`. A
+  names its providers with `web/providers routes stock/provided`. A
   request says which page it comes from, and the server answers it as it
   would answer that page. The page's module must lean on a module that asks
   for each provider called: the module itself, or one its calls reach, as a
@@ -757,14 +762,18 @@ until the app is changed with it.
   through a model's policy as any read does (`spec/serve/admitted`,
   `spec/runs/provided`).
 - `accounts`: what an account keeps beside its password, as Devise's
-  lockable and trackable keep it. `accounts/missed` counts a wrong password
-  against an account and `accounts/locked_at` locks it; `accounts/locked?`
-  says whether a lock still holds; `accounts/arrived` ends the run of wrong
-  passwords, lifts a lock, and counts and stamps the sign-in, keeping the
-  one before it. `accounts/columns` lists the columns they write. The
-  guestbook's sign-in is written with them
-  (`examples/guestbook/session.kso`), and so is the one `generate
-  authentication` writes (`spec/generate/drive.sh` drives it to a lock).
+  lockable and trackable keep it. A sign-in hands `accounts/attempt` the
+  account it found and the password typed, with its lockout (`locks_after`
+  wrong passwords lock an account for `locked_minutes`), and answers the
+  verdict: `signed`, `inactive` for an account the app holds back, such as
+  one whose address is not confirmed, `locked`, or `wrong`. `attempt`
+  counts a wrong password and locks the account on the last of a run,
+  answering the lock's stamp for an unlock link; a right one ends the run,
+  lifts a lock, and counts and stamps the sign-in, keeping the one before
+  it. `accounts/columns` lists the columns it writes. The guestbook's
+  sign-in is written with it (`examples/guestbook/session.kso`), and so is
+  the one `generate authentication` writes (`spec/generate/drive.sh` drives
+  it to a lock).
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 

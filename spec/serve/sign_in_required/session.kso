@@ -10,6 +10,6 @@ pub fn new _ _
 
 # Anyone who asks is signed in as ada, and sent where they were going.
 pub fn create req _
-  back = web/return_to req secret "/notes"
-  s = delete (web/session req secret) "return_to"
-  effect (web/signed_in req (web/redirect back) secret s "ada" "")
+  back = web/return_to req "/notes"
+  s = delete (web/session req) "return_to"
+  effect (web/signed_in req (web/redirect back) s "ada" "")

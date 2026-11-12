@@ -24,6 +24,6 @@ connected = pg/from_env
 
 # Every action asks for a sign-in unless its module lists it in
 # `without_sign_in`.
-signed = web/requiring_sign_in routes session/secret session/signed_against
+signed = web/requiring_sign_in routes session/signed_against
 
 app/run "notebook" signed connected derived

@@ -11,18 +11,14 @@ import "./views"
 
 derive app/conventions
 
-# The pantry has no sign-in, so its sessions carry no viewer; a development
-# secret signs them all the same.
-secret = "the pantry's development secret"
-
 # The components whose actions run on the server. The planner runs in the
 # browser, from browser.kso.
 served = { "staple":(web/component staple/act staple/view) }
 
 # The planner asks the server for the staples the week runs short of, through
 # the provider in item.kso.
-answering = web/components routes secret served
-served_with_data = web/providers answering secret item/provided
+answering = web/components routes served
+served_with_data = web/providers answering item/provided
 
 connected = pg/from_env
 

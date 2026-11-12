@@ -1,0 +1,82 @@
+import "../../../web"
+import "./session"
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+import "std/time"
+
+# What `web/kept` reads of a request: the secret it signs with.
+type keyed
+  secret
+
+# The server runs with SENRO_SECRET set (spec/serve/secret_from_env/env).
+# Ada signs in through it, and the list it then serves names her. A cookie
+# signed under `session/secret`, the secret the app keeps in its source, is
+# not one of this server's sessions, so the list names nobody.
+pub fn index _ _
+  asked "POST" "/session" "" ""
+    .> (a -> asked "GET" "/notes" (cookie_of a) "" .> (b -> forging a b))
+
+fn forging a b
+  time/now .> (t -> asked "GET" "/notes" (forged t) "" .> (c -> said [a b c]))
+
+fn forged t
+  held = { "seen":"{t}" "since":"{t}" "viewer":"ada" }
+  kept = web/kept (keyed session/secret) (http/text_page "") held
+  cookie_of (http/rendered kept)
+
+fn asked method path cookie form
+  net/dial "127.0.0.1" 24422 .> (c -> sent c method path cookie form)
+
+fn sent c method path cookie form
+  head = "{method} {path} HTTP/1.1\r\nhost: localhost{carried cookie}"
+  sized = "content-length: {length (text/bytes form)}"
+  net/write c "{head}\r\n{sized}\r\n\r\n{form}"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect raw))
+
+fn carried ""
+  ""
+
+fn carried cookie
+  "\r\ncookie: {cookie}"
+
+fn cookie_of raw
+  set = set_lines raw
+  return "" if length set == 0
+  line = or_empty set[1]
+  value = or_empty (text/slice line 13 (length line))
+  or_empty (text/split value ";")[1]
+
+fn set_lines raw
+  list/to_list (list/select (lines raw) (l -> starts? l "set-cookie: "))
+
+fn said answers
+  told = text/join (list/to_list (list/map answers heard)) "\n"
+  effect (http/text_page told)
+
+fn heard raw
+  status = (lines raw)[1]
+  sets = if (length (set_lines raw) > 0) ", setting a session" ""
+  moved = list/to_list (list/select (lines raw) (l -> starts? l "location: "))
+  return "{status}{sets}: {body raw}" if length moved == 0
+  where = or_empty moved[1]
+  "{status}{sets} to {text/slice where 11 (length where)}"
+
+fn lines raw
+  text/split (or_empty (text/split raw "\r\n\r\n")[1]) "\r\n"
+
+fn or_empty none
+  ""
+
+fn or_empty s
+  s
+
+fn starts? l prefix
+  text/starts_with? (text/lowercase l) prefix
+
+fn body raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]

@@ -90,9 +90,4 @@ fn walled line
   ]
   text/join lines "\n"
 
-signing = text/join signing_words " "
-
-signing_words = [
-  "signed = web/requiring_sign_in routes session/secret"
-  "session/signed_against"
-]
+signing = "signed = web/requiring_sign_in routes session/signed_against"

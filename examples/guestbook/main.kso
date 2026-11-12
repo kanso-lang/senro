@@ -21,11 +21,11 @@ derive app/conventions
 # The components whose actions run on the server.
 served = { "removal":(web/component removal/act removal/view) }
 
-acting = web/components routes entries/secret served
+acting = web/components routes served
 
 bound_of = session/signed_against
 
-served_routes = web/requiring_sign_in acting entries/secret bound_of
+served_routes = web/requiring_sign_in acting bound_of
 
 connected = pg/from_env
 

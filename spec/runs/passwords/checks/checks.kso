@@ -1,6 +1,11 @@
 import "../../../../passwords"
+import "../../../../tokens"
 import "std/list"
 import "std/text"
+
+# What `tokens` is handed in place of a request: the secret it reads.
+type keyed
+  secret
 
 # Digests written by Python's hashlib, an implementation independent of
 # kanso's: RFC 7914's first PBKDF2-SHA-256 vector cut to 32 bytes, and one
@@ -18,19 +23,20 @@ empty = "pbkdf2-sha256$1$c2FsdA==$"
 none_rounds = "pbkdf2-sha256$0$c2FsdA==${digest}"
 
 # A reset token for account 7, made under `secret` at `made` while the
-# account keeps the fifty-round digest above.
-secret = "a spec's secret"
+# account keeps the fifty-round digest above. `tokens` reads the secret from
+# the request it is handed, as an action hands it on.
+under = keyed "a spec's secret"
 
 made = 1793000000000
 
-token = passwords/reset_token secret 7 fifty made
+token = tokens/made "reset" under 7 fifty made passwords/reset_minutes
 
 tail = text/join (list/to_list (list/drop (text/split token ".") 1)) "."
 
 signature = text/join (list/to_list (list/drop (text/split token ".") 2)) "."
 
 fn valid_at? held t
-  passwords/reset_valid? secret held fifty t
+  tokens/valid? "reset" under held fifty t
 
 fn told name none
   print "{name}: nothing"
@@ -61,7 +67,7 @@ pub all = told "the RFC vector" (passwords/matches? "passwd" vector)
   .> (_ -> passwords/digested "hunter2")
   .> (d -> told "rounds from the environment" (text/split d "$")[2])
   .> (_ -> told "a reset token" token)
-  .> (_ -> told "the account it names" (passwords/reset_id token))
+  .> (_ -> told "the account it names" (tokens/id_of token))
   .> (_ -> told "good when made" (valid_at? token made))
   .> (_ -> told "good at its last moment" (valid_at? token (made + 900000)))
   .> (_ -> told "stale a moment later" (valid_at? token (made + 900001)))
@@ -70,13 +76,13 @@ pub all = told "the RFC vector" (passwords/matches? "passwd" vector)
   .> (_ -> told "naming another account" (valid_at? "8.{tail}" made))
   .> (_ -> told "with its expiry moved" (valid_at? (moved signature) made))
   .> (_ -> told "no token at all" (valid_at? "x" made))
-  .> (_ -> told "the account no token names" (passwords/reset_id "a.b.c"))
+  .> (_ -> told "the account no token names" (tokens/id_of "a.b.c"))
 
 fn changed? held
-  passwords/reset_valid? secret held vector made
+  tokens/valid? "reset" under held vector made
 
 fn elsewhere? held
-  passwords/reset_valid? "another secret" held fifty made
+  tokens/valid? "reset" (keyed "another secret") held fifty made
 
 fn moved s
   "7.{made + 3600000}.{s}"

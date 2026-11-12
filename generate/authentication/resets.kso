@@ -1,9 +1,9 @@
 import "../../models"
 import "../../passwords"
 import "../../routes"
+import "../../tokens"
 import "../../web"
 import "./password_mailer"
-import "./session"
 import "./user"
 import "./views"
 import "std/io"
@@ -12,9 +12,9 @@ import "std/time"
 
 # A visitor who has lost a password asks for a link by email, follows it,
 # and chooses a new one, as Rails 8's generated PasswordsController has it.
-# The link carries a token `passwords/reset_token` signs over the account
-# and the digest it keeps, so nothing is stored, and a link works once and
-# for fifteen minutes.
+# The link carries a token `tokens/made` signs over the account and the
+# digest it keeps, so nothing is stored, and a link works once and for
+# fifteen minutes.
 pub without_sign_in = ["create" "edit" "new" "update"]
 
 # Asking is limited as signing in is, so the form cannot be used to fill
@@ -32,21 +32,21 @@ pub fn create req db
   f = web/input req
   email = text/lowercase (text/trim (web/value f "email"))
   user/find_by db "email" email
-    .> (u -> sent db u)
+    .> (u -> sent req db u)
     .? (u -> io/write_err "no reset mail: {u.reason}\n")
     .> (_ -> effect (web/redirect (routes/path_to "session/new") on_its_way))
 
 on_its_way = "If that address has an account, a link is on its way to it."
 
-fn sent _ none
+fn sent _ _ none
   effect ""
 
-fn sent db u
-  password_mailer/reset db u.id u.email u.digest
+fn sent req db u
+  password_mailer/reset req db u.id u.email u.digest
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id
-  checked db id .> (good -> offered req id good)
+  checked req db id .> (good -> offered req id good)
 
 fn offered req token true
   effect (chosen req token {} 200)
@@ -61,7 +61,7 @@ expired = "That link has expired or was used. Ask for another."
 # and ends every sign-in made with the old password.
 pub fn update req db id
   password = web/value (web/input req) "password"
-  checked db id .> (good -> chose req db id password good)
+  checked req db id .> (good -> chose req db id password good)
 
 fn chose _ _ _ _ false
   effect (web/redirect (routes/path_to "resets/new") expired)
@@ -69,7 +69,7 @@ fn chose _ _ _ _ false
 fn chose req db token password true
   short = { "password":"Use eight characters or more." }
   return effect (chosen req token short 422) if length password < 8
-  id = id_of (passwords/reset_id token)
+  id = id_text (tokens/id_of token)
   passwords/digested password
     .> (d -> user/update (models/as_app db) id { "digest":d })
     .> (_ -> effect (web/redirect (routes/path_to "session/new") changed))
@@ -77,20 +77,20 @@ fn chose req db token password true
 changed = "Your password is changed. Sign in with it."
 
 # Whether `token` is good now for the account it names.
-fn checked db token
-  id = id_of (passwords/reset_id token)
-  user/find db id .> (u -> time/now .> (t -> effect (good? token u t)))
+fn checked req db token
+  id = id_text (tokens/id_of token)
+  user/find db id .> (u -> time/now .> (t -> effect (good? req token u t)))
 
-fn good? _ none _
+fn good? _ _ none _
   false
 
-fn good? token u t
-  passwords/reset_valid? session/secret token u.digest t
+fn good? req token u t
+  tokens/valid? "reset" req token u.digest t
 
-fn id_of none
+fn id_text none
   "0"
 
-fn id_of n
+fn id_text n
   "{n}"
 
 fn asked req code

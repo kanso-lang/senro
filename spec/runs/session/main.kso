@@ -17,7 +17,9 @@ import "std/net/http"
 # own, until it is signed out.
 secret = "a spec's secret"
 
-answered = web/kept (http/text_page "ok") secret { "name":"ada" }
+bare = cookies/carrying (http/parsed "GET / HTTP/1.1\r\n\r\n") secret
+
+answered = web/kept bare (http/text_page "ok") { "name":"ada" }
 
 value = cookies/sealed_from (http/rendered answered)
 
@@ -25,40 +27,40 @@ day = 24 * 60 * 60 * 1000
 
 began = 1700000000000
 
-signing = cookies/asked_at "" began
+signing = cookies/asked_at "" began secret
 
 held = { "flash":"hello" }
 
-signed = web/signed_in signing (http/text_page "ok") secret held "ada" ""
+signed = web/signed_in signing (http/text_page "ok") held "ada" ""
 
 kept_in = cookies/sealed_from (http/rendered signed)
 
-later = cookies/asked_at kept_in (began + day)
+later = cookies/asked_at kept_in (began + day) secret
 
-expired = cookies/asked_at kept_in (began + 15 * day)
+expired = cookies/asked_at kept_in (began + 15 * day) secret
 
-early = cookies/asked_at kept_in (began - 1)
+early = cookies/asked_at kept_in (began - 1) secret
 
 plain = http/text_page "ok"
 
-remembered = web/signed_in signing plain secret (web/lasting held) "ada" ""
+remembered = web/signed_in signing plain (web/lasting held) "ada" ""
 
 remembered_in = cookies/sealed_from (http/rendered remembered)
 
-back = web/session (cookies/asked remembered_in) secret
+back = web/session (cookies/asked remembered_in secret)
 
-noticed = web/kept plain secret (put back "flash" "thanks")
+noticed = web/kept bare plain (put back "flash" "thanks")
 
-gone = web/kept plain secret (web/signed_out back)
+gone = web/kept bare plain (web/signed_out back)
 
-print "kept: {web/session (cookies/asked value) secret}"
-print "another secret: {web/session (cookies/asked value) "not the app's"}"
-print "map changed: {web/session (cookies/asked (cookies/forged value)) secret}"
-print "no cookie: {web/session (http/parsed "GET / HTTP/1.1\r\n\r\n") secret}"
-print "a day later: {web/viewer later secret}"
-print "fifteen days later: {web/session expired secret}"
-print "before it began: {web/session early secret}"
-print "unstamped: {web/viewer (cookies/asked kept_in) secret}"
+print "kept: {web/session (cookies/asked value secret)}"
+print "another secret: {web/session (cookies/asked value "not the app's")}"
+print "map changed: {web/session (cookies/asked (cookies/forged value) secret)}"
+print "no cookie: {web/session bare}"
+print "a day later: {web/viewer later}"
+print "fifteen days later: {web/session expired}"
+print "before it began: {web/session early}"
+print "unstamped: {web/viewer (cookies/asked kept_in secret)}"
 print "until the browser closes: {cookies/attributes_of (http/rendered signed)}"
 print "lasting: {cookies/attributes_of (http/rendered remembered)}"
 print "and with a notice: {cookies/attributes_of (http/rendered noticed)}"

@@ -1,17 +1,41 @@
 import "../clock"
 import "../models"
+import "../passwords"
 import "../web"
 import "std/text"
 
 # What an account keeps beside its password, as Devise's lockable and
 # trackable keep it: a run of wrong passwords that locks the account for a
-# while, and a count and a stamp of each sign-in. An app's sign-in calls
-# these with its accounts' model, and its table holds the columns they
-# write, which `columns` lists. Each is written as the app itself
-# (`models/as_app`), since nobody is signed in while a sign-in is being
-# decided.
+# while, and a count and a stamp of each sign-in. An app's sign-in hands
+# `attempt` the account it found and the password typed, and answers the
+# verdict; its table holds the columns `attempt` writes, which `columns`
+# lists. Each is written as the app itself (`models/as_app`), since nobody
+# is signed in while a sign-in is being decided.
 #
-# The columns an accounts table holds for these, each a name and what
+# What a sign-in comes to. `outcome` is "signed" for the right password on
+# an open account the app lets in, which `attempt` has counted and stamped;
+# "inactive" for the right password on one the app holds back, such as an
+# address not yet confirmed; "locked" for the right password on a locked
+# account; and "wrong" for every other. `stamp` is the lock's stamp when
+# this wrong password is the one that locked the account, and "" otherwise.
+pub type verdict
+  outcome
+  stamp
+
+# The fields of an account this module reads: those of the account the app
+# found, which its sign-in builds as its own record beside whatever else it
+# keeps, such as the address, and `failures`, of the row a wrong password
+# answers.
+type found
+  id
+  digest
+  locked
+  was_at
+  was_ip
+  active
+  failures
+
+# The columns an accounts table holds for this module, each a name and what
 # Postgres is told of it. `senro generate authentication` writes them into
 # the migration that makes `users`.
 pub columns = [
@@ -26,10 +50,46 @@ pub columns = [
 
 blank = "text not null default ''"
 
+# A sign-in with `password` for the account `a`, as the app found it
+# (`found`): its `id`, or "" when there is none, `digest`, a stand-in's when
+# there is none so that the check costs the same, `locked`, the sign-in
+# before this one, `was_at` from `was_ip`, and `active`, whether the app
+# lets the account sign in at all. A run of `after` wrong passwords locks
+# an account for `minutes`, which the app's `session.kso` decides. A locked
+# account answers a wrong password as any wrong password is answered, so
+# only the holder of the right one learns that it is locked.
+pub fn attempt req db model a password after minutes t
+  right = passwords/matches? password a.digest
+  return effect (verdict (shut right) "") if locked? a.locked minutes t
+  return missed_by db model a after t if not right
+  return effect (verdict "inactive" "") if not a.active
+  arrived req db model a.id a.was_at a.was_ip t
+    .> (_ -> effect (verdict "signed" ""))
+
+fn shut true
+  "locked"
+
+fn shut false
+  "wrong"
+
+# A wrong password counts against the account, and the one that makes the
+# run `after` long locks it.
+fn missed_by db model a after t
+  return effect (verdict "wrong" "") if a.id == ""
+  missed db model a.id a.locked
+    .> (counted -> locking db model a.id counted after t)
+
+fn locking _ _ _ _:web/absent _ _
+  effect (verdict "wrong" "")
+
+fn locking db model id counted after t
+  return effect (verdict "wrong" "") if counted.failures != after
+  locked_at db model id t .> (stamp -> effect (verdict "wrong" stamp))
+
 # Whether an account locked at `stamp`, the moment in milliseconds as text
 # or "" for one that is open, is still locked at `t`, when a lock lasts
 # `minutes`.
-pub fn locked? stamp minutes t
+fn locked? stamp minutes t
   return false if stamp == ""
   t < moment (text/to_int stamp) + minutes * 60 * 1000
 
@@ -44,7 +104,7 @@ fn moment n
 # out counts as none, so the run starts again. Postgres adds in the
 # statement that answers, so of several wrong passwords at once exactly one
 # sees the run reach a given length.
-pub fn missed db model id locked
+fn missed db model id locked
   reopened db model id locked
     .> (_ -> models/increment (models/as_app db) model id "failures")
 
@@ -57,7 +117,7 @@ fn reopened db model id _
 
 # Locks the account `id` at `t`, answering the stamp the lock is kept
 # under, which a link that unlocks it is bound to.
-pub fn locked_at db model id t
+fn locked_at db model id t
   stamp = "{t}"
   models/update (models/as_app db) model id { "locked":stamp }
     .> (_ -> effect stamp)
@@ -66,7 +126,7 @@ pub fn locked_at db model id t
 # lock is lifted, and the sign-in is counted and stamped with the app's
 # clock, as UTC to the minute, and the address the request came from. The
 # sign-in before it, `was_at` from `was_ip`, is kept beside it.
-pub fn arrived req db model id was_at was_ip t
+fn arrived req db model id was_at was_ip t
   changes = {
     "current_sign_in_at":(clock/utc_minute t)
     "current_sign_in_ip":(web/peer req)

@@ -1,0 +1,2 @@
+# The key the spec signs its sessions with.
+pub secret = "the spec's secret"
