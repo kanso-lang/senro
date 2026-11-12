@@ -1,0 +1,6 @@
+import "../../../routes"
+import "./entries"
+
+old = "/signbook"
+
+pub legacy_route_aliases = [(routes/moved old entries/index)]

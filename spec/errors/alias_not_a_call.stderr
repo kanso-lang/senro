@@ -1,0 +1,4 @@
+error[derive]: write each alias as a call: `(routes/moved "/old" posts/index)`
+  --> ./legacy.kso:1:5
+   1 | pub legacy_route_aliases = { "GET /signbook":"entries/index" }
+           ^

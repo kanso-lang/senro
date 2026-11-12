@@ -31,6 +31,11 @@ type limits
   by
   refused
 
+# One entry of a module's `legacy_route_aliases`, as `moved` makes it.
+pub type old_path
+  path
+  action
+
 # senro's routing convention, run while an app compiles (#2186). A pub
 # function in one of the app's modules is an action, and its module's name
 # and its own name place it: `entries/index` answers GET /entries,
@@ -56,11 +61,14 @@ type limits
 # it after `id`, is refused.
 #
 # An app that must keep an old URL declares `legacy_route_aliases` in one of
-# its modules, a map from an old path to the action now answering it:
-# `{ "GET /signbook": "entries/index" }`. Each alias answers with a permanent
-# redirect to its action's route, so every resource keeps one URL. An alias
-# must name a route, take `:id` as its second segment exactly when its route
-# does, and answer no request a route or another alias answers.
+# its modules, a list of calls to `moved`, each naming an old path and the
+# action now answering it: `[(routes/moved "/signbook" entries/index)]`. The
+# action is code, so the compiler checks the name, and its route gives the
+# alias its method. Each alias answers with a permanent redirect to its
+# action's route, so every resource keeps one URL. An alias must name a route
+# that is not nested, write its path whole, take `:id` as its second segment
+# exactly when its route does, and answer no request a route or another alias
+# answers.
 #
 # A module that lets one client call an action only so often declares
 # `rate_limits`, a map from the action's name to a count per a window, as
@@ -615,8 +623,15 @@ fn unnested_said m f nest
   rule = "so each of its actions takes `{nest}` after the request and database"
   derive/refuse "{m.name}/{f.name}" "{first}, {rule}"
 
-# Each entry of a module's `legacy_route_aliases` becomes a route that
-# redirects, or a refusal at the declaration.
+# One entry of a module's `legacy_route_aliases`: an old path, and the action
+# that answers it now. `rest` reads the call where it is written, so the path
+# is checked as the string it is and the action as the name it is.
+pub fn moved path action
+  old_path path action
+
+# Each call to `moved` in a module's `legacy_route_aliases` becomes a route
+# that redirects, or a refusal at the call. Every entry is such a call, which
+# is what lets each one be read where it is written.
 fn aliases_in acc m placed
   aliases_from acc m m.constants["legacy_route_aliases"] placed
 
@@ -624,38 +639,52 @@ fn aliases_from acc _ none _
   acc
 
 fn aliases_from acc m given placed
-  list/fold (entries given) acc (a e -> alias_of a m e.key e.value placed)
-
-fn alias_of acc m key target placed
+  writing = (c -> c.caller == "legacy_route_aliases" and c.callee == moving)
+  written = list/to_list (list/select m.calls writing)
   origin = "{m.name}/legacy_route_aliases"
-  words = text/split key " "
-  unsplit = "`{key}` is not a method and a path"
-  return refusal acc origin unsplit if length words != 2
+  return refusal acc origin unwritten if length given != length written
+  list/fold written acc (a c -> alias_of a m c placed)
+
+moving = "routes/moved"
+
+unwritten = "write each alias as a call: `(routes/moved \"/old\" posts/index)`"
+
+fn alias_of acc m c placed
+  path = blank_if_none c.strings[1]
+  whole = "write the old path whole, as a string that starts with `/`"
+  return refused_at acc c whole if not text/starts_with? path "/"
+  target = qualified m.name (blank_if_none c.arguments[2])
+  unnamed = "name the action that answers `{path}`, as `posts/index`"
+  return refused_at acc c unnamed if target == ""
   found = list/to_list (list/select placed (r -> r.origin == target))
-  nowhere = "`{key}` points at `{target}`, which names no route"
-  return refusal acc origin nowhere if length found == 0
+  nowhere = "`{target}` is not an action of the app's routes"
+  return refused_at acc c nowhere if length found == 0
   r = found[1]
-  method = words[1]
-  path = words[2]
   deep = "`{target}` is nested, and an alias reaches only a route that is not"
-  return refusal acc origin deep if r.within != ""
-  other = "`{key}` is a {method}, but `{target}` answers {r.method}"
-  return refusal acc origin other if method != r.method
-  shaped acc origin key path r (has_id? path) (r.id != "")
+  return refused_at acc c deep if r.within != ""
+  origin = "{m.name}/legacy_route_aliases"
+  shaped acc c origin path r (has_id? path) (r.id != "")
 
-fn shaped acc origin key path r true true
-  misplaced = "`{key}` must take `:id` as its second segment"
-  return refusal acc origin misplaced if not second_id? path
+fn qualified _ ""
+  ""
+
+fn qualified module name
+  return name if length (text/split name "/") > 1
+  "{module}/{name}"
+
+fn shaped acc c origin path r true true
+  misplaced = "`{path}` must take `:id` as its second segment"
+  return refused_at acc c misplaced if not second_id? path
   kept acc path origin r
 
-fn shaped acc origin _ path r false false
+fn shaped acc _ origin path r false false
   kept acc path origin r
 
-fn shaped acc origin key _ r false true
-  refusal acc origin "`{key}` has no `:id`, but `{r.origin}` takes one"
+fn shaped acc c _ path r false true
+  refused_at acc c "`{path}` has no `:id`, but `{r.origin}` takes one"
 
-fn shaped acc origin key _ r true false
-  refusal acc origin "`{key}` has an `:id`, but `{r.origin}` takes none"
+fn shaped acc c _ path r true false
+  refused_at acc c "`{path}` has an `:id`, but `{r.origin}` takes none"
 
 fn has_id? path
   list/any? (text/split path "/") (s -> s == ":id")
@@ -670,6 +699,9 @@ fn kept acc path origin r
 
 fn refusal acc origin said
   aliases acc.routes (push acc.refused (derive/refuse origin said))
+
+fn refused_at acc c said
+  aliases acc.routes (push acc.refused (derive/refuse_call c said))
 
 fn refused m f
   actions = "index, new, create, show, edit, update or destroy"

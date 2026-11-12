@@ -59,10 +59,13 @@ resources, and each action is one of a resource's seven. Singular resources
 declare a route by hand.
 
 An app that must keep an old URL declares it in `legacy_route_aliases`
-(kanso#2280), which maps the old path to a RESTful route. The name says what
-it is: a compatibility measure. Each alias answers with a permanent redirect
-to its route, so every resource keeps one URL, and an alias pointing at no
-route is refused like any other mistake.
+(kanso#2280), a list of calls such as `(routes/moved "/signbook"
+entries/index)`, each naming an old path and the RESTful action that answers
+it now. The action is written as code, so the compiler checks it, and the
+alias takes its method from the action's route, so there is no method to get
+wrong. The name says what it is: a compatibility measure. Each alias answers
+with a permanent redirect to its route, so every resource keeps one URL, and
+an alias pointing at no route is refused like any other mistake.
 
 ## The schema comes from the migrations
 

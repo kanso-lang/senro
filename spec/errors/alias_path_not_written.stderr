@@ -1,0 +1,4 @@
+error[derive]: write the old path whole, as a string that starts with `/`
+  --> ./legacy.kso:6:30
+   6 | pub legacy_route_aliases = [(routes/moved old entries/index)]
+                                    ^

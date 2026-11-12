@@ -327,10 +327,12 @@ until the app is changed with it.
   refused. `routes/path_to "comments/show" 3 4` names a nested route with
   the parent's id first. An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
-  modules, mapping each old path to the action now answering it, as in
-  `{ "GET /signbook":"entries/index" }`. Each alias answers with a 308
-  redirect to its action's route, and an alias that names no route, disagrees
-  with it about `:id`, or overlaps another route is refused. `web/moved_to`
+  modules, a list of calls naming each old path and the action now answering
+  it, as in `[(routes/moved "/signbook" entries/index)]`. The action is code,
+  so the compiler checks its name, and its route gives the alias its method.
+  Each alias answers with a 308 redirect to its action's route, and an alias
+  that names no action, disagrees with it about `:id`, or overlaps another
+  route is refused at the call. `web/moved_to`
   answers where a request `web/matched` found is redirected. A module that
   lets one client call an action only so often declares `pub rate_limits`,
   as in `{ "create":"10 per 3 minutes" }`. The server counts each client's
