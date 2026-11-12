@@ -129,7 +129,7 @@ fn text_or_blank bs
 
 # The request as text, as the rest of the server reads it: a multipart body
 # becomes the form it carries, with each file stored and named by its key.
-# Anything else is its body utf8_or_refused as UTF-8. A body over the limit is
+# Anything else is its body read as UTF-8. A body over the limit is
 # refused with a 413, and bytes that are not text with a 400.
 fn request_text raw
   text_at raw (found raw blank_line 1)

@@ -7,8 +7,8 @@
   create spec/notebook/note.kso
   create spec/notebook/notes.kso
   create spec/notebook/views/notes_index.kata
-  create spec/notebook/views/note_shown.kata
-  create spec/notebook/views/note_form.kata
+  create spec/notebook/views/notes_show.kata
+  create spec/notebook/views/notes_form.kata
   create spec/notebook/notes_test.kso
   create spec/notebook/given.kso
   create spec/notebook/migrations/20261111180512_create_notes.kso
@@ -16,8 +16,8 @@
   create spec/notebook/page.kso
   create spec/notebook/pages.kso
   create spec/notebook/views/pages_index.kata
-  create spec/notebook/views/page_shown.kata
-  create spec/notebook/views/page_form.kata
+  create spec/notebook/views/pages_show.kata
+  create spec/notebook/views/pages_form.kata
   create spec/notebook/pages_test.kso
   change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180513_create_pages.kso

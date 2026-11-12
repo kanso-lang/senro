@@ -1,10 +1,10 @@
-takes flash problems
+takes notice problems
 header
   h1 Forgot your password?
   p.lede
     a href="/session/new" Back to signing in
-if flash != ""
-  p.flash = flash
+if notice != ""
+  p.notice = notice
 form method="post" action="/resets"
   input type="email" name="email" placeholder="the address your account has" required="required"
   if problems["email"] != none

@@ -98,7 +98,7 @@ button:hover { filter: brightness(1.08); }
 
 .who::before { content: "— "; }
 
-.flash {
+.notice {
   margin: 0 0 1rem;
   padding: 0.6rem 0.9rem;
   color: #3d5a2a;

@@ -98,7 +98,7 @@ fn shown _ none
 fn shown req record
   attributes = page/page_attributes record
   return web/json 200 attributes if web/wants_json? req
-  page = views/page_shown_view record
+  page = views/pages_show_view record
   views/answer_as req 200 (views/layout_view "Page" page)
 
 fn editing _ _ _ none
@@ -142,7 +142,7 @@ fn gone note_id _
 # The form a page is made and changed with: its fields as typed, and the
 # problem with each, if any.
 fn form req path method fields problems code
-  page = views/page_form_view path method fields problems
+  page = views/pages_form_view path method fields problems
   views/answer_as req code (views/layout_view "Page" page)
 
 blank = { "body":"" }

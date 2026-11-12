@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><title>Posts</title></head><body><p class="flash">&lt;saved&gt;</p><ul><li id="post-1"><h2>On &lt;tags&gt;</h2><p class="by">by Ada</p><b>new</b><ul class="tags"><li>kata</li><li>html</li></ul></li><li id="post-2"><h2>Second</h2><p class="by">by Bob</p><em>draft</em><ul class="tags"></ul></li></ul><p class="count">2 posts</p></body></html>
+<!DOCTYPE html><html><head><title>Posts</title></head><body><p class="notice">&lt;saved&gt;</p><ul><li id="post-1"><h2>On &lt;tags&gt;</h2><p class="by">by Ada</p><b>new</b><ul class="tags"><li>kata</li><li>html</li></ul></li><li id="post-2"><h2>Second</h2><p class="by">by Bob</p><em>draft</em><ul class="tags"></ul></li></ul><p class="count">2 posts</p></body></html>
 --
 
 --

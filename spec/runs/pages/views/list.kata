@@ -1,6 +1,6 @@
-takes posts flash marks
-if flash != ""
-  p.flash = flash
+takes posts notice marks
+if notice != ""
+  p.notice = notice
 ul
   each posts p ->
     li id="post-{p.id}"

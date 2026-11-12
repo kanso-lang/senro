@@ -45,7 +45,7 @@ fn shown _ none
 fn shown req record
   attributes = note/note_attributes record
   return web/json 200 attributes if web/wants_json? req
-  page = views/note_shown_view record
+  page = views/notes_show_view record
   views/answer_as req 200 (views/layout_view "Note" page)
 
 fn editing _ _ none
@@ -87,7 +87,7 @@ fn gone _
 # The form a note is made and changed with: its fields as typed, and the
 # problem with each, if any.
 fn form req path method fields problems code
-  page = views/note_form_view path method fields problems
+  page = views/notes_form_view path method fields problems
   views/answer_as req code (views/layout_view "Note" page)
 
 blank = { "cover":"" "pages":"" "title":"" }

@@ -81,7 +81,7 @@ fn generated rest
   return command/run (list/concat [name "."] words) if built_in? name
   found_all .> (all -> from_outside name words (picked all name))
 
-# Every generator from from_outside senro, as [name path] pairs: the app's own
+# Every generator from outside senro, as [name path] pairs: the app's own
 # first, then those beside each library the entry imports.
 found_all = os/read_file "main.kso" .> (main -> looked (roots_of main))
 
