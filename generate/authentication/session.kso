@@ -10,7 +10,7 @@ import "std/time"
 
 # What a sign-in checks of the account an address holds, and when and from
 # where it last signed in. An address with no account holds the stand-in
-# digest, which no password matches.
+# digest, which no password matches. Every account may sign in (`active`).
 type holder
   id
   email
@@ -18,6 +18,7 @@ type holder
   locked
   was_at
   was_ip
+  active
 
 # The key that signs every session, which senro reads by its name.
 # `generate authentication` made it at random for development; a deployed
@@ -69,45 +70,30 @@ pub fn create req db
     .> (a -> time/now .> (t -> entered req db email a password t))
 
 fn held none
-  passwords/stand_in .> (d -> effect (holder "" "" d "" "" ""))
+  passwords/stand_in .> (d -> effect (holder "" "" d "" "" "" true))
 
 fn held u
   at = u.current_sign_in_at
-  effect (holder "{u.id}" u.email u.digest u.locked at u.current_sign_in_ip)
+  from = u.current_sign_in_ip
+  effect (holder "{u.id}" u.email u.digest u.locked at from true)
 
-# A locked account answers a wrong password as any wrong password is
-# answered, and tells only the holder of the right one that it is locked.
+# What a sign-in comes to is `accounts`' to decide: the password checked,
+# the lock kept, and a right password counted and stamped. A locked account
+# tells only the holder of the right password that it is locked.
 fn entered req db email a password t
-  right = passwords/matches? password a.digest
-  return effect (shut req email right) if still_locked? a t
-  return missed req db email a t if not right
-  accounts/arrived req db user/user_model a.id a.was_at a.was_ip t
-    .> (_ -> signed req a)
+  model = user/user_model
+  accounts/attempt req db model a password locks_after locked_minutes t
+    .> (v -> answered req email a v.outcome)
 
-fn still_locked? a t
-  accounts/locked? a.locked locked_minutes t
+fn answered req _ a "signed"
+  signed req a
 
-fn shut req email true
+fn answered req email _ "locked"
   told = "This account is locked. Try again in {locked_minutes} minutes."
-  opened req email { "password":told } 403
+  effect (opened req email { "password":told } 403)
 
-fn shut req email false
-  refused req email
-
-# A wrong password counts against the account, and the one that makes the
-# run long enough locks it.
-fn missed req db email a t
-  return effect (refused req email) if a.id == ""
-  accounts/missed db user/user_model a.id a.locked
-    .> (counted -> locking req db email a counted t)
-
-fn locking req _ email _ _:web/absent _
+fn answered req email _ _
   effect (refused req email)
-
-fn locking req db email a counted t
-  return effect (refused req email) if counted.failures != locks_after
-  accounts/locked_at db user/user_model a.id t
-    .> (_ -> effect (refused req email))
 
 fn signed req a
   s = web/session req

@@ -10,16 +10,18 @@ import "std/list"
 import "std/text"
 import "std/time"
 
-# What a sign-in checks of the account a name holds, and the account as it
-# was read. A name with no account holds the stand-in digest, which no
-# password matches, and no account.
+# What a sign-in checks of the account a name holds, and when and from
+# where it last signed in. A name with no account holds the stand-in
+# digest, which no password matches. An account signs in once its address
+# is confirmed (`active`).
 type holder
   id
   digest
   email
-  confirmed
   locked
-  was
+  was_at
+  was_ip
+  active
 
 # One address may try to sign in ten times in three minutes, as Rails 8's
 # generated sessions controller allows. Past that, `over_limit` answers the
@@ -70,10 +72,13 @@ pub fn create req db
     .> (a -> time/now .> (t -> entered req db name a password remember t))
 
 fn held none
-  passwords/stand_in .> (d -> effect (holder "" d "" "" "" none))
+  passwords/stand_in .> (d -> effect (holder "" d "" "" "" "" false))
 
 fn held a
-  effect (holder "{a.id}" a.digest a.email (said a.confirmed) a.locked a)
+  at = a.current_sign_in_at
+  from = a.current_sign_in_ip
+  ready = said a.confirmed != ""
+  effect (holder "{a.id}" a.digest a.email a.locked at from ready)
 
 fn said none
   ""
@@ -81,55 +86,26 @@ fn said none
 fn said s
   s
 
-# A locked account answers a wrong password as any other wrong password is
-# answered, and tells only the holder of the right one that it is locked.
+# What a sign-in comes to is `accounts`' to decide. A locked account tells
+# only the holder of the right password that it is locked, and the wrong
+# password that locks it mails the link that unlocks it.
 fn entered req db name a password remember t
-  right = passwords/matches? password a.digest
-  return shut req name right if locked? a t
-  return missed req db name a t if not right
-  return unconfirmed req db name a if a.confirmed == ""
-  arrived req db a.was t .> (_ -> signed req name a remember)
+  model = account/account_model
+  accounts/attempt req db model a password locks_after locked_minutes t
+    .> (v -> answered req db name a remember v)
 
-# The right password ends a run of wrong ones, and the sign-in is counted and
-# stamped, the one before it kept beside it. The app writes these on its own
-# account, and the time is the app's clock, written as UTC to the minute.
-fn arrived _ _ none _
-  effect none
-
-fn arrived req db was t
-  at = was.current_sign_in_at
-  from = was.current_sign_in_ip
-  accounts/arrived req db account/account_model was.id at from t
-
-fn locked? a t
-  accounts/locked? a.locked locked_minutes t
-
-fn shut req name true
-  told = "This account is locked. Follow the link we mailed to unlock it."
-  effect (opened req name { "password":told } 403)
-
-fn shut req name false
-  refused req name
-
-# A wrong password for an account counts against it, and the one that makes
-# the run long enough locks it and mails the link that unlocks it. A lock
-# that has run out counts as none, so the count starts again. The count is
-# added in one statement, so of several wrong passwords at once exactly one
-# sees the run reach its length.
-fn missed req db name a t
-  return refused req name if a.id == ""
-  accounts/missed db account/account_model a.id a.locked
-    .> (counted -> locking req db name a counted t)
-
-fn locking req _ name _ _:web/absent _
-  refused req name
-
-fn locking req db name a counted t
-  return refused req name if counted.failures != locks_after
-  accounts/locked_at db account/account_model a.id t
-    .> (stamp -> account_mailer/unlock req db a.id a.email stamp)
+fn answered req db name a remember v
+  return signed req name a remember if v.outcome == "signed"
+  return unconfirmed req db name a if v.outcome == "inactive"
+  return shut req name if v.outcome == "locked"
+  return refused req name if v.stamp == ""
+  account_mailer/unlock req db a.id a.email v.stamp
     .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
     .> (_ -> refused req name)
+
+fn shut req name
+  told = "This account is locked. Follow the link we mailed to unlock it."
+  effect (opened req name { "password":told } 403)
 
 fn signed req name a remember
   s = web/session req

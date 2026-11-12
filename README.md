@@ -762,14 +762,18 @@ until the app is changed with it.
   through a model's policy as any read does (`spec/serve/admitted`,
   `spec/runs/provided`).
 - `accounts`: what an account keeps beside its password, as Devise's
-  lockable and trackable keep it. `accounts/missed` counts a wrong password
-  against an account and `accounts/locked_at` locks it; `accounts/locked?`
-  says whether a lock still holds; `accounts/arrived` ends the run of wrong
-  passwords, lifts a lock, and counts and stamps the sign-in, keeping the
-  one before it. `accounts/columns` lists the columns they write. The
-  guestbook's sign-in is written with them
-  (`examples/guestbook/session.kso`), and so is the one `generate
-  authentication` writes (`spec/generate/drive.sh` drives it to a lock).
+  lockable and trackable keep it. A sign-in hands `accounts/attempt` the
+  account it found and the password typed, with its lockout (`locks_after`
+  wrong passwords lock an account for `locked_minutes`), and answers the
+  verdict: `signed`, `inactive` for an account the app holds back, such as
+  one whose address is not confirmed, `locked`, or `wrong`. `attempt`
+  counts a wrong password and locks the account on the last of a run,
+  answering the lock's stamp for an unlock link; a right one ends the run,
+  lifts a lock, and counts and stamps the sign-in, keeping the one before
+  it. `accounts/columns` lists the columns it writes. The guestbook's
+  sign-in is written with it (`examples/guestbook/session.kso`), and so is
+  the one `generate authentication` writes (`spec/generate/drive.sh` drives
+  it to a lock).
 - `kata`: `.kata` templates, compiled to kanso functions while the app
   compiles; see `kata/README.md`.
 
