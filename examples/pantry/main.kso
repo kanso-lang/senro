@@ -1,8 +1,5 @@
-import "../../data"
-import "../../kata"
-import "../../models"
+import "../../app"
 import "../../pg"
-import "../../routes"
 import "../../web"
 import "./home"
 import "./items"
@@ -12,10 +9,7 @@ import "./staple"
 import "./stock"
 import "./views"
 
-derive data/providers
-derive kata/views
-derive models/tables
-derive routes/rest
+derive app/conventions
 
 # The pantry has no sign-in, so its sessions carry no viewer; a development
 # secret signs them all the same.
@@ -30,10 +24,6 @@ served = { "staple":(web/component staple/act staple/view) }
 answering = web/components routes secret served
 served_with_data = web/providers answering secret stock/provided
 
-connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+connected = pg/from_env
 
-connected
-  .> (db -> models/migrated db "pantry" migrations/all)
-  .> (db -> models/compared db schema)
-  .> (db -> pg/close db)
-  .> (_ -> web/serve 3001 served_with_data connected)
+app/run "pantry" served_with_data connected derived

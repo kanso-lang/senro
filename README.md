@@ -9,14 +9,20 @@ An app names senro's modules by repository, the way kanso reads any hako
 from GitHub:
 
 ```
-import "kanso-lang/senro/models"
+import "kanso-lang/senro/app"
 import "kanso-lang/senro/pg"
-import "kanso-lang/senro/routes"
-import "kanso-lang/senro/web"
 
-derive models/tables
-derive routes/rest
+derive app/conventions
+
+connected = pg/from_env
+
+app/run "shelf" routes connected derived
 ```
+
+`derive app/conventions` runs every convention senro has an app follow: the
+views, the tables and their models, the routes, the jobs and the data
+providers. `app/run` runs the app's migrations, compares the database with
+them, and serves.
 
 `kanso install` fetches the repository and writes the lock.
 `examples/guestbook` and `examples/pantry` are whole apps. They import the
@@ -79,12 +85,13 @@ An action that writes answers with a redirect, to be filled in.
 `new` writes an entry, a home page, a layout and an empty `migrations`
 directory. The entry connects to the Postgres that `PGHOST`, `PGPORT`,
 `PGUSER`, `PGDATABASE` and `PGPASSWORD` name, runs the app's migrations, and
-serves on port 3000. Two workers run beside the server (`jobs/beside`): one
-sends the mail the app queues, and one does the app's own jobs.
+serves on the port `PORT` names, 3000 when it is unset. A worker runs beside
+the server for the app's jobs once it has one, and another sends its mail
+once it has a mailer.
 
 `job` writes `tidy_job.kso` and adds its import to the entry. A module named
 `<name>_job` is the job `<name>`, and its `perform db args` is the work.
-Nothing lists the jobs: the entry's `derive jobs/performers` finds each by
+Nothing lists the jobs: the entry's `derive app/conventions` finds each by
 its module's name. An action queues one with `jobs/perform_later db "tidy"
 args`, where `args` is a map of strings, and a name that is no job is
 refused while the app compiles. An app with no jobs starts no worker for
@@ -263,6 +270,16 @@ until the app is changed with it.
 
 ## What is here
 
+- `app`: how an app starts. `derive app/conventions` runs every convention
+  below at once (`kata/views`, `models/tables`, `routes/rest`,
+  `jobs/performers` and `data/providers`) and declares `derived`, what the
+  derivations read that `run` needs: the schema, the jobs, the migrations
+  and whether the app has a mailer. `app/run name routes connected derived`
+  runs the migrations under `name`, compares the database's schema with
+  theirs, closes that session, and serves `routes` on `PORT`, 3000 when it
+  is unset, with a worker for the app's jobs and one for its mail when it
+  has them. Each convention is also a derivation of its own, for a program
+  that wants one.
 - `visit`: a visitor for an app's tests. A visit asks the app for pages with
   no server, keeps its cookies between requests, and holds the last answer's
   status, headers and body. `visit/within` is the `around` hook that wraps an
@@ -358,12 +375,13 @@ until the app is changed with it.
   `models/updated_at` one at a time, has `created_at` and `updated_at`, as
   Rails' `t.timestamps` gives: Postgres sets both when a row is made,
   `models/updated` sets `updated_at` on every change, and a form's value for
-  either is ignored. As the app starts,
-  `models/migrated db app migrations/all` runs the migrations the database has
-  not yet run, in order, and records each in `senro_migrations` under the app's
+  either is ignored. As the app starts, `app/run` runs the migrations the
+  database has not yet run, in order, and records each in `senro_migrations` under the app's
   name and its stamp, beside the SQL it ran, as Rails records them in
-  `schema_migrations`; two apps can share a database. `migrations/all` is
-  derived from the files in `migrations` (see Migrations above). A module that
+  `schema_migrations`; two apps can share a database. A program that runs
+  them itself writes `models/migrated db app migrations/all`, where
+  `migrations/all` is derived from the files in `migrations` (see Migrations
+  above). A module that
   is one file, `migrations.kso`, and writes `pub all = [...]` itself is read as
   it is and its changes are recorded by their place in the list, which suits a
   spec or an app of a few lines. A migration runs once; one whose SQL has

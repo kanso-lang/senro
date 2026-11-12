@@ -409,7 +409,7 @@ ran=$(
     "$senro" g controller Things index
     "$senro" bogus
     "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
-    grep -v '^derive jobs/performers$' main.kso > main.without
+    grep -v '^derive app/conventions$' main.kso > main.without
     mv main.without main.kso
     "$senro" g job sweep
   } 2>&1
@@ -590,7 +590,8 @@ else
     [ "$engine" = interp ] && flag=--interp
     log=$(mktemp)
     outbox=$(mktemp -d)
-    (cd examples/guestbook && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
+    (cd examples/guestbook && PGHOST=127.0.0.1 PGPORT=54329 \
+      SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
     server=$!
     tries=0
     while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
@@ -654,7 +655,8 @@ else
         log=$(mktemp)
         # The app's mail is written to files here, where the spec reads it.
         outbox=$(mktemp -d)
-        (cd "examples/$name" && SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
+        (cd "examples/$name" && PGHOST=127.0.0.1 PGPORT=54329 PORT=$port \
+          SENRO_MAIL="dir:$outbox" exec "$KANSO" run . $flag) > "$log" 2>&1 &
         server=$!
         tries=0
         while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do

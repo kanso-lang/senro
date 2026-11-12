@@ -143,4 +143,4 @@ senro: usage: senro new <app>
        senro migrate
        senro test [file]                      (or `senro t`)
 main.kso: ok
-generate: ./main.kso has no `derive jobs/performers`, which finds a job; `new` writes one
+generate: ./main.kso has no `derive app/conventions`, which finds a job; `new` writes one

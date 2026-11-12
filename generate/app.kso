@@ -2,58 +2,29 @@ import "std/list"
 import "std/text"
 
 # What `generate new` writes for an app, as `rails new` does: an entry that
-# connects to the Postgres the environment names, runs the app's migrations
-# and serves its routes, with two workers beside the server, one for the
-# mail the app queues and one for its own jobs; a home page; and a layout.
-# Its migrations go in `migrations/`, which starts empty. Each function
-# answers a file's text.
+# connects to the Postgres the environment names and starts the app with
+# `app/run`, which runs its migrations and serves its routes, with a worker
+# beside the server for its jobs and one for its mail when it has them; a
+# home page; and a layout. Its migrations go in `migrations/`, which starts
+# empty. Each function answers a file's text.
 pub fn entry senro name
   lines = [
-    "import \"{senro}/jobs\""
-    "import \"{senro}/kata\""
-    "import \"{senro}/mail\""
-    "import \"{senro}/models\""
+    "import \"{senro}/app\""
     "import \"{senro}/pg\""
-    "import \"{senro}/routes\""
-    "import \"{senro}/web\""
     "import \"./home\""
     "import \"./migrations\""
     "import \"./views\""
     ""
-    "derive jobs/performers"
-    "derive kata/views"
-    "derive models/tables"
-    "derive routes/rest"
+    "derive app/conventions"
     ""
     "# The database comes from PGHOST, PGPORT, PGUSER, PGDATABASE and"
     "# PGPASSWORD, as libpq reads them, so the app runs wherever its host"
     "# sets them."
     "connected = pg/from_env"
     ""
-    workers_note
-    "# and the other does the jobs its `_job` modules perform."
-    serve_line
-    ""
-    "working = jobs/beside connected jobs/default_queue performers serving"
-    ""
-    "connected"
-    "  .> (db -> models/migrated db \"{name}\" migrations/all)"
-    "  .> (db -> models/compared db schema)"
-    "  .> (db -> pg/close db)"
-    "  .> (_ -> jobs/beside connected \"mail\" mail/performers working)"
+    "app/run \"{name}\" routes connected derived"
   ]
   "{text/join lines "\n"}\n"
-
-# Two lines of the entry that `generate authentication` finds it by: where
-# the note on its workers opens, and what it serves.
-pub workers_note = text/join workers_words " "
-
-workers_words = [
-  "# Two workers run beside the server."
-  "One sends the mail the app queues,"
-]
-
-pub serve_line = "serving = web/serve 3000 routes connected"
 
 pub fn home name
   lines = [

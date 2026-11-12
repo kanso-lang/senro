@@ -1,9 +1,5 @@
-import "../../jobs"
-import "../../kata"
-import "../../mail"
-import "../../models"
+import "../../app"
 import "../../pg"
-import "../../routes"
 import "../../web"
 import "./account"
 import "./account_mailer"
@@ -20,9 +16,7 @@ import "./signature"
 import "./unlocks"
 import "./views"
 
-derive kata/views
-derive models/tables
-derive routes/rest
+derive app/conventions
 
 # The components whose actions run on the server.
 served = { "removal":(web/component removal/act removal/view) }
@@ -33,13 +27,6 @@ bound_of = session/signed_against
 
 served_routes = web/requiring_sign_in acting entries/secret bound_of
 
-connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+connected = pg/from_env
 
-# The server, with a worker beside it that sends the mail the app queues.
-serving = web/serve 3000 served_routes connected
-
-connected
-  .> (db -> models/migrated db "guestbook" migrations/all)
-  .> (db -> models/compared db schema)
-  .> (db -> pg/close db)
-  .> (_ -> jobs/beside connected "mail" mail/performers serving)
+app/run "guestbook" served_routes connected derived

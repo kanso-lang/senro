@@ -48,12 +48,16 @@ pub fields = ["email:text:uniq" "digest:text"]
 # `new` wrote it.
 pub fn entry_signed main
   lines = text/split main "\n"
-  return none if not list/any? lines (l -> l == app/serve_line)
-  return none if not list/any? lines (l -> l == app/workers_note)
+  return none if not list/any? lines run?
   served = list/to_list (list/map lines signed_line)
   own = text/join served "\n"
-  locals = list/fold imported own (e n -> with e n)
-  locals
+  list/fold imported own (e n -> with e n)
+
+# The line `new` ends the entry with, whatever the app is named.
+fn run? line
+  text/starts_with? line "app/run \"" and text/ends_with? line unsigned
+
+unsigned = " routes connected derived"
 
 fn with entry name
   answered (app/entry_with entry name) entry
@@ -65,16 +69,30 @@ fn answered changed _
   changed
 
 fn signed_line line
-  return walled if line == app/workers_note
-  return "serving = web/serve 3000 signed connected" if line == app/serve_line
+  return walled line if run? line
+  return "{line}\n{text/replace line "/pg\"" "/web\""}" if senro_pg? line
   line
 
-walled = text/join walled_lines "\n"
+# The entry's import of senro's `pg`, which `web`, the module that signs,
+# goes after.
+fn senro_pg? line
+  own = text/starts_with? line "import \"./"
+  imports = text/starts_with? line "import \""
+  imports and text/ends_with? line "/pg\"" and not own
 
-walled_lines = [
-  "# Every action asks for a sign-in unless its module lists it in"
-  "# `without_sign_in`."
-  "signed = web/requiring_sign_in routes session/secret session/signed_against"
-  ""
-  app/workers_note
+fn walled line
+  lines = [
+    "# Every action asks for a sign-in unless its module lists it in"
+    "# `without_sign_in`."
+    signing
+    ""
+    (text/replace line unsigned " signed connected derived")
+  ]
+  text/join lines "\n"
+
+signing = text/join signing_words " "
+
+signing_words = [
+  "signed = web/requiring_sign_in routes session/secret"
+  "session/signed_against"
 ]

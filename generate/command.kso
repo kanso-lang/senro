@@ -197,17 +197,20 @@ fn laid app senro
     .> (_ -> written "{app}/views/home.kata" app/home_view)
 
 # Where an app that is there already keeps senro: the path its entry
-# imports `models` by. An entry that imports none falls back to the way up
-# from the app's path, which is right when the command runs in senro's
+# imports `pg` by. An entry that imports none falls back to the way up from
+# the app's path, which is right when the command runs in senro's
 # directory.
 fn senro_in main fallback
   lines = text/split main "\n"
   found = list/to_list (list/select lines senro_line?)
   return fallback if length found == 0
-  said (text/slice found[1] 9 (length found[1] - 8))
+  said (text/slice found[1] 9 (length found[1] - length pg_import))
 
 fn senro_line? l
-  text/starts_with? l "import \"" and text/ends_with? l "/models\""
+  own = text/starts_with? l "import \"./"
+  text/starts_with? l "import \"" and text/ends_with? l pg_import and not own
+
+pg_import = "/pg\""
 
 fn controlled true app plural _
   refused "{app}/{plural}.kso is there already"
