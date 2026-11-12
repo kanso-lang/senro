@@ -708,9 +708,10 @@ until the app is changed with it.
   that is no job's (`spec/db/performed`, `spec/errors/job_without_perform`,
   `spec/errors/perform_later_no_job`).
 - `browser`: what an app's components and pages need in the browser.
-  `browser.kso` beside the app's entry names its browser components with
-  `browser/answer`, or with `browser/answer_pages` when the module renders
-  the app's pages too (see `kata/README.md`). `sh browser/build.sh <app>
+  `browser.kso` beside the app's entry lists its browser components, the
+  records kata wrote, with `browser/answer [planner/component]`, or with
+  `browser/answer_pages` when the module renders the app's pages too (see
+  `kata/README.md`). `sh browser/build.sh <app>
   <runtime.wasm>` builds it for the browser into the app's `public/senro/`,
   beside kanso's runtime for wasm32 (`scripts/build_runtime_wasm.sh` in
   kanso). Until the module has loaded, an element marked

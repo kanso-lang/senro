@@ -36,7 +36,7 @@ fn templates p m
   pages = if (use == "") [] (pages_of m use keep bytes_read calls)
   types = if (use == "") [] (types_of m use keep bytes_read)
   rest = list/concat (list/concat (list/concat [head] found) acts) pages
-  record = if (length bound > 0 and served? m) [(component_type m)] []
+  record = if (length bound > 0) [(component_type m)] []
   list/concat (list/concat record types) rest
 
 fn added acc m server f
@@ -97,16 +97,20 @@ fn bound_in acc f src
 # 404. A browser component's `act` leaves the state as it was for such a
 # name.
 fn acting p m names
-  return [(derive/define m.name (in_browser names))] if not served? m
+  return recorded p m (in_browser names) if not served? m
   refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
   around = list/to_list (list/select m.calls (c -> around? names c))
   bypass = list/to_list (list/map around (c -> derive/refuse_call c (direct c)))
   return list/concat refused bypass if length refused + length bypass > 0
+  recorded p m (on_server m names)
+
+# A component's module is given its `act` and its record, which names the
+# one template that draws its state.
+fn recorded p m acts
   drawn = list/to_list (list/select (keys m.files) (f -> binds? m.files[f]))
   one = drawn_by_one m.name drawn
   return [(derive/refuse m.name one)] if length drawn != 1
   view = text/replace drawn[1] ".kata" ""
-  acts = on_server m names
   [(derive/define m.name "{acts}\n{served_as p m.name view}")]
 
 fn binds? none
@@ -115,11 +119,12 @@ fn binds? none
 fn binds? src
   length (actions src) > 0
 
-# A server component is what `web/components` serves: its name, its `act`,
-# the template that draws a state, and the modules that lean on it, whose
-# pages are the ones that may act on it. The record is the module's own, so
-# a program that compiles the module for the browser carries nothing of the
-# server's.
+# A component's record is what an app hands `web/components`, for one whose
+# actions run on the server, or `browser/answer`, for one whose actions run
+# in the browser: its name, its `act`, the template that draws a state, and
+# the modules that lean on it, whose pages are the ones that may act on it.
+# The record is the module's own, so a program that compiles the module for
+# the browser carries nothing of the server's.
 fn served_as p name view
   leaning = data/leaning_on p [name]
   pages = list/to_list (list/map (list/sort leaning) (x -> "\"{x}\""))
@@ -135,7 +140,7 @@ fn listed head items
   "{head} [\n  {text/join items "\n  "}\n]"
 
 fn drawn_by_one name drawn
-  said = "is a server component, so one template draws its state"
+  said = "is a component, so one template draws its state"
   "`{name}` {said}, and {length drawn} of its templates bind actions"
 
 # A server action writes through a model, whose policy checks the write

@@ -1,0 +1,6 @@
+import "../../../kata"
+import "./counter"
+
+derive kata/views
+
+print "unreached"

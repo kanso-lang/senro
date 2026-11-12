@@ -1,0 +1,7 @@
+# A count with two templates that bind its actions, so neither can be the
+# one that draws its state.
+pub fn increment count
+  count + 1
+
+pub fn decrement count
+  count - 1
