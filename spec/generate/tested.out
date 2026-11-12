@@ -29,12 +29,13 @@ readings
 test_readings ... ok
 signing in
   is asked of a stranger
+  waits for the address to be confirmed
   with an account
     opens the app
     is over once the visitor signs out
     takes the address and password again
     refuses a wrong password
 
-5 examples, 0 failed
+6 examples, 0 failed
 test_signing_in ... ok
 5 passed, 0 failed

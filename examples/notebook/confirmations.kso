@@ -1,0 +1,75 @@
+import "../../accounts"
+import "../../models"
+import "../../routes"
+import "../../tokens"
+import "../../web"
+import "./user"
+import "./views"
+import "std/time"
+
+# An account whose address a good token would confirm.
+type unconfirmed
+  id
+  email
+
+# The link in a confirmation mail leads here, as Devise's confirmable sends
+# it. Following it shows a button, and the button confirms the address: a
+# GET changes nothing, so a mail scanner that fetches every link it sees
+# confirms nobody. The `id` the member routes take is the token
+# `account_mailer/confirmation` sent.
+pub without_sign_in = ["edit" "update"]
+
+pub fn edit req db id
+  held req db id .> (u -> offered req id u)
+
+fn offered _ _ none
+  to_sign_in stale
+
+fn offered req id u
+  effect (shown req id u.email)
+
+stale = "That link has expired or was used. Sign in to have it sent again."
+
+# Confirming stamps the account with the moment, which also retires the
+# link: it was bound to the column being empty.
+pub fn update req db id
+  held req db id .> (u -> confirmed db u)
+
+fn confirmed _ none
+  to_sign_in stale
+
+fn confirmed db u
+  time/now
+    .> (t -> user/update (models/as_app db) u.id { "confirmed":"{t}" })
+    .> (_ -> to_sign_in confirmed_notice)
+
+confirmed_notice = "Your address is confirmed. Sign in with it."
+
+# The account a token confirms now, or none when the token is no good for
+# the account it names.
+fn held req db token
+  id = id_text (tokens/id_of token)
+  confirms = (u t -> checked req token id u t)
+  user/find db id .> (u -> time/now .> (t -> effect (confirms u t)))
+
+fn checked _ _ _ none _
+  none
+
+fn checked req token id u t
+  good = accounts/confirms? req token u.email u.confirmed t
+  if good (unconfirmed id u.email) none
+
+fn id_text none
+  "0"
+
+fn id_text n
+  "{n}"
+
+fn shown req id email
+  to = routes/path_to "confirmations/update" id
+  page = views/confirm_offered_view to email
+  views/answer req 200 "Confirm your address" page
+
+# Back to the sign-in page, carrying `notice`.
+fn to_sign_in notice
+  effect (web/redirect (routes/path_to "session/new") notice)

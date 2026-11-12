@@ -1,6 +1,7 @@
 # Uses an app `generate` made, over HTTP, as a visitor would. A visitor who
-# has not signed in is sent to sign in; one makes an account, which signs
-# them in. Then the notes: lists them, gives a page count that is no number,
+# has not signed in is sent to sign in; one makes an account, is held back
+# until the link mailed to <outbox> confirms its address, and then signs
+# in. Then the notes: lists them, gives a page count that is no number,
 # makes one, shows it as a page and as JSON, opens its form, changes it,
 # asks for the list as JSON and for its second page, which is empty and
 # links back to the first, removes it, and asks for it again. Then a note
@@ -14,7 +15,8 @@
 # removed. Then signing out, a wrong password, and a lost one: a link is
 # mailed to <outbox>, followed, and the new password signs in. Last, runs
 # of wrong passwords: four leave the account open, and five in a row lock
-# it, after which the right password is told so. Prints each
+# it, after which the right password is told so, until the link mailed to
+# unlock it is followed. Prints each
 # answer's status and where it sends the browser, or the page's text with
 # its tags taken out. Postgres numbers a row by what was made before, so an
 # id reads as N, as a time in JSON reads as T, and each run makes an account
@@ -30,13 +32,35 @@ ids() {
     sed 's|/pages/[0-9][0-9]*|/pages/N|g; s/Page [0-9][0-9]*/Page N/g'
 }
 c() { curl -s -b "$jar" -c "$jar" "$@"; }
+# The path of the link in the letter to the account titled $1, once the
+# mail worker has written it to the outbox.
+linked() {
+  mail=""
+  tries=0
+  while [ -z "$mail" ] && [ $tries -lt 300 ]; do
+    mail=$(grep -l "^Subject: $1" $(grep -l "^To: $email" "$outbox"/* 2>/dev/null) 2>/dev/null | head -1)
+    [ -z "$mail" ] && sleep 0.1
+    tries=$((tries + 1))
+  done
+  grep -o "http://[^ ]*/edit" "$mail" | tr -d '\r' | sed "s|$at||"
+}
 page() { c "$at$1" | sed 's/<[^>]*>/ /g' | tr -s ' \n' ' ' | ids; echo; }
 jsonned() { sed -E 's/"(id|note_id)":[0-9]+/"\1":N/g; s/"(created|updated)_at":"[^"]*"/"\1_at":"T"/g'; }
+# The notice the sign-in page shows after a mailed link sent the visitor
+# there.
+told() { c "$at/session/new" | grep -o '<p class="notice">[^<]*' | sed 's/.*>//'; }
 sent() { c -o /dev/null -w "%{http_code} to %{redirect_url}\n" -d "$2" "$at$1" | sed "s|$at||" | ids; }
 echo "not signed in: $(curl -s -o /dev/null -w "%{http_code} to %{redirect_url}" "$at/notes" | sed "s|$at||")"
 echo "a short password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=short" "$at/registration")"
 echo "making an account: $(sent /registration "email=$email&password=first-password")"
 echo "the same address again: $(curl -s -d "email=$email&password=first-password" "$at/registration" | grep -o 'That address has an account.')"
+early=$(c -w "\n%{http_code}" -d "email=$email&password=first-password" "$at/session")
+echo "signing in before confirming: $(echo "$early" | tail -1) $(echo "$early" | grep -o 'Confirm your address first[^<]*')"
+confirm=$(linked "Confirm your address")
+echo "its confirmation page: $(c -o /dev/null -w "%{http_code}" "$at$confirm")"
+echo "confirming: $(sent "${confirm%/edit}" "_method=PATCH") $(told)"
+echo "the link again: $(sent "${confirm%/edit}" "_method=PATCH") $(told)"
+echo "signing in: $(sent /session "email=$email&password=first-password")"
 echo "the list: $(page /notes)"
 refused=$(c -w "\n%{http_code}" -d "title=First&pages=twelve" "$at/notes")
 echo "pages of twelve: $(echo "$refused" | tail -1) $(echo "$refused" | grep -o 'Give a whole number.')"
@@ -121,14 +145,7 @@ echo "signing out: $(sent /session "_method=DELETE")"
 echo "the notes then: $(asked "$at/notes")"
 echo "a wrong password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=wrong" "$at/session")"
 echo "asking for a link: $(sent /resets "email=$email")"
-mail=""
-tries=0
-while [ -z "$mail" ] && [ $tries -lt 300 ]; do
-  mail=$(grep -l "^To: $email" "$outbox"/* 2>/dev/null | head -1)
-  [ -z "$mail" ] && sleep 0.1
-  tries=$((tries + 1))
-done
-link=$(grep -o "http://[^ ]*/edit" "$mail" | tr -d '\r' | sed "s|$at||")
+link=$(linked "Reset your password")
 echo "its form: $(asked "$at$link")"
 echo "choosing a new one: $(asked -d "_method=PATCH&password=second-password" "$at${link%/edit}")"
 echo "the link again: $(asked "$at$link")"
@@ -156,4 +173,8 @@ echo "five wrong passwords:$(wrongs 127.0.0.3 5)"
 shut=$(c --interface 127.0.0.3 -w "\n%{http_code}" -d "email=$email&password=second-password" "$at/session")
 echo "the right one then: $(echo "$shut" | tail -1) $(echo "$shut" | grep -o 'This account is locked[^<]*')"
 echo "a wrong one then: $(tried 127.0.0.3 wrong)"
+unlock=$(linked "Unlock your account")
+echo "its unlock page: $(c -o /dev/null -w "%{http_code}" "$at$unlock")"
+echo "unlocking: $(sent "${unlock%/edit}" "_method=PATCH") $(told)"
+echo "the right one after: $(c --interface 127.0.0.3 -o /dev/null -w "%{http_code} to %{redirect_url}" -d "email=$email&password=second-password" "$at/session" | sed "s|$at||")"
 rm -f "$jar"

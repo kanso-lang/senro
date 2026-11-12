@@ -22,15 +22,19 @@
   change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180513_create_pages.kso
   change spec/notebook/main.kso
-  create spec/notebook/password_mailer.kso
+  create spec/notebook/account_mailer.kso
+  create spec/notebook/confirmations.kso
   create spec/notebook/registration.kso
   create spec/notebook/resets.kso
   create spec/notebook/session.kso
   create spec/notebook/session_test.kso
+  create spec/notebook/unlocks.kso
   create spec/notebook/user.kso
+  create spec/notebook/views/confirm_offered.kata
   create spec/notebook/views/door.kata
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
+  create spec/notebook/views/unlock_offered.kata
   create spec/notebook/migrations/20261111180514_create_users.kso
   change spec/notebook/main.kso
   create spec/notebook/reading.kso
@@ -50,5 +54,5 @@ generate: cannot read `title:text:loud`: a field ends `:uniq` or has two parts
 generate: cannot name a resource `Book`: a resource's name is spelled as a field's is
 generate: spec/notebook has no volumes to nest chapters under
 generate: cannot read `page:references`: a resource nests under one parent
-generate: spec/notebook/password_mailer.kso is there already
+generate: spec/notebook/account_mailer.kso is there already
 generate: spec/nowhere/main.kso is not there; make the app with `new` first

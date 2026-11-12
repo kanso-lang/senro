@@ -1,0 +1,7 @@
+takes path email
+header
+  h1 Confirm your address
+form method="post" action=path
+  input type="hidden" name="_method" value="PATCH"
+  p.lede = email
+  button Confirm it

@@ -1,0 +1,84 @@
+import "../../accounts"
+import "../../mail"
+import "../../passwords"
+import "../../routes"
+import "../../tokens"
+import "std/text"
+import "std/time"
+
+# The app's mail, as a Rails mailer holds it: what each letter says, and
+# the signed link it carries, which starts with `mail/url_for`. Each letter
+# is queued on `db` and sent by the worker beside the server.
+#
+# The address the app's mail comes from. Change it to one the mail server
+# `SENRO_MAIL` names will send as.
+sender = "noreply@example.com"
+
+# A link to choose a new password, bound to the digest the account keeps,
+# so it works once.
+pub fn reset req db id email kept
+  time/now
+    .> (t -> mail/url_for (reset_path req id kept t))
+    .> (link -> mail/delivered_later db (reset_letter email link))
+
+# The page the link opens, with the token in its path.
+fn reset_path req id kept t
+  token = tokens/made "reset" req id kept t passwords/reset_minutes
+  routes/path_to "resets/edit" token
+
+fn reset_letter email link
+  lines = [
+    "Someone asked to reset the password of your account."
+    ""
+    "Choose a new one here, within fifteen minutes:"
+    ""
+    link
+    ""
+    "If it was not you, there is nothing to do: your password is unchanged."
+  ]
+  mail/composed sender email "Reset your password" (text/join lines "\n")
+
+# A link to confirm the address an account was made with, which
+# `accounts/confirm_token` signs. It lasts a day and works once.
+pub fn confirmation req db id email
+  time/now
+    .> (t -> mail/url_for (confirm_path req id email t))
+    .> (link -> mail/delivered_later db (confirm_letter email link))
+
+fn confirm_path req id email t
+  routes/path_to "confirmations/edit" (accounts/confirm_token req id email t)
+
+fn confirm_letter email link
+  lines = [
+    "Welcome."
+    ""
+    "Confirm your address here, within a day, and then sign in:"
+    ""
+    link
+    ""
+    "If you did not make an account, there is nothing to do."
+  ]
+  mail/composed sender email "Confirm your address" (text/join lines "\n")
+
+# A link to unlock an account that too many wrong passwords locked, which
+# `accounts/unlock_token` signs over the moment of the lock. It lasts a day
+# and works once.
+pub fn unlock req db id email stamp
+  time/now
+    .> (t -> mail/url_for (unlock_path req id stamp t))
+    .> (link -> mail/delivered_later db (unlock_letter email link))
+
+fn unlock_path req id stamp t
+  routes/path_to "unlocks/edit" (accounts/unlock_token req id stamp t)
+
+fn unlock_letter email link
+  lines = [
+    "Your account was locked after too many wrong passwords."
+    ""
+    "It unlocks by itself within the hour, or at once here:"
+    ""
+    link
+    ""
+    "If the wrong passwords were not yours, someone may be guessing it."
+  ]
+  mail/composed sender email "Unlock your account" (text/join lines "\n")

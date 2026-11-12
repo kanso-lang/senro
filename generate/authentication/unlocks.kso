@@ -1,0 +1,66 @@
+import "../../accounts"
+import "../../models"
+import "../../routes"
+import "../../tokens"
+import "../../web"
+import "./user"
+import "./views"
+import "std/time"
+
+# The link in an unlock mail leads here, as Devise's lockable sends it. As
+# with confirming an address, following it shows a button and the button
+# does the work, so a mail scanner that fetches every link it sees unlocks
+# nothing. The `id` the member routes take is the token
+# `account_mailer/unlock` signed over the moment of the lock.
+pub without_sign_in = ["edit" "update"]
+
+pub fn edit req db id
+  held req db id .> (good -> offered req id good)
+
+fn offered req id true
+  effect (shown req id)
+
+fn offered _ _ false
+  to_sign_in stale
+
+stale = "That link has expired or was used."
+
+# Unlocking clears the lock and the run of wrong passwords, which also
+# retires the link: it was bound to the moment of the lock.
+pub fn update req db id
+  held req db id .> (good -> opened db id good)
+
+fn opened _ _ false
+  to_sign_in stale
+
+fn opened db token true
+  id = id_text (tokens/id_of token)
+  user/update (models/as_app db) id { "failures":"0" "locked":"" }
+    .> (_ -> to_sign_in unlocked_notice)
+
+unlocked_notice = "Your account is unlocked. Sign in."
+
+# Whether `token` is good now for the account it names.
+fn held req db token
+  id = id_text (tokens/id_of token)
+  user/find db id .> (u -> time/now .> (t -> effect (good? req token u t)))
+
+fn good? _ _ none _
+  false
+
+fn good? req token u t
+  accounts/unlocks? req token u.locked t
+
+fn id_text none
+  "0"
+
+fn id_text n
+  "{n}"
+
+fn shown req id
+  to = routes/path_to "unlocks/update" id
+  views/answer req 200 "Unlock your account" (views/unlock_offered_view to)
+
+# Back to the sign-in page, carrying `notice`.
+fn to_sign_in notice
+  effect (web/redirect (routes/path_to "session/new") notice)

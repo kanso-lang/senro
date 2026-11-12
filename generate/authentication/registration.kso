@@ -2,8 +2,10 @@ import "../../models"
 import "../../passwords"
 import "../../routes"
 import "../../web"
+import "./account_mailer"
 import "./user"
 import "./views"
+import "std/io"
 import "std/text"
 
 # Anyone may make an account, as Devise's registerable lets them, and the
@@ -33,19 +35,22 @@ fn joined req db email password taken
   return effect (opened req email found 422) if models/problems? found
   passwords/digested password
     .> (d -> user/create db (fields_of email d))
-    .> (w -> made req w)
+    .> (w -> made req db w)
 
 fn fields_of email digest
   { "digest":digest "email":email }
 
-# A new account is signed in at once.
-fn made req kept:user/user
-  s = web/session req
-  home = web/redirect (routes/path_to "home/index") "Welcome."
-  effect (web/signed_in req home s kept.email kept.digest)
+# A new account is mailed a link to confirm its address, and signs in once
+# it has followed it, as Devise's confirmable asks.
+fn made req db kept:user/user
+  account_mailer/confirmation req db "{kept.id}" kept.email
+    .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
+    .> (_ -> effect (web/redirect (routes/path_to "session/new") sent))
 
-fn made _ _
+fn made _ _ _
   effect web/denied
+
+sent = "Welcome. We have mailed you a link to confirm your address."
 
 # The sign-up form shows the address as typed and the problem with each
 # field, if any. A password is never sent back.

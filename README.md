@@ -157,12 +157,16 @@ the note without choosing a file keeps the one it has.
 `authentication` adds accounts, as Rails 8's authentication generator does,
 with a sign-up page as Devise's registerable adds. It writes a `users` table
 of addresses, each held by one account, and password digests, `user`
-(its model), `registration` (/registration/new),
-`session` (signing in at /session/new and out with DELETE /session) and
-`resets` (a lost password, by a link mailed through `password_mailer`),
-with their views. The three read and write through `user` and hold no
-SQL; a reset link sets the new digest as the app (`models/as_app`), since
-nobody is signed in when it is followed. The entry then serves every route
+(its model), `registration` (/registration/new), `session` (signing in at
+/session/new and out with DELETE /session), `resets` (a lost password),
+`confirmations` and `unlocks`, with their views. `account_mailer` sends
+the signed links the last three follow: a reset link is good for fifteen
+minutes, a confirmation or an unlock for a day. An account signs in once
+the link mailed at sign-up has confirmed its address, and five wrong
+passwords lock it for an hour or until its unlock link is followed. The
+controllers read and write through `user` and hold
+no SQL; a mailed link writes as the app (`models/as_app`), since nobody is
+signed in when it is followed. The entry then serves every route
 behind `web/requiring_sign_in`, so an action asks for a sign-in unless its
 module lists it in `without_sign_in`. `session.kso` holds `secret`, which
 signs sessions: 32 random bytes made when the generator ran, for

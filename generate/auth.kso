@@ -5,25 +5,31 @@ import "std/text"
 
 # What `generate authentication` writes, as Rails 8's authentication
 # generator does: an account an address and a password make, signing in and
-# out, a password reset by mail, and a spec of signing in. The files are
-# copied from generate/authentication, where they are written as an app two
-# directories below senro would hold them, and each import of senro is
-# pointed at the app's own path back to it.
+# out, a password reset by mail, and a spec of signing in. As Devise's
+# confirmable and lockable add, an address is confirmed by a mailed link
+# before it signs in, and a locked account is mailed a link that unlocks
+# it. The files are copied from generate/authentication, where they are
+# written as an app two directories below senro would hold them, and each
+# import of senro is pointed at the app's own path back to it.
 pub copied = [
-  "password_mailer.kso"
+  "account_mailer.kso"
+  "confirmations.kso"
   "registration.kso"
   "resets.kso"
   "session.kso"
   "session_test.kso"
+  "unlocks.kso"
   "user.kso"
+  "views/confirm_offered.kata"
   "views/door.kata"
   "views/reset_asked.kata"
   "views/reset_chosen.kata"
+  "views/unlock_offered.kata"
 ]
 
-# The modules of those the entry imports: the three resources, and the
+# The modules of those the entry imports: the five resources, and the
 # model, which a derivation reads only when the entry names it.
-imported = ["registration" "resets" "session" "user"]
+imported = ["confirmations" "registration" "resets" "session" "unlocks" "user"]
 
 pub source = "generate/authentication"
 

@@ -1,7 +1,12 @@
 not signed in: 303 to /session/new
 a short password: 422
-making an account: 303 to /
+making an account: 303 to /session/new
 the same address again: That address has an account.
+signing in before confirming: 403 Confirm your address first. We have sent the link again.
+its confirmation page: 200
+confirming: 303 to /session/new Your address is confirmed. Sign in with it.
+the link again: 303 to /session/new That link has expired or was used. Sign in to have it sent again.
+signing in: 303 to /
 the list:  Notes Notes New note 
 pages of twelve: 422 Give a whole number.
 making one: sent to /notes/N
@@ -51,5 +56,8 @@ the new one: 303 to /notes
 four wrong passwords: 422 422 422 422
 the right one then: 303
 five wrong passwords: 422 422 422 422 422
-the right one then: 403 This account is locked. Try again in 60 minutes.
+the right one then: 403 This account is locked. Follow the link we mailed to unlock it.
 a wrong one then: 422
+its unlock page: 200
+unlocking: 303 to /session/new Your account is unlocked. Sign in.
+the right one after: 303 to /

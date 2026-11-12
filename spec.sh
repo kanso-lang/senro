@@ -435,7 +435,8 @@ fi
 sql=$(grep -n "pg/" "$gen/note.kso" "$gen/notes.kso" "$gen/page.kso" \
   "$gen/pages.kso" "$gen/reading.kso" "$gen/readings.kso" \
   "$gen/user.kso" "$gen/registration.kso" \
-  "$gen/session.kso" "$gen/resets.kso" examples/pantry/items.kso \
+  "$gen/session.kso" "$gen/resets.kso" "$gen/confirmations.kso" \
+  "$gen/unlocks.kso" "$gen/account_mailer.kso" examples/pantry/items.kso \
   examples/pantry/item.kso)
 # The guestbook's modules hold no query either; its entry opens and closes
 # the database and does nothing else with it.
