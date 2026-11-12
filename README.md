@@ -24,16 +24,10 @@ views, the tables and their models, the routes, the jobs and the data
 providers. `app/run` runs the app's migrations, compares the database with
 them, and serves.
 
-senro has no release tag yet, so a plain `kanso install` refuses it
-(`kanso-lang/senro publishes no vX.Y.Z release tag`). Pin it to the branch
-instead:
-
-```
-kanso install . --from kanso-lang/senro@main
-```
-
-That fetches the repository and writes the branch and its commit into
-`hako.lock`. `kanso list` marks the pin as interim until a tag replaces it.
+`kanso install` reads the imports, fetches senro's newest release (its
+highest `vX.Y.Z` tag) and writes the version and its commit into
+`hako.lock`. `kanso update` moves the lock to a later release when there is
+one, and `kanso list` shows what the lock pins.
 
 `examples/guestbook` and `examples/pantry` are whole apps. They import the
 modules by relative path because they live in this repository. The pantry
