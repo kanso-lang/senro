@@ -1,0 +1,12 @@
+import "../../../kata"
+import "../../../routes"
+import "./notes"
+import "./pages"
+import "./views"
+
+derive routes/rest
+derive kata/views
+
+# A template's links, written from the routes: a list, a row, and the two
+# beneath a note, whose paths take the note's id first.
+print (views/links 3 4)

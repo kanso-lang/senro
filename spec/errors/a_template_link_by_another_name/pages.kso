@@ -1,0 +1,5 @@
+pub fn index _ _ note_id:int
+  "the pages of note {note_id}"
+
+pub fn show _ _ note_id:int id:int
+  "page {id} of note {note_id}"

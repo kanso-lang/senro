@@ -1,0 +1,6 @@
+takes note_id id
+nav
+  a href=(path_to "notes/index") all notes
+  a href=(path_to "notes/show" note_id) the note
+  a href=(path_to "pages/index" note_id) its pages
+  a href=(path_to "pages/show" note_id id) one page

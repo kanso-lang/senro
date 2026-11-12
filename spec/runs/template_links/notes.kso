@@ -1,0 +1,5 @@
+pub fn index _
+  "the notes"
+
+pub fn show _ id:int
+  "note {id}"

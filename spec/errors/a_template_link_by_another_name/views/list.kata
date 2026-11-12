@@ -1,0 +1,5 @@
+takes n ids
+ul
+  each ids id ->
+    li
+      a href=(path_to "pages/show" n id) page

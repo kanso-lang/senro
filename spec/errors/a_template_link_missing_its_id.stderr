@@ -1,4 +1,4 @@
 error[derive]: views/list.kata:5: `posts/show` takes an id: path_to "posts/show" id
-  --> ./main.kso:5:1
-   5 | derive kata/views
+  --> ./main.kso:6:1
+   6 | derive routes/rest
        ^
