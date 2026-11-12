@@ -73,9 +73,9 @@ type limits
 # one, as Rails' `with:` does: the guestbook answers its sign-in page again,
 # saying why.
 #
-# It also writes a `path_to` arm for each record type declared in a module
-# that has a `show` action, and refuses a `path_to` whose route name is no
-# route or whose id does not match the route.
+# It also writes a `path_to` arm for each route, named by its action, and
+# refuses a `path_to` whose route name is no route or whose ids do not
+# match the route.
 pub fn rest p
   apps = apps_of p
   laid = laid_out apps
@@ -124,10 +124,8 @@ fn routed? m
 fn templated? m
   list/any? (keys m.files) (f -> text/ends_with? f ".kata")
 
-# How a page names a route. `path_to post` finds the show route of a record by
-# its type, through the arm `rest` writes into the module that declares it.
-# `path_to "posts/index"` and `path_to "posts/show" 3` name a route by its
-# action, and the id fills `:id`.
+# How a page names a route: by its action, `path_to "posts/index"`, and with
+# the ids its path takes, `path_to "posts/show" 3`, where the id fills `:id`.
 pub fn path_to name:string
   filled name ""
 
@@ -146,36 +144,7 @@ fn path_in (place _ path) _ id
   names/id_filled path id
 
 fn arms_of m
-  nest = nest_of m
-  by_name = named_arms m nest
-  return by_name if not list/any? m.functions (f -> f.name == "show")
-  one = singular? m
-  shown = list/map m.records (r -> arm_for m.name r one nest)
-  list/concat by_name (list/to_list shown)
-
-fn arm_for m r true ""
-  derive/define "{m}/{r.name}" "fn routes/path_to _:{r.name}\n  \"/{m}\"\n"
-
-fn arm_for m r false ""
-  body = "\"/{m}/\{x.id}\""
-  derive/define "{m}/{r.name}" "fn routes/path_to x:{r.name}\n  {body}\n"
-
-# A nested record's path takes its parent's id from the record's own field
-# of that name, so a comment knows the post it is under.
-fn arm_for m r one nest
-  t = r.name
-  lacks = "`{t}` has no `{nest}`, so `path_to` cannot place it under its parent"
-  held = list/any? r.fields (f -> f == nest)
-  return derive/refuse "{m}/{t}" lacks if not held
-  parent = "/{names/parent_plural nest}/\{x.{nest}}/{m}"
-  body = own_path parent one
-  derive/define "{m}/{t}" "fn routes/path_to x:{t}\n  \"{body}\"\n"
-
-fn own_path parent true
-  parent
-
-fn own_path parent false
-  "{parent}/\{x.id}"
+  named_arms m (nest_of m)
 
 # A nested route named by a string is placed by an arm of its own, which takes
 # the parent's id first: `path_to "comments/show" 3 4` is /posts/3/comments/4.
@@ -212,8 +181,6 @@ fn links_of m placed
   links = list/select m.calls (c -> c.callee == "routes/path_to")
   list/fold links [] (acc c -> list/concat acc (named c c.strings[1] placed))
 
-# A first argument that is not a string written whole is the record form,
-# which dispatch checks.
 # A link a template writes is held to the table as a call to `path_to` is:
 # its name must be a route and its ids the route's. kata spells the link by
 # the convention the routes are placed by, so the browser can draw the page
@@ -247,11 +214,13 @@ fn unspelled name spelt answered
   told = "`{name}` is {answered}, and a page drawn in the browser would link"
   "{told} to {spelt}: name the parent's id as `<parent>_id`"
 
+# A route is named by its name written whole, which is what the check
+# reads.
 fn named _ none _
   []
 
-fn named _ "" _
-  []
+fn named c "" _
+  [(derive/refuse_call c written_whole)]
 
 fn named c name placed
   why = unlinked name (length c.arguments - 1) placed
@@ -285,6 +254,8 @@ fn count ""
 
 fn count _
   1
+
+written_whole = "name the route as written: path_to \"posts/show\" id"
 
 fn miscounted name r
   third = blank_if_none (text/split r.path "/")[3]

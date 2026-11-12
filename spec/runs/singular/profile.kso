@@ -1,10 +1,7 @@
 import "../../../routes"
 
-pub type profile
-  name
-
 pub fn show _ _
-  "your profile is at {routes/path_to (profile "ada")}"
+  "your profile is at {routes/path_to "profile/show"}"
 
 pub fn edit _ _
   "edit it"
