@@ -48,20 +48,20 @@ fn joined req db asked by_name by_email
   fields = { "email":email "name":name }
   passwords/digested password
     .> (d -> account/create db (put fields "digest" d))
-    .> (w -> made db w)
+    .> (w -> made req db w)
 
 # A new account is not signed in: its holder confirms the address first,
 # through the link the mail carries, as Devise's `confirmable` asks. A mail
 # that cannot be queued is logged, as the worker logs one it cannot send,
 # and the account can ask again by signing in.
-fn made db kept:account/account
+fn made req db kept:account/account
   told = "Welcome, {kept.name}. Confirm your address with the link we sent."
   welcomed = web/redirect (routes/path_to "home/index") told
-  account_mailer/confirmation db kept.id kept.email
+  account_mailer/confirmation req db kept.id kept.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect welcomed)
 
-fn made _ _
+fn made _ _ _
   effect web/denied
 
 # The sign-up form shows the name and address as typed and the problem with

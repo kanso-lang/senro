@@ -100,7 +100,7 @@ pub fn calls_in v
 # `stock/low 3`, the provider's module gets a function of that many, which
 # asks the server for the provider's answer, and the provider's own body runs
 # only on the server. The module also gets `provided`, the table the server
-# answers those calls from (`web/providers routes secret stock/provided`), so
+# answers those calls from (`web/providers routes stock/provided`), so
 # a page can reach a provider only when the app's own code calls it that way,
 # and only a page whose module leans on a module that does (`pages_of`).
 # A server action, which takes the state after the viewer and the session and

@@ -234,7 +234,11 @@ else
       # The server may hold 256 files open, so one that keeps a connection
       # after its client has gone runs out within a spec
       # (spec/serve/hung_up).
-      (cd "$d" && ulimit -n 256 && exec "$KANSO" run . $flag) > "$log" 2>&1 &
+      # A fixture with an `env` file beside it is served with those
+      # variables set (spec/serve/secret_from_env).
+      envs=""
+      [ -f "$d/env" ] && envs=$(cat "$d/env")
+      (cd "$d" && ulimit -n 256 && exec env $envs "$KANSO" run . $flag) > "$log" 2>&1 &
       server=$!
       tries=0
       while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do

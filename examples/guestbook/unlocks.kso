@@ -15,7 +15,7 @@ import "std/time"
 pub without_sign_in = ["edit" "update"]
 
 pub fn edit req db id
-  held db id .> (good -> offered req id good)
+  held req db id .> (good -> offered req id good)
 
 fn offered req id true
   effect (shown req id)
@@ -28,7 +28,7 @@ stale = "That link has expired or was used."
 # Unlocking clears the lock and the count of wrong passwords, which also
 # retires the link: it was bound to the moment of the lock.
 pub fn update req db id
-  held db id .> (good -> opened req db id good)
+  held req db id .> (good -> opened req db id good)
 
 fn opened _ _ _ false
   effect (web/redirect (routes/path_to "home/index") stale)
@@ -39,15 +39,15 @@ fn opened _ db token true
     .> (_ -> effect (web/redirect home "Your account is unlocked. Sign in."))
 
 # Whether `token` is good now for the account it names.
-fn held db token
+fn held req db token
   id = id_text (tokens/id_of token)
-  account/find db id .> (a -> time/now .> (t -> effect (good? token a t)))
+  account/find db id .> (a -> time/now .> (t -> effect (good? req token a t)))
 
-fn good? _ none _
+fn good? _ _ none _
   false
 
-fn good? token a t
-  account_mailer/unlocks? token a.locked t
+fn good? req token a t
+  account_mailer/unlocks? req token a.locked t
 
 fn id_text none
   "0"

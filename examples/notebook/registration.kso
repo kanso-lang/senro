@@ -2,7 +2,6 @@ import "../../models"
 import "../../passwords"
 import "../../routes"
 import "../../web"
-import "./session"
 import "./user"
 import "./views"
 import "std/text"
@@ -41,9 +40,9 @@ fn fields_of email digest
 
 # A new account is signed in at once.
 fn made req kept:user/user
-  s = web/session req session/secret
+  s = web/session req
   home = web/redirect (routes/path_to "home/index") "Welcome."
-  effect (web/signed_in req home session/secret s kept.email kept.digest)
+  effect (web/signed_in req home s kept.email kept.digest)
 
 fn made _ _
   effect web/denied

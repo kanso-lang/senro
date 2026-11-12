@@ -14,10 +14,11 @@ import "std/text"
 # old one stops working, which is how a password reset link works once: it is
 # bound to the digest the reset replaces. The purpose keeps a token made for
 # one link from opening another. A token is made of digits, dots and hex, so
-# it sits in a URL's path as it is.
-pub fn made purpose secret id bound t minutes
+# it sits in a URL's path as it is. The signature is made under the secret
+# the request carries, the app's (`web/request`).
+pub fn made purpose req id bound t minutes
   until = t + minutes * 60000
-  "{id}.{until}.{signature purpose secret id until bound}"
+  "{id}.{until}.{signature purpose req.secret id until bound}"
 
 fn signature purpose secret id until bound
   said = text/bytes "{purpose} {id} {until} {bound}"
@@ -30,18 +31,18 @@ pub fn id_of token
   return none if length parts != 3
   text/to_int (list/first parts)
 
-# Whether `token` was made for `purpose` under `secret` for a record that
-# holds `bound` now, and is still in time at `t`. The signatures are compared
-# over every byte, whichever differs first, so the time a refusal takes says
-# nothing about how much of a guess was right.
-pub fn valid? purpose secret token bound t
+# Whether `token` was made for `purpose` under the request's secret for a
+# record that holds `bound` now, and is still in time at `t`. The signatures
+# are compared over every byte, whichever differs first, so the time a
+# refusal takes says nothing about how much of a guess was right.
+pub fn valid? purpose req token bound t
   parts = text/split token "."
   return false if length parts != 3
   id = number_of (text/to_int (list/first parts))
   middle = list/first (list/to_list (list/drop parts 1))
   until = number_of (text/to_int middle)
   return false if t > until
-  made_now = signature purpose secret id until bound
+  made_now = signature purpose req.secret id until bound
   want = list/to_list (text/bytes made_now)
   got = list/to_list (text/bytes (signature_of (list/last parts)))
   return false if length want != length got

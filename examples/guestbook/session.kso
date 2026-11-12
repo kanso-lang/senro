@@ -4,7 +4,6 @@ import "../../routes"
 import "../../web"
 import "./account"
 import "./account_mailer"
-import "./entries"
 import "./views"
 import "std/io"
 import "std/list"
@@ -28,6 +27,10 @@ type holder
 pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub without_sign_in = ["create" "new"]
+
+# The key that signs every session, which senro reads by its name. A
+# deployed guestbook sets `SENRO_SECRET`, which senro reads in its place.
+pub secret = "the guestbook's development secret"
 
 # Three wrong passwords in a row lock an account, as Devise's `lockable`
 # does, for an hour or until the link mailed to its address unlocks it. A
@@ -124,16 +127,16 @@ fn locking req _ name _ _:web/absent _
 fn locking req db name a counted t
   return refused req name if counted.failures != locks_after
   accounts/locked_at db account/account_model a.id t
-    .> (stamp -> account_mailer/unlock db a.id a.email stamp)
+    .> (stamp -> account_mailer/unlock req db a.id a.email stamp)
     .? (u -> io/write_err "guestbook: no unlock mail: {u.reason}\n")
     .> (_ -> refused req name)
 
 fn signed req name a remember
-  s = web/session req entries/secret
-  back = web/return_to req entries/secret (routes/path_to "home/index")
+  s = web/session req
+  back = web/return_to req (routes/path_to "home/index")
   signing = kept_if (delete s "return_to") remember
   home = web/redirect back "Signed in as {name}."
-  effect (web/signed_in req home entries/secret signing name a.digest)
+  effect (web/signed_in req home signing name a.digest)
 
 # A visitor who ticked "Keep me signed in" keeps the sign-in after the
 # browser closes.
@@ -148,7 +151,7 @@ fn kept_if s false
 # password learns that the account exists.
 fn unconfirmed req db name a
   first = "Confirm your address first. We have sent the link again."
-  account_mailer/confirmation db a.id a.email
+  account_mailer/confirmation req db a.id a.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect (opened req name { "password":first } 403))
 
@@ -162,9 +165,9 @@ pub fn over_limit req
 
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
-  s = web/signed_out (web/session req entries/secret)
+  s = web/signed_out (web/session req)
   r = web/redirect (routes/path_to "home/index") "Signed out."
-  effect (web/kept r entries/secret s)
+  effect (web/kept req r s)
 
 fn opened req name problems code
   to = routes/path_to "session/create"

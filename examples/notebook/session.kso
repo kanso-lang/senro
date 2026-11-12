@@ -19,9 +19,10 @@ type holder
   was_at
   was_ip
 
-# The key that signs every session. `generate authentication` made it at
-# random. Keep it out of any repository the public can read; changing it
-# signs every visitor out.
+# The key that signs every session, which senro reads by its name.
+# `generate authentication` made it at random for development; a deployed
+# app sets `SENRO_SECRET` instead, which senro reads in its place, so the
+# real one stays out of the repository. Changing it signs every visitor out.
 pub secret = "made at random by generate authentication"
 
 # One address may try to sign in ten times in three minutes, as Rails 8's
@@ -109,10 +110,10 @@ fn locking req db email a counted t
     .> (_ -> effect (refused req email))
 
 fn signed req a
-  s = web/session req secret
-  back = web/return_to req secret (routes/path_to "home/index")
+  s = web/session req
+  back = web/return_to req (routes/path_to "home/index")
   home = web/redirect back "Signed in."
-  effect (web/signed_in req home secret (delete s "return_to") a.email a.digest)
+  effect (web/signed_in req home (delete s "return_to") a.email a.digest)
 
 fn refused req email
   wrong = { "password":"That address and password do not match." }
@@ -124,9 +125,9 @@ pub fn over_limit req
 
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
-  s = web/signed_out (web/session req secret)
+  s = web/signed_out (web/session req)
   r = web/redirect (routes/path_to "session/new") "Signed out."
-  effect (web/kept r secret s)
+  effect (web/kept req r s)
 
 # The sign-in form shows the address as typed, the problem if any, and the
 # notice the request carries.

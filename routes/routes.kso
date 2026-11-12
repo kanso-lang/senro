@@ -81,8 +81,9 @@ pub fn rest p
   limited = list/fold apps (limits {} []) limits_in
   open = list/fold apps (limits {} []) opens_in
   asked = list/fold apps {} admitting_in
-  each = (acc r -> put acc (spelled r) (row r limited open asked))
-  rows = list/fold placed {} each
+  secret = secret_of p
+  carrying = (r -> put (row r limited open asked) "secret" secret)
+  rows = list/fold placed {} (acc r -> put acc (spelled r) (carrying r))
   turned = list/concat limited.refused open.refused
   given = list/concat laid.refused turned
   calls = data/calls_of_program p
@@ -92,7 +93,37 @@ pub fn rest p
   arms = list/fold apps [] (acc m -> list/concat acc (arms_of m))
   links = list/fold apps [] (acc m -> list/concat acc (links_of m placed))
   told = list/concat (list/concat declared odd) clashing.out
-  list/concat (list/concat told arms) links
+  signed = unsigned (list/concat [p.modules[1]] apps) secret
+  list/concat (list/concat (list/concat told arms) links) signed
+
+# The secret an app signs its sessions with: `secret` in its `session`
+# module. Each row of the table carries it, which is how the server and a
+# spec's visit find it (`web/request`); `app/run` puts `SENRO_SECRET` there
+# instead when the environment sets it.
+fn secret_of p
+  held = list/to_list (list/select p.modules (m -> m.name == "session"))
+  return "" if length held == 0
+  blank_if_none held[1].constants["secret"]
+
+# An app that reads or keeps a session signs it, so it declares a secret.
+fn unsigned scope ""
+  calls = list/fold scope [] (acc m -> list/concat acc m.calls)
+  found = list/select calls (c -> list/any? signing (n -> n == c.callee))
+  list/to_list (list/map found (c -> derive/refuse_call c no_secret))
+
+fn unsigned _ _
+  []
+
+signing = [
+  "web/session"
+  "web/viewer"
+  "web/signed_in"
+  "web/kept"
+  "web/return_to"
+  "web/requiring_sign_in"
+]
+
+no_secret = "an app that signs sessions declares `secret` in `session.kso`"
 
 # The routes `rest` places, conventional and aliased, which kata reads to
 # write the paths a template names.

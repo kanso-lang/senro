@@ -13,5 +13,5 @@ pub fn new _ _
 
 # Anyone who asks is signed in as ada, for as long as she keeps asking.
 pub fn create req _
-  s = web/idle_after (web/session req secret) idle_minutes
-  effect (web/signed_in req (web/redirect "/notes") secret s "ada" "")
+  s = web/idle_after (web/session req) idle_minutes
+  effect (web/signed_in req (web/redirect "/notes") s "ada" "")

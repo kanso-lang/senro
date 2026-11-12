@@ -1,0 +1,6 @@
+# What `tokens` is handed in place of a request: the secret it reads.
+pub type keyed
+  secret
+
+pub fn under secret
+  keyed secret

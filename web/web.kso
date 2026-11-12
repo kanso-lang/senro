@@ -59,6 +59,19 @@ type site
   dbs
   calls
   pages
+  secret
+
+# A request as an action is handed it: the request as it was parsed, and the
+# secret the app signs its sessions with, which the route table carries
+# (`routes/rest` reads it from `session/secret`). The secret rides on the
+# request, never in a header, so nothing a client sends can name it and
+# nothing that echoes headers can show it.
+type request
+  method
+  path
+  body
+  headers
+  secret
 
 # A server for an app's route table. Each connection is answered in a fiber
 # of its own beside the one that accepts the next, so a slow request holds up
@@ -77,8 +90,31 @@ type site
 # Requests without reaching the action. A client whose calls have all aged out
 # of their window is forgotten once the map has grown past `sweep_past`
 # clients (`remembered` says how many it holds).
+#
+# When `SENRO_SECRET` is set, the server signs sessions with it in place of
+# the `session/secret` the table carries, so a deployed app keeps its secret
+# out of the repository.
 pub fn serve at routes connect
+  os/env "SENRO_SECRET" .> (s -> serving at (secreted routes s) connect)
+
+fn serving at routes connect
   os/env "SENRO_ONLY" .> (only -> served only at routes connect)
+
+fn secreted routes none
+  routes
+
+fn secreted routes ""
+  routes
+
+fn secreted routes s
+  list/fold (keys routes) routes (acc k -> put acc k (resecreted acc[k] s))
+
+fn resecreted none _
+  none
+
+fn resecreted row s
+  return row if row["secret"] == none
+  put row "secret" s
 
 # `senro migrate` runs the app with SENRO_ONLY=migrate. The entry migrates
 # and compares the schema before it serves, so an app that stops here has
@@ -92,7 +128,8 @@ fn served _ at routes connect
     .> (dbs -> counting .> (calls -> watched at routes dbs connect calls))
 
 fn watched at routes dbs connect calls
-  watching .> (pages -> opening at connect (site routes dbs calls pages))
+  secret = secret_in routes
+  watching .> (pages -> opening at connect (site routes dbs calls pages secret))
 
 # The server's listener for changes and its heartbeat run beside the fiber
 # that accepts connections (live.kso).
@@ -156,11 +193,11 @@ fn handed_on c _ r:refused_with
 
 fn handed_on c s raw
   time/now
-    .> (t -> net/peer c .> (from -> heard_from raw t from))
+    .> (t -> net/peer c .> (from -> heard_from raw t from s.secret))
     .> (req -> heard c s req)
 
-fn heard_from raw t from
-  effect (arrived raw t from)
+fn heard_from raw t from secret
+  effect (carried (arrived raw t from) secret)
 
 # The request as the server heard it, with the time it arrived, in
 # milliseconds since the epoch, under `senro-at`, the address of the client
@@ -184,6 +221,22 @@ fn arrived raw t from
   ours = ["senro-at: {t}" "senro-peer: {from}" "senro-query: {query}"]
   head = list/concat (list/concat [line] theirs) ours
   http/parsed "{text/join head "\r\n"}\r\n\r\n{rest}"
+
+# The request an action is handed, carrying the app's secret. Bytes that are
+# no request stay as they are, to be answered 400.
+fn carried r:http/bad_request _
+  r
+
+fn carried r secret
+  request r.method r.path r.body r.headers secret
+
+# The secret the route table carries: each row an app's routes are derived
+# into holds it, so whichever row is read first says it.
+fn secret_in routes
+  rows = list/to_list (list/map (keys routes) (k -> routes[k]))
+  carrying = list/to_list (list/select rows (r -> r["secret"] != none))
+  return "" if length carrying == 0
+  carrying[1]["secret"]
 
 # The address of the client that made a request, as Rails' `remote_ip` reads
 # it: "127.0.0.1", or an IPv6 address in its short form.
@@ -251,7 +304,8 @@ cross_site = http/respond 403 [] "Forbidden: a request from another site\n"
 # counted against a limit, and the request is stamped with the time now and
 # the address `127.0.0.1`. `visit` builds on this.
 pub fn ask routes raw db
-  time/now .> (t -> asked routes (arrived raw t "127.0.0.1") db)
+  local = (t -> carried (arrived raw t "127.0.0.1") (secret_in routes))
+  time/now .> (t -> asked routes (local t) db)
 
 fn asked routes req db
   method = method_of req
@@ -909,25 +963,24 @@ pub fn refusal absent
 # a component the app names here, and only an action one of its templates
 # binds, can be reached from a page:
 #
-#   web/serve 3001 (web/components routes secret { "stars": stars }) connected
+#   web/serve 3001 (web/components routes { "stars": stars }) connected
 #
-# where `stars = web/component stars/act stars/view`. `secret` is the one the
-# app signs its sessions with, so an action that asks for the viewer is handed
-# the one the session names.
+# where `stars = web/component stars/act stars/view`. An action that asks for
+# the viewer is handed the one the request's session names.
 pub fn component act view
   wired act view
 
-pub fn components routes secret table
-  list/fold (keys table) routes (acc n -> routed_to acc n secret table[n])
+pub fn components routes table
+  list/fold (keys table) routes (acc n -> routed_to acc n table[n])
 
-fn routed_to routes _ _ none
+fn routed_to routes _ none
   routes
 
-fn routed_to routes n secret c
-  put routes "POST /senro/act/{n}" (act_row c secret)
+fn routed_to routes n c
+  put routes "POST /senro/act/{n}" (act_row c)
 
-fn act_row c secret
-  acting = (req db -> acted_as c req (asking_for db req secret))
+fn act_row c
+  acting = (req db -> acted_as c req (asking_for db req))
   { "action":acting "id":"" "open":true }
 
 # The app's providers: what an action running in the browser asks the server
@@ -936,7 +989,7 @@ fn act_row c secret
 # answers an effect, as any read of the database does. `derive
 # data/providers` writes the table into each module that holds providers:
 #
-#   web/providers routes secret stock/provided
+#   web/providers routes stock/provided
 #
 # The page sends every call one round of an action asks for in one request,
 # POST /senro/data, and gets their answers back in one, in the order asked.
@@ -950,13 +1003,13 @@ fn act_row c secret
 # what the page asks, so a provider checks nothing about the viewer that the
 # page has checked already. Its arguments are still the page's to choose,
 # so what it reads for them goes through a model's policy as any read does.
-pub fn providers routes secret table
-  put routes data_route (provider_row routes table secret)
+pub fn providers routes table
+  put routes data_route (provider_row routes table)
 
 data_route = "POST /senro/data"
 
-fn provider_row pages table secret
-  asking = (req db -> asked_as pages table req (asking_for db req secret))
+fn provider_row pages table
+  asking = (req db -> asked_as pages table req (asking_for db req))
   { "action":asking "id":"" "open":true "provided":table }
 
 fn asked_as pages table req db
@@ -1154,46 +1207,46 @@ fn unformatted path
 # it, and its answer tells the browser to forget the sign-in too. An app
 # whose sign-ins rest on nothing passes `unbound` here and "" to
 # `signed_in`.
-pub fn requiring_sign_in routes secret bound_of
-  each = (acc e -> put acc e.key (guarded e.value secret bound_of))
+pub fn requiring_sign_in routes bound_of
+  each = (acc e -> put acc e.key (guarded e.value bound_of))
   walled = list/fold (entries routes) {} each
-  asked_within walled secret bound_of routes[data_route]
+  asked_within walled bound_of routes[data_route]
 
 # A table that answers providers already answers them from behind the wall:
 # its row is made again over the wrapped pages, so a request that names a
 # page which asks for a sign-in is answered only for a visitor who has one.
-fn asked_within walled _ _ none
+fn asked_within walled _ none
   walled
 
-fn asked_within walled secret bound_of row
-  rewalled walled secret bound_of row["provided"]
+fn asked_within walled bound_of row
+  rewalled walled bound_of row["provided"]
 
-fn rewalled walled _ _ none
+fn rewalled walled _ none
   walled
 
-fn rewalled walled secret bound_of table
-  again = provider_row walled table secret
-  put walled data_route (guarded again secret bound_of)
+fn rewalled walled bound_of table
+  again = provider_row walled table
+  put walled data_route (guarded again bound_of)
 
 # What a sign-in rests on, for an app whose sign-ins rest on nothing.
 pub unbound = (_ _ -> effect "")
 
-fn guarded row secret bound_of
+fn guarded row bound_of
   return row if row["to"] != none
   kind = id_kind row["id"]
   open = row["open"] != none
-  asking = (db go -> (req -> entering row req secret db go))
-  gate = (req db go -> admitted req db open secret bound_of (asking db go))
+  asking = (db go -> (req -> entering row req db go))
+  gate = (req db go -> admitted req db open bound_of (asking db go))
   nested = row["within"] != none
   walled = put row "walled" true
-  put walled "action" (gated row["action"] kind nested gate secret)
+  put walled "action" (gated row["action"] kind nested gate)
 
 # A module's `admits action viewer db` is asked once a request is past the
 # sign-in, with the session asking as the viewer, and an action it refuses
 # is answered 403 without running. A module that defines none admits
 # whoever the sign-in does.
-fn entering row req secret db go
-  who = viewer req secret
+fn entering row req db go
+  who = viewer req
   asked = pg/asked_by db who
   page_admits row who asked .> (ok -> entered ok req go)
 
@@ -1209,18 +1262,18 @@ fn id_kind none
 fn id_kind kind
   kind
 
-fn gated none _ _ _ _
+fn gated none _ _ _
   none
 
-fn gated action kind nested gate secret
-  gated_by kind nested action gate (r db -> asking_for db r secret)
+fn gated action kind nested gate
+  gated_by kind nested action gate (r db -> asking_for db r)
 
 # The session an action is handed asks on behalf of whoever its request says
 # is signed in, so a model read through it applies that viewer's policy
 # (`models/find`). The request is the one the action sees: when a sign-in has
 # ended, that is the request without it.
-fn asking_for db req secret
-  pg/asked_by db (viewer req secret)
+fn asking_for db req
+  pg/asked_by db (viewer req)
 
 # A nested action takes its parent's id before its own.
 fn gated_by "" false action gate as
@@ -1235,28 +1288,28 @@ fn gated_by _ false action gate as
 fn gated_by _ true action gate as
   (req db p id -> gate req db (r -> action r (as r db) p id))
 
-fn admitted req db open secret bound_of go
-  who = viewer req secret
-  s = session req secret
+fn admitted req db open bound_of go
+  who = viewer req
+  s = session req
   return go req if who == "" and open
-  return turned_back req secret s if who == ""
-  bound_of db who .> (b -> current req open secret s b go)
+  return turned_back req s if who == ""
+  bound_of db who .> (b -> current req open s b go)
 
-fn current req open secret s bound go
-  fresh = said s["bound"] == fingerprint secret bound
-  return go req .> (r -> effect (seen_again r req secret s)) if fresh
-  return turned_back req secret (forgotten s) if not open
+fn current req open s bound go
+  fresh = said s["bound"] == fingerprint req.secret bound
+  return go req .> (r -> effect (seen_again r req s)) if fresh
+  return turned_back req (forgotten s) if not open
   ended = forgotten s
-  go (reheard req secret ended) .> (r -> effect (forgetting r secret ended))
+  go (reheard req ended) .> (r -> effect (forgetting req r ended))
 
 # A request from a session with an idle window moves the session's last
 # moment on to its own, at most once a second, unless the action set a
 # session itself.
-fn seen_again r req secret s
+fn seen_again r req s
   return r if s["idle"] == none or list/any? r.headers sets_session?
   at = said req.headers["senro-at"]
   return r if not later? (text/to_int at) (text/to_int (said s["seen"]))
-  kept r secret (put s "seen" at)
+  kept req r (put s "seen" at)
 
 fn later? none none
   false
@@ -1272,13 +1325,14 @@ fn later? at seen
 
 # `req` as its action reads it once its sign-in is over: its cookie names
 # the session `held` first, which is the one `session` reads.
-fn reheard req secret held
-  ours = "senro={sealed_of secret held}"
+fn reheard req held
+  ours = "senro={sealed_of req.secret held}"
   cookies = with_cookie ours req.headers["cookie"]
   named = entries (put req.headers "cookie" cookies)
   lines = list/map named (e -> "{e.key}: {e.value}")
   head = text/join (list/to_list lines) "\r\n"
-  http/parsed "{req.method} {req.path} HTTP/1.1\r\n{head}\r\n\r\n{req.body}"
+  again = "{req.method} {req.path} HTTP/1.1\r\n{head}\r\n\r\n{req.body}"
+  carried (http/parsed again) req.secret
 
 fn with_cookie ours none
   ours
@@ -1288,21 +1342,22 @@ fn with_cookie ours others
 
 # The answer `r`, telling the browser to keep `held` rather than the sign-in
 # it sent, unless the action already set a session of its own.
-fn forgetting r secret held
+fn forgetting req r held
   return r if list/any? r.headers sets_session?
-  kept r secret held
+  kept req r held
 
 fn sets_session? h
   text/starts_with? h "set-cookie: senro="
 
-fn turned_back req secret s
-  return effect (kept (redirect "/session/new") secret s) if req.method != "GET"
-  effect (kept (redirect "/session/new") secret (put s "return_to" req.path))
+fn turned_back req s
+  back = redirect "/session/new"
+  return effect (kept req back s) if req.method != "GET"
+  effect (kept req back (put s "return_to" req.path))
 
 # Where a visitor sent to sign in was going, or `fallback` when nobody sent
 # them. An app's sign-in redirects there once the password matches.
-pub fn return_to req secret fallback
-  went (session req secret)["return_to"] fallback
+pub fn return_to req fallback
+  went (session req)["return_to"] fallback
 
 fn went none fallback
   fallback
@@ -1319,8 +1374,8 @@ fn went path _
 # request that arrives later than that reads the session without its viewer;
 # whatever else it keeps, such as a notice, survives. A request the server
 # did not stamp, as a spec builds by hand, has no age to measure.
-pub fn session req secret
-  m = verified (cookie req.headers["cookie"] "senro") secret
+pub fn session req
+  m = verified (cookie req.headers["cookie"] "senro") req.secret
   at = text/to_int (said req.headers["senro-at"])
   still = aged m at (text/to_int (said m["since"]))
   awake still at (text/to_int (said still["idle"]))
@@ -1377,8 +1432,8 @@ fn said v
 
 # Who the session says is signed in: the id an app kept under "viewer" when
 # it signed them in (`signed_in`), or "" for a visitor who has not been.
-pub fn viewer req secret
-  signed_as (session req secret)["viewer"]
+pub fn viewer req
+  signed_as (session req)["viewer"]
 
 fn signed_as none
   ""
@@ -1394,11 +1449,11 @@ fn signed_as v
 # guestbook. The session keeps an HMAC of it rather than the value itself,
 # since a session is signed and not secret; `requiring_sign_in` compares it
 # with what the account holds at each gated action.
-pub fn signed_in req r secret held id bound
+pub fn signed_in req r held id bound
   since = said req.headers["senro-at"]
   viewing = put (put held "viewer" id) "since" since
   seen = put viewing "seen" since
-  kept r secret (put seen "bound" (fingerprint secret bound))
+  kept req r (put seen "bound" (fingerprint req.secret bound))
 
 fn fingerprint secret bound
   hexed (sha256/hmac (text/bytes secret) (text/bytes "signed in {bound}"))
@@ -1407,8 +1462,8 @@ fn fingerprint secret bound
 #
 # The cookie lasts as long as the browser does, so closing it signs the
 # visitor out, unless the session was made `lasting`.
-pub fn kept r secret held
-  sealed = sealed_of secret held
+pub fn kept req r held
+  sealed = sealed_of req.secret held
   line = "set-cookie: senro={sealed}; Path=/; HttpOnly; SameSite=Lax"
   http/respond r.status (push r.headers (aged_line line held)) r.body
 
@@ -1464,7 +1519,10 @@ fn cookie header name
 fn verified "" _
   {}
 
+# An app with no secret signs nothing, so no cookie it is sent can be one of
+# its own sessions.
 fn verified sealed secret
+  return {} if secret == ""
   parts = text/split sealed "."
   return {} if length parts != 2
   return {} if signature secret parts[1] != parts[2]

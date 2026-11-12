@@ -14,8 +14,8 @@ derive routes/rest
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
-answering = web/providers routes session/secret books/provided
+answering = web/providers routes books/provided
 
-guarded = web/requiring_sign_in answering session/secret web/unbound
+guarded = web/requiring_sign_in answering web/unbound
 
 web/serve 24420 guarded connected

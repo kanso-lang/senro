@@ -4,11 +4,12 @@ import "../../../web"
 import "./comments"
 import "./nested"
 import "./posts"
+import "./session"
 
 derive routes/rest
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
-guarded = web/requiring_sign_in routes nested/secret web/unbound
+guarded = web/requiring_sign_in routes web/unbound
 
 web/serve 24408 guarded connected

@@ -3,8 +3,6 @@ import "std/net"
 import "std/net/http"
 import "std/text"
 
-pub secret = "the spec's secret"
-
 pub without_sign_in = ["index"]
 
 # Asks the nested routes for what each answers: the list, a comment, one
