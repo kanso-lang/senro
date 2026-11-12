@@ -29,6 +29,9 @@ highest `vX.Y.Z` tag) and writes the version and its commit into
 `hako.lock`. `kanso update` moves the lock to a later release when there is
 one, and `kanso list` shows what the lock pins.
 
+A release is the version `VERSION` names. When a merge to `main` raises it,
+the release workflow tags that commit `vX.Y.Z`.
+
 `examples/guestbook` and `examples/pantry` are whole apps. They import the
 modules by relative path because they live in this repository. The pantry
 adds, counts, renames and removes things on a shelf without a page reload.
