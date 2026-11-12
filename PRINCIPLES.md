@@ -32,6 +32,25 @@ declared. The same goes for two routes that could answer the same request, a
 that reads a field its record lacks. senro would rather stop the build than
 leave a dead route or a page that fails on its first request.
 
+## One way to do each thing
+
+An app does each thing one way, and senro offers only that way
+(kanso#2468). A link or a redirect names its route with `path_to`, the
+route's name written as a string and an id for each id the route has. A
+link mailed to a visitor is signed by `tokens/made`, for a purpose. An
+entry starts its app with `app/run`. Where two spellings did the same work,
+one was kept and the other cut. A public name stays public while an app or
+one of senro's specs calls it, and a setting nobody would choose
+differently is fixed instead of offered.
+
+What senro can find, it finds by name, so an app never passes it along. A
+module's `rate_limits` and `without_sign_in` are read where they are
+declared, and so is the session module's `secret`, which `SENRO_SECRET`
+replaces in a deployed app. The request carries that secret to everything
+that signs, so no call takes it as an argument. A component's action that
+takes a parameter named `req`, `db` or `viewer` runs on the server and is
+handed it.
+
 ## Routes are resources
 
 Every route is RESTful, in the sense DHH argues for at 37signals: an app has
