@@ -1,0 +1,6 @@
+takes path
+header
+  h1 Unlock your account
+form method="post" action=path
+  input type="hidden" name="_method" value="PATCH"
+  button Unlock it

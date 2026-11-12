@@ -3,7 +3,7 @@ import "../../passwords"
 import "../../routes"
 import "../../tokens"
 import "../../web"
-import "./password_mailer"
+import "./account_mailer"
 import "./user"
 import "./views"
 import "std/io"
@@ -42,7 +42,7 @@ fn sent _ _ none
   effect ""
 
 fn sent req db u
-  password_mailer/reset req db u.id u.email u.digest
+  account_mailer/reset req db u.id u.email u.digest
 
 # The `id` a reset's member routes take is the token itself.
 pub fn edit req db id

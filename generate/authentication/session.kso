@@ -3,14 +3,17 @@ import "../../models"
 import "../../passwords"
 import "../../routes"
 import "../../web"
+import "./account_mailer"
 import "./user"
 import "./views"
+import "std/io"
 import "std/text"
 import "std/time"
 
 # What a sign-in checks of the account an address holds, and when and from
 # where it last signed in. An address with no account holds the stand-in
-# digest, which no password matches. Every account may sign in (`active`).
+# digest, which no password matches. An account signs in once its address
+# is confirmed (`active`).
 type holder
   id
   email
@@ -33,9 +36,10 @@ pub rate_limits = { "create":"10 per 3 minutes" }
 
 pub without_sign_in = ["create" "new"]
 
-# Five wrong passwords in a row lock an account for an hour, as Devise's
-# `lockable` does. A right password ends the run of wrong ones, and each
-# sign-in is counted and stamped, as its `trackable` does (`accounts`).
+# Five wrong passwords in a row lock an account for an hour, or until the
+# link mailed to its address unlocks it, as Devise's `lockable` does. A
+# right password ends the run of wrong ones, and each sign-in is counted
+# and stamped, as its `trackable` does (`accounts`).
 pub locks_after = 5
 
 pub locked_minutes = 60
@@ -75,25 +79,37 @@ fn held none
 fn held u
   at = u.current_sign_in_at
   from = u.current_sign_in_ip
-  effect (holder "{u.id}" u.email u.digest u.locked at from true)
+  ready = u.confirmed != ""
+  effect (holder "{u.id}" u.email u.digest u.locked at from ready)
 
 # What a sign-in comes to is `accounts`' to decide: the password checked,
 # the lock kept, and a right password counted and stamped. A locked account
-# tells only the holder of the right password that it is locked.
+# tells only the holder of the right password that it is locked, and the
+# wrong password that locks it mails the link that unlocks it. The right
+# password for an address not yet confirmed sends the confirmation again.
 fn entered req db email a password t
   model = user/user_model
   accounts/attempt req db model a password locks_after locked_minutes t
-    .> (v -> answered req email a v.outcome)
+    .> (v -> answered req db email a v)
 
-fn answered req _ a "signed"
-  signed req a
+fn answered req db email a v
+  return signed req a if v.outcome == "signed"
+  return unconfirmed req db email a if v.outcome == "inactive"
+  return shut req email if v.outcome == "locked"
+  return effect (refused req email) if v.stamp == ""
+  account_mailer/unlock req db a.id a.email v.stamp
+    .? (u -> io/write_err "no unlock mail: {u.reason}\n")
+    .> (_ -> effect (refused req email))
 
-fn answered req email _ "locked"
-  told = "This account is locked. Try again in {locked_minutes} minutes."
+fn shut req email
+  told = "This account is locked. Follow the link we mailed to unlock it."
   effect (opened req email { "password":told } 403)
 
-fn answered req email _ _
-  effect (refused req email)
+fn unconfirmed req db email a
+  first = "Confirm your address first. We have sent the link again."
+  account_mailer/confirmation req db a.id a.email
+    .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
+    .> (_ -> effect (opened req email { "password":first } 403))
 
 fn signed req a
   s = web/session req

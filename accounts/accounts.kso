@@ -37,9 +37,12 @@ type found
   failures
 
 # The columns an accounts table holds for this module, each a name and what
-# Postgres is told of it. `senro generate authentication` writes them into
-# the migration that makes `users`.
+# Postgres is told of it: the moment the address was confirmed, which an
+# app's sign-in reads into `active`, and what `attempt` writes. `senro
+# generate authentication` writes them into the migration that makes
+# `users`.
 pub columns = [
+  ["confirmed" blank]
   ["failures" "integer not null default 0"]
   ["locked" blank]
   ["sign_in_count" "integer not null default 0"]
