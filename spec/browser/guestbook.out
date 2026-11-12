@@ -22,7 +22,7 @@ a message of spaces: Say something.
 window mark: kept
 path: /
 title: Guestbook
-flash: Thank you for signing.
+notice: Thank you for signing.
 newest entry: signed without a reload, by Ada
 signed in: Signed in as Ada.
 message field: ""
