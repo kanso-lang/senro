@@ -371,7 +371,7 @@ const his = await bob.evaluate(() =>
   document.querySelector("ol.entries li [data-component=removal]").dataset.state);
 const asked = await page.evaluate(async (state) => {
   const r = await fetch("/senro/act/removal", {
-    method: "POST", headers: { "senro-page": "spec" }, body: `removed\n${state}`,
+    method: "POST", headers: { "senro-page": "spec", "senro-from": "/" }, body: `removed\n${state}`,
   });
   return r.status;
 }, his);
@@ -426,7 +426,7 @@ await helper.click("form button");
 await helper.waitForFunction(() => document.querySelector("p.notice"));
 const stale = await bob.evaluate(async (state) => {
   const r = await fetch("/senro/act/removal", {
-    method: "POST", headers: { "senro-page": "spec" }, body: `removed\n${state}`,
+    method: "POST", headers: { "senro-page": "spec", "senro-from": "/" }, body: `removed\n${state}`,
   });
   return r.status;
 }, his);

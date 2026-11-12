@@ -199,12 +199,13 @@ const act = async (component, body, headers) => {
   return r.status;
 };
 const ours = { "senro-page": "spec" };
+const drawn = { ...ours, "senro-from": "/" };
 const first = await page.evaluate(() =>
   document.querySelector(".items li [data-component=staple]").dataset.state);
 console.log(`act without the page's header: ${await act("staple", `toggled\n${first}`, {})}`);
-console.log(`act naming an action no template binds: ${await act("staple", `staple?\n${first}`, ours)}`);
-console.log(`act with a state that is not JSON: ${await act("staple", "toggled\n{", ours)}`);
-console.log(`act on a component the app does not serve: ${await act("planner", `more\n3`, ours)}`);
+console.log(`act naming an action no template binds: ${await act("staple", `staple?\n${first}`, drawn)}`);
+console.log(`act with a state that is not JSON: ${await act("staple", "toggled\n{", drawn)}`);
+console.log(`act on a component the app does not serve: ${await act("planner", `more\n3`, drawn)}`);
 
 // And what it may ask a provider: only from senro's script, only a provider
 // the app's own code calls from the browser, and only from a page whose

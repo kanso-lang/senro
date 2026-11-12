@@ -1,3 +1,4 @@
+import "../data"
 import "std/bits"
 import "std/derive"
 import "std/list"
@@ -29,13 +30,14 @@ fn templates p m
   server = served? m
   found = list/fold (keys m.files) [] (acc f -> added acc m server f)
   bound = list/fold (keys m.files) [] (acc f -> bound_in acc f m.files[f])
-  acts = if (length bound == 0) [] (acting m bound)
+  acts = if (length bound == 0) [] (acting p m bound)
   bytes_read = has? asked "{m.name}/rendered"
   head = derive/define m.name (head_of (length bound > 0) use bytes_read)
   pages = if (use == "") [] (pages_of m use keep bytes_read calls)
   types = if (use == "") [] (types_of m use keep bytes_read)
   rest = list/concat (list/concat (list/concat [head] found) acts) pages
-  list/concat types rest
+  record = if (length bound > 0 and served? m) [(component_type m)] []
+  list/concat (list/concat record types) rest
 
 fn added acc m server f
   wrote acc m.name server f m.files[f]
@@ -94,13 +96,47 @@ fn bound_in acc f src
 # answers none for a name no template binds, which the server answers as a
 # 404. A browser component's `act` leaves the state as it was for such a
 # name.
-fn acting m names
+fn acting p m names
   return [(derive/define m.name (in_browser names))] if not served? m
   refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
   around = list/to_list (list/select m.calls (c -> around? names c))
   bypass = list/to_list (list/map around (c -> derive/refuse_call c (direct c)))
   return list/concat refused bypass if length refused + length bypass > 0
-  [(derive/define m.name (on_server m names))]
+  drawn = list/to_list (list/select (keys m.files) (f -> binds? m.files[f]))
+  one = drawn_by_one m.name drawn
+  return [(derive/refuse m.name one)] if length drawn != 1
+  view = text/replace drawn[1] ".kata" ""
+  acts = on_server m names
+  [(derive/define m.name "{acts}\n{served_as p m.name view}")]
+
+fn binds? none
+  false
+
+fn binds? src
+  length (actions src) > 0
+
+# A server component is what `web/components` serves: its name, its `act`,
+# the template that draws a state, and the modules that lean on it, whose
+# pages are the ones that may act on it. The record is the module's own, so
+# a program that compiles the module for the browser carries nothing of the
+# server's.
+fn served_as p name view
+  leaning = data/leaning_on p [name]
+  pages = list/to_list (list/map (list/sort leaning) (x -> "\"{x}\""))
+  given = "pub component = kata_component \"{name}\" act {view}"
+  "{listed given pages}\n"
+
+fn component_type m
+  derive/define m.name "type kata_component\n  name\n  act\n  view\n  pages\n"
+
+fn listed head items
+  flat = "{head} [{text/join items " "}]"
+  return flat if length flat <= 80
+  "{head} [\n  {text/join items "\n  "}\n]"
+
+fn drawn_by_one name drawn
+  said = "is a server component, so one template draws its state"
+  "`{name}` {said}, and {length drawn} of its templates bind actions"
 
 # A server action writes through a model, whose policy checks the write
 # (`models/updated`, `models/destroyed`), and never with SQL of its own. The

@@ -1,3 +1,4 @@
+import "../../../wire"
 import "std/list"
 import "std/net"
 import "std/net/http"
@@ -7,16 +8,25 @@ pub without_sign_in = ["index"]
 
 total = "[[\"books/total\",[3]]]"
 
+act = "/senro/act/tally"
+
+# The tally's action and its state, as the page posts them.
+raising = "raised\n{wire/as_text (wire/packed "raised by nobody")}"
+
 # A visitor asks for the books from a page that wants a sign-in and from the
 # open one, which does not use them, and is refused both times. Viewer 2
 # signs in, may not reach the ledger, and so may not ask from it, but may
 # from the desk, which admits anyone signed in and leans on the ledger; not
 # from the front page, and not without saying which page. Viewer 1 reaches
 # the ledger and is answered from it, and a provider nobody has is not
-# found.
+# found. The tally the ledger draws is acted on the same way: refused to the
+# visitor who has not signed in, to viewer 2 from the ledger, the front page
+# and no page, and answered to viewer 2 from the desk and viewer 1 from the
+# ledger.
 pub fn index _ _
   asked "POST" "/senro/data" "" "/desk" total
-    .> (a -> asked "POST" "/senro/data" "" "/" total .> (b -> second [a b]))
+    .> (a -> asked "POST" "/senro/data" "" "/" total
+    .> (b -> asked "POST" act "" "/desk" raising .> (c -> second [a b c])))
 
 fn second got
   asked "POST" "/session" "" "" "2" .> (s -> as_two got (cookie_of s))
@@ -27,7 +37,14 @@ fn as_two got two
     .> (b -> asked "POST" "/senro/data" two "/desk" total
     .> (c -> asked "POST" "/senro/data" two "/" total
     .> (d -> asked "POST" "/senro/data" two "" total
-    .> (e -> first (list/concat got [a b c d e]))))))
+    .> (e -> acting_as_two (list/concat got [a b c d e]) two)))))
+
+fn acting_as_two got two
+  asked "POST" act two "/ledger" raising
+    .> (a -> asked "POST" act two "/" raising
+    .> (b -> asked "POST" act two "" raising
+    .> (c -> asked "POST" act two "/desk" raising
+    .> (d -> first (list/concat got [a b c d])))))
 
 fn first got
   asked "POST" "/session" "" "" "1" .> (s -> as_one got (cookie_of s))
@@ -37,7 +54,8 @@ fn as_one got one
   asked "GET" "/ledger" one "" ""
     .> (a -> asked "POST" "/senro/data" one "/ledger" total
     .> (b -> asked "POST" "/senro/data" one "/ledger" nobody
-    .> (c -> said (list/concat got [a b c]))))
+    .> (c -> asked "POST" act one "/ledger" raising
+    .> (d -> said (list/concat got [a b c d])))))
 
 fn asked method path cookie from sending
   net/dial "127.0.0.1" 24420 .> (c -> sent c method path cookie from sending)
