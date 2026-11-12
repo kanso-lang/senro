@@ -1,0 +1,32 @@
+name: release
+# A release is the version VERSION names, tagged vX.Y.Z on the main commit
+# that first carries it. `kanso install` resolves a hako's highest such tag,
+# so this is how an app gets senro. Raising VERSION in a pull request is how
+# a release is made; a push to main whose version is already tagged does
+# nothing.
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: tag the version VERSION names, once
+        run: |
+          v="v$(tr -d ' \n' < VERSION)"
+          case "$v" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::VERSION must read X.Y.Z, and it reads ${v#v}"; exit 1 ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/$v" >/dev/null; then
+            echo "$v is already tagged"
+            exit 0
+          fi
+          git tag "$v" "$GITHUB_SHA"
+          git push origin "refs/tags/$v"
+          echo "tagged $v at $GITHUB_SHA"
