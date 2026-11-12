@@ -419,7 +419,3 @@ fn disposition false filename
 
 fn without s piece
   text/replace s piece ""
-
-# Where a stored file is served, for a view's `src` or `href`.
-pub fn blob_path key
-  "/senro/blobs/{key}"

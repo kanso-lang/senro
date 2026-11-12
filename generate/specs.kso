@@ -1,4 +1,4 @@
-import "../models"
+import "../names"
 import "./scaffold"
 import "std/list"
 import "std/text"
@@ -50,7 +50,7 @@ fn subject_of singular fields
   parent = scaffold/parent_of fields
   texts = of_kind fields "text"
   numbers = of_kind fields "integer"
-  subject singular (models/plural singular) parent texts numbers
+  subject singular (names/plural singular) parent texts numbers
 
 # The spec `new` writes, of the page a new app answers `/` with: one
 # example, so `senro test` has something to run from the first minute, and
@@ -233,7 +233,7 @@ fn below _ none
 
 fn below s parent
   name = scaffold/parent_name parent
-  parents = models/plural name
+  parents = names/plural name
   about = [
     "A {name} for an example's {s.plural} to sit under, and the path to"
     "them."

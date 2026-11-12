@@ -1,7 +1,9 @@
 import "../../../kata"
+import "../../../routes"
 import "./posts"
 import "./views"
 
+derive routes/rest
 derive kata/views
 
 # A link to a row names the row's id.

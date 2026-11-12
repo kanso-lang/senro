@@ -1,3 +1,4 @@
+import "../names"
 import "../pg"
 import "../web"
 import "std/derive"
@@ -196,17 +197,17 @@ pub fn tables p
 fn records_of m schema
   own = list/to_list (list/map m.records (r -> shape r.name r.fields))
   return own if wrote_model? m schema
-  list/concat own [(shape m.name (column_names schema[plural m.name]))]
+  list/concat own [(shape m.name (column_names schema[names/plural m.name]))]
 
 fn typed_in m schema
   return [] if wrote_model? m schema
-  fields = column_names schema[plural m.name]
+  fields = column_names schema[names/plural m.name]
   lines = list/to_list (list/map fields (f -> "  {f}"))
   source = "pub type {m.name}\n{text/join lines "\n"}\n"
   [(derive/define m.name source)]
 
 fn wrote_model? m schema
-  return true if not table? schema[plural m.name]
+  return true if not table? schema[names/plural m.name]
   declared = list/any? m.records (r -> r.name == m.name)
   declared or list/any? m.functions (f -> f.name == m.name)
 
@@ -420,7 +421,7 @@ fn models m schema
   list/fold each [] (acc r -> list/concat acc (refusals m r schema))
 
 fn refusals m r schema
-  table = plural r.name
+  table = names/plural r.name
   checked "{m.name}/{r.name}" table r.fields schema[table]
 
 # A `models/where` whose model is named for its record, as `comment_model`,
@@ -434,7 +435,7 @@ fn where_checked c schema
   t = record_named (last_part (blank_if_none c.arguments[3]))
   field = blank_if_none c.strings[4]
   return [] if t == ""
-  column_checked c (plural t) field schema
+  column_checked c (names/plural t) field schema
 
 fn column_checked c table field schema
   return [] if field == ""
@@ -470,7 +471,8 @@ fn named_checked p c schema
   kept = list/fold holders [] one
   return [] if length kept != 1
   at = column_at (last_part c.callee)
-  column_checked c (plural kept[1].name) (blank_if_none c.strings[at]) schema
+  table = names/plural kept[1].name
+  column_checked c table (blank_if_none c.strings[at]) schema
 
 fn held_models m schema
   list/to_list (list/select (records_of m schema) (r -> modeled? r schema))
@@ -508,7 +510,7 @@ fn readers m schema uniq
   list/concat each_read (finders m (held_models m schema))
 
 fn modeled? r schema
-  schema[plural r.name] != none and list/any? r.fields (f -> f == "id")
+  schema[names/plural r.name] != none and list/any? r.fields (f -> f == "id")
 
 # A module that holds one model answers for it by name, as a Rails model
 # answers its class methods. The reads are `notes/find db id`, `notes/find_by
@@ -548,7 +550,7 @@ fn finder m model name reads takes
   "{head}\n  {call}\n"
 
 fn reader m r schema uniq
-  table = plural r.name
+  table = names/plural r.name
   written m r schema[table] (present uniq[table])
 
 fn written _ _ none _
@@ -696,7 +698,7 @@ fn linked m schema fks
 
 fn associated m r fks
   return [] if not list/any? r.fields (f -> f == "id")
-  table = plural r.name
+  table = names/plural r.name
   owned = list/select fks (k -> k.table == table)
   owners = list/select fks (k -> k.parent == table)
   rows = list/fold owned [] (acc k -> list/concat acc (rows_of m r k))
@@ -750,7 +752,7 @@ fn guarded m r uniq
   return [] if not list/any? r.fields (f -> f == "id")
   t = r.name
   base = [
-    "\"table\":\"{plural t}\""
+    "\"table\":\"{names/plural t}\""
     "\"columns\":{t}_columns"
     "\"read\":{t}_from"
   ]
@@ -1278,29 +1280,10 @@ fn table_named line
 # The inflector: enough English for table names.
 pub fn singular word
   formed = ["{text/slice word 1 (length word - 3)}y" (cut word 2) (cut word 1)]
-  blank_if_none (list/find formed (w -> plural w == word))
+  blank_if_none (list/find formed (w -> names/plural w == word))
 
 fn cut word n
   blank_if_none (text/slice word 1 (length word - n))
-
-pub fn plural word
-  return "{text/slice word 1 (length word - 1)}ies" if consonant_y? word
-  return "{word}es" if sibilant? word
-  "{word}s"
-
-fn consonant_y? word
-  n = length word
-  before = text/slice word (n - 1) (n - 1)
-  n > 1 and text/ends_with? word "y" and not vowel? before
-
-fn vowel? none
-  false
-
-fn vowel? c
-  list/any? ["a" "e" "i" "o" "u"] (v -> v == c)
-
-fn sibilant? word
-  list/any? ["s" "x" "z" "ch" "sh"] (end -> text/ends_with? word end)
 
 # The SQL that makes each table in `schema` where it is missing, as one
 # query for an app to run as it starts.

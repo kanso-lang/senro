@@ -1,5 +1,5 @@
 import "../accounts"
-import "../models"
+import "../names"
 import "./app"
 import "./auth"
 import "./controller"
@@ -262,12 +262,12 @@ fn given f:scaffold/unreadable _ _
   refused "cannot read `{f.word}`: {f.why}"
 
 fn given fields app singular
-  plural = models/plural singular
+  plural = names/plural singular
   module = "{app}/{plural}.kso"
   os/exists module .> (there -> fresh there app singular fields)
 
 fn fresh true app singular _
-  refused "{app}/{models/plural singular}.kso is there already"
+  refused "{app}/{names/plural singular}.kso is there already"
 
 fn fresh false app singular fields
   nested_in app singular fields (scaffold/parent_of fields)
@@ -277,12 +277,12 @@ fn nested_in app singular fields none
   read_main app singular fields
 
 fn nested_in app singular fields parent
-  parents = models/plural (scaffold/parent_name parent)
+  parents = names/plural (scaffold/parent_name parent)
   module = "{app}/{parents}.kso"
   os/exists module .> (there -> parent_there there app singular fields parents)
 
 fn parent_there false app singular _ parents
-  refused "{app} has no {parents} to nest {models/plural singular} under"
+  refused "{app} has no {parents} to nest {names/plural singular} under"
 
 fn parent_there true app singular fields _
   read_main app singular fields
@@ -297,7 +297,7 @@ fn with_main app singular fields main
   migrations_in app .> (names -> wrote app singular fields main names)
 
 fn wrote app singular fields main names
-  plural = models/plural singular
+  plural = names/plural singular
   senro = senro_in main (up_from app)
   entry = with_resource (app/entry_with main singular) plural
   made = "create_{plural}"
@@ -368,7 +368,7 @@ fn model_in app singular fields main
   migrations_in app .> (names -> model_wrote app singular fields main names)
 
 fn model_wrote app singular fields main names
-  plural = models/plural singular
+  plural = names/plural singular
   senro = senro_in main (up_from app)
   entry = app/entry_with main singular
   made = "create_{plural}"
@@ -388,11 +388,11 @@ fn resourced f:scaffold/unreadable _ _
 fn resourced fields app singular
   unfit = resource/unfit fields
   return refused "cannot make a resource of that: {unfit}" if unfit != ""
-  os/exists "{app}/{models/plural singular}.kso"
+  os/exists "{app}/{names/plural singular}.kso"
     .> (there -> resource_fresh there app singular fields)
 
 fn resource_fresh true app singular _
-  refused "{app}/{models/plural singular}.kso is there already"
+  refused "{app}/{names/plural singular}.kso is there already"
 
 fn resource_fresh false app singular fields
   os/read_file "{app}/main.kso" .> (m -> resource_in app singular fields m)
@@ -404,7 +404,7 @@ fn resource_in app singular fields main
   migrations_in app .> (names -> resource_wrote app singular fields main names)
 
 fn resource_wrote app singular fields main names
-  plural = models/plural singular
+  plural = names/plural singular
   senro = senro_in main (up_from app)
   entry = with_resource (app/entry_with main singular) plural
   made = "create_{plural}"

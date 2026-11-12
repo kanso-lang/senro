@@ -1,5 +1,6 @@
 import "../clock"
 import "../models"
+import "../names"
 import "./scaffold"
 import "std/list"
 import "std/text"
@@ -233,7 +234,7 @@ fn keyed table fields
   list/to_list (list/map refs (f -> key_of table f))
 
 fn key_of table f
-  parents = models/plural (scaffold/parent_name f)
+  parents = names/plural (scaffold/parent_name f)
   args = ["\"{table}\"" "\"{f.name}\"" "\"{parents}\""]
   made_change "models/add_foreign_key" args
 
