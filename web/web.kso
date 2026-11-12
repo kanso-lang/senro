@@ -35,6 +35,15 @@ type book
 type moved
   path
 
+# A server component as `web/components` reads it, the shape of the
+# `component` kata writes into its module: its name, its `act`, the template
+# that draws a state, and the modules whose pages may act on it.
+type component
+  name
+  act
+  view
+  pages
+
 # What a model's checked write answers when its policy says no, and when the
 # row it was asked for is not there. The server answers a server action that
 # answers one of them as a 403 or a 404.
