@@ -1,1 +1,4 @@
-pub legacy_route_aliases = { "GET /entries":"entries/index" }
+import "../../../routes"
+import "./entries"
+
+pub legacy_route_aliases = [(routes/moved "/entries" entries/index)]

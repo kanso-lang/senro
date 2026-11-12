@@ -1,0 +1,3 @@
+["DELETE /posts/:post_id/publication" "GET /posts" "GET /posts/:id" "GET /searches" "POST /posts/:post_id/publication"]
+/posts/3/publication
+/searches

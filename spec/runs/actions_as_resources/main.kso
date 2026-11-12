@@ -1,0 +1,11 @@
+import "../../../routes"
+import "./posts"
+import "./publication"
+import "./searches"
+import "std/list"
+
+derive routes/rest
+
+print (list/sort (keys routes))
+  .> (_ -> print (routes/path_to "publication/create" 3))
+  .> (_ -> print (routes/path_to "searches/index"))

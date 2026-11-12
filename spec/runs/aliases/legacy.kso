@@ -1,5 +1,8 @@
-pub legacy_route_aliases = {
-  "GET /entry/:id":"entries/show"
-  "GET /signbook":"entries/index"
-  "POST /sign":"entries/create"
-}
+import "../../../routes"
+import "./entries"
+
+pub legacy_route_aliases = [
+  (routes/moved "/entry/:id" entries/show)
+  (routes/moved "/signbook" entries/index)
+  (routes/moved "/sign" entries/create)
+]

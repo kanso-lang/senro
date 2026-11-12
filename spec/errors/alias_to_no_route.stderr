@@ -1,4 +1,4 @@
-error[derive]: `GET /signbook` points at `entries/indx`, which names no route
-  --> ./legacy.kso:1:5
-   1 | pub legacy_route_aliases = { "GET /signbook":"entries/indx" }
+error[derive]: `legacy/legacy_route_aliases` could not be read: unknown name `entries/indx`
+  --> ./legacy.kso:4:5
+   4 | pub legacy_route_aliases = [(routes/moved "/signbook" entries/indx)]
            ^

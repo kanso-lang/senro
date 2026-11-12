@@ -1,1 +1,4 @@
-pub legacy_route_aliases = { "GET /signbook":"entries/indx" }
+import "../../../routes"
+import "./entries"
+
+pub legacy_route_aliases = [(routes/moved "/signbook" entries/indx)]

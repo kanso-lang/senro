@@ -1,0 +1,9 @@
+# Publishing a post is making its publication, and withdrawing it is
+# removing that, as Rails' `resource :publication` nested under posts has
+# it. There is one publication to a post, so the actions take the post's id
+# and no id of their own.
+pub fn create _ _ post_id:int
+  "post {post_id} published"
+
+pub fn destroy _ _ post_id:int
+  "post {post_id} withdrawn"

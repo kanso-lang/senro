@@ -1,4 +1,4 @@
 error[derive]: `GET /entries` and `GET /entries` (entries/index) answer the same request
-  --> ./legacy.kso:1:5
-   1 | pub legacy_route_aliases = { "GET /entries":"entries/index" }
+  --> ./legacy.kso:4:5
+   4 | pub legacy_route_aliases = [(routes/moved "/entries" entries/index)]
            ^
