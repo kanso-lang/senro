@@ -1,4 +1,5 @@
 import "../models"
+import "../names"
 import "std/list"
 import "std/text"
 
@@ -163,7 +164,7 @@ fn said s
 # The models derivation declares the record in it and answers for the table
 # by the module's name.
 pub fn model senro singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   rules = problems_of singular fields
   head = if (length rules == 0) [] ["import \"{senro}/models\"" ""]
   parts = [(record singular plural) (policies singular)]
@@ -173,7 +174,7 @@ pub fn model senro singular fields
 # The resource's module: the seven actions Rails' scaffold writes, each
 # reading and writing through the model.
 pub fn resource senro singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   parts = [
     (imports senro singular (parent_of fields))
     (actions_of singular plural fields (parent_of fields))
@@ -395,7 +396,7 @@ fn helpers singular plural fields
 fn nested_actions singular plural fields parent
   k = parent.name
   name = parent_name parent
-  parents = models/plural name
+  parents = names/plural name
   about = [
     "A row of `{plural}` belongs to a {name}, so each action takes the"
     "{name}'s id and the routes nest under it: `index` answers"
@@ -627,7 +628,7 @@ pub fn index_view singular fields
   index_of singular fields (parent_of fields)
 
 fn index_of singular fields none
-  plural = models/plural singular
+  plural = names/plural singular
   first = (said_field (list/first fields)).name
   lines = [
     "takes rows number more"
@@ -644,7 +645,7 @@ fn index_of singular fields none
   "{text/join lines "\n"}\n"
 
 fn index_of singular fields parent
-  plural = models/plural singular
+  plural = names/plural singular
   k = parent.name
   name = parent_name parent
   first = (said_field (list/first (own fields))).name
@@ -654,7 +655,7 @@ fn index_of singular fields parent
     "  h1 {capitalized plural}"
     "  p.lede"
     "    a href=(path_to \"{plural}/new\" {k}) New {singular}"
-    "    a href=(path_to \"{models/plural name}/show\" {k}) Back to the {name}"
+    "    a href=(path_to \"{names/plural name}/show\" {k}) Back to the {name}"
     "ul.{plural}"
     "  each rows r ->"
     "    li"
@@ -681,7 +682,7 @@ fn parent_id parent
   " row.{parent.name}"
 
 fn shown_under singular fields under
-  plural = models/plural singular
+  plural = names/plural singular
   each = spread (own fields) shown_lines
   head = [
     "takes row"
@@ -712,7 +713,7 @@ fn shown_lines f
   ]
 
 pub fn form_view singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   each = spread (own fields) field_lines
   head = [
     "takes path method fields problems"

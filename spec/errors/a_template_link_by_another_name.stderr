@@ -1,0 +1,4 @@
+error[derive]: views/list.kata:5: `pages/show` is /notes/{n}/pages/{id}, and a page drawn in the browser would link to /s/{n}/pages/{id}: name the parent's id as `<parent>_id`
+  --> ./main.kso:7:1
+   7 | derive routes/rest
+       ^

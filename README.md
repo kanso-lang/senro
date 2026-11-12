@@ -287,6 +287,11 @@ until the app is changed with it.
   status, headers and body. `visit/within` is the `around` hook that wraps an
   example in a transaction and rolls it back; `visit/to` is the same for one
   function. Steps that end in a failure are rolled back too.
+- `names`: how senro names an app's parts, kept apart from the server so a
+  program that only draws pages can read it. `names/plural` makes a model's
+  table, `names/action_path` the path an action answers, and
+  `names/blob_path` where a stored file is served. kata spells a template's
+  links with it.
 - `routes`: the REST convention, run as a derivation while the app compiles.
   A pub function in one of the app's modules is an action, and its module
   and its name place it: `posts/index` answers GET /posts, `posts/show` GET
@@ -545,8 +550,8 @@ until the app is changed with it.
   `storage/` beside the app (or the directory `SENRO_STORAGE` names) under a
   key of 32 random hex digits, and the form holds the key where the file was,
   as Active Storage's disk service keeps a blob. The action stores the key in
-  a column, and a view links it with `web/blob_path key`, which serves the
-  file at `/senro/blobs/<key>`. An image or a PDF is shown in the page; any
+  a column, and a view links it with `src=(blob_path e.photo)`, the file
+  served at `/senro/blobs/<key>`. An image or a PDF is shown in the page; any
   other kind is sent as a download, so an HTML file someone uploaded never runs
   as a page of the app. A file input left empty reads as "". The server opens a pool of database sessions when it
   starts (`sessions` in `web.kso`); each request borrows one and gives it back

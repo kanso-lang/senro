@@ -34,7 +34,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
+for d in names routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else

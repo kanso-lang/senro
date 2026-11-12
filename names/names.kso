@@ -1,0 +1,129 @@
+import "std/list"
+import "std/text"
+
+# How senro names what an app is made of: a model's table, the path each
+# action answers, and where a stored file is served. It needs nothing of the
+# server, so a program that only draws pages, as the browser's does, can
+# spell a link without carrying the server along.
+#
+# A model's table, and a resource's plural: `note` is `notes`, `entry` is
+# `entries`, `box` is `boxes`.
+pub fn plural word
+  return "{text/slice word 1 (length word - 1)}ies" if consonant_y? word
+  return "{word}es" if sibilant? word
+  "{word}s"
+
+fn consonant_y? word
+  n = length word
+  before = text/slice word (n - 1) (n - 1)
+  n > 1 and text/ends_with? word "y" and not vowel? before
+
+fn vowel? none
+  false
+
+fn vowel? c
+  list/any? ["a" "e" "i" "o" "u"] (v -> v == c)
+
+fn sibilant? word
+  list/any? ["s" "x" "z" "ch" "sh"] (end -> text/ends_with? word end)
+
+# The path the action `a` of the module `m` answers, or none for a name that
+# is no action: `posts/show` answers /posts/:id, and `home/index` the root.
+pub fn action_path "home" "index"
+  "/"
+
+pub fn action_path m "index"
+  "/{m}"
+
+pub fn action_path m "new"
+  "/{m}/new"
+
+pub fn action_path m "create"
+  "/{m}"
+
+pub fn action_path m "show"
+  "/{m}/:id"
+
+pub fn action_path m "edit"
+  "/{m}/:id/edit"
+
+pub fn action_path m "update"
+  "/{m}/:id"
+
+pub fn action_path m "destroy"
+  "/{m}/:id"
+
+pub fn action_path _ _
+  none
+
+# The method an action answers.
+pub fn action_method "create"
+  "POST"
+
+pub fn action_method "update"
+  "PATCH"
+
+pub fn action_method "destroy"
+  "DELETE"
+
+pub fn action_method _
+  "GET"
+
+# The table a parent's id names: `post_id` is under `/posts`.
+pub fn parent_plural nest
+  plural (blank_text (text/slice nest 1 (length nest - 3)))
+
+# A path with its `:id` filled, or with the segment left out when there is no
+# id, which is how a singular resource's path reads.
+pub fn id_filled path ""
+  text/replace path "/:id" ""
+
+pub fn id_filled path id
+  text/replace path ":id" id
+
+# Where a stored file is served, for a view's `src` or `href`.
+pub fn blob_path key
+  "/senro/blobs/{key}"
+
+# The path a route's name spells, with each id written as a hole for its
+# expression, or none for a name no action can have. A collection action
+# (`index`, `new`, `create`) takes only a parent's id, and a member action
+# its own, after a parent's when it has two. A parent is named by its id's
+# own name, `note_id` or `row.note_id`, which puts it under `/notes`. This is
+# how a template spells a link, and `routes/rest` holds the spelling to the
+# route table where the app's routes are.
+pub fn link_path name exprs
+  parts = text/split name "/"
+  return none if length parts != 2
+  collection = list/any? collected (a -> a == parts[2])
+  located (action_path parts[1] parts[2]) collection exprs
+
+collected = ["index" "new" "create"]
+
+fn located none _ _
+  none
+
+fn located path collection exprs
+  spelled_at path collection exprs
+
+fn spelled_at path true exprs
+  under_parent path (list/first exprs) ""
+
+fn spelled_at path false exprs
+  return id_filled path "" if length exprs == 0
+  own = blank_text (list/last exprs)
+  parent = if (length exprs > 1) (list/first exprs) none
+  under_parent path parent "\{{own}}"
+
+fn under_parent path none own
+  id_filled path own
+
+fn under_parent path parent own
+  last = blank_text (list/last (text/split parent "."))
+  "/{parent_plural last}/\{{parent}}{id_filled path own}"
+
+fn blank_text none
+  ""
+
+fn blank_text s
+  s

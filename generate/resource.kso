@@ -1,4 +1,5 @@
 import "../models"
+import "../names"
 import "std/list"
 import "std/text"
 
@@ -7,7 +8,7 @@ import "std/text"
 # JSON and read a posted form or a JSON object, each through the model.
 # There are no views and no forms, so there is no `new` and no `edit`.
 pub fn module senro singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   names = list/to_list (list/sort (list/map fields (f -> f.name)))
   parts = [(head senro singular) (actions singular plural) (answers singular)]
   "{text/join parts "\n\n"}\n\n{taking names}\n"
