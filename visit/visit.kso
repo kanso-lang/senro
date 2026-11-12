@@ -1,0 +1,164 @@
+import "../pg"
+import "../web"
+import "std/list"
+import "std/text"
+
+# A visitor for an app's tests, as Rails' integration tests have one. A
+# visit asks the app for pages with no socket and no server: each request
+# goes to the route table the app serves and comes back as the response a
+# browser would get. The visit keeps the cookies the app sets and sends
+# them with the next request, so signing in and then asking for a page
+# reads as it does in a browser.
+#
+#   test_notes = describe "notes" [
+#     around (visit/within signed connected)
+#     it "send a stranger to sign in" turned_back
+#     context "for a visitor who has signed up" [
+#       before joined
+#       it "list a note the visitor made" listed
+#     ]
+#   ]
+#
+#   fn listed v
+#     visit/post v "/notes" { "title":"milk" }
+#       .> (v -> visit/followed v)
+#       .> (v -> effect (visit/sees? v "milk"))
+#
+# `signed` and `connected` are the names the app's entry binds: the routes
+# it serves and the effect that opens its database. `kanso test` lends a
+# test file beside `main.kso` both. `within` is the hook for `std/spec`'s
+# `around`, as a Rails test's transaction is set up around each example:
+# every example gets a visit of its own, in a transaction of its own.
+#
+# A visit holds the app and its database, the cookies the visitor has, and
+# the last answer: its status, its header lines and its body.
+pub type visit
+  routes
+  db
+  cookies
+  status
+  headers
+  body
+
+# What a visit answered when its steps ended in a failure: the reason.
+pub type failed
+  reason
+
+# A visit to the app. `connect` opens a database session, and everything
+# the steps do happens inside one transaction that is rolled back when they
+# have answered, so a test leaves nothing behind for the next. `steps` is
+# handed a visit that has asked for nothing yet, and the test's value is
+# what `steps` answers. Steps that end in a failure answer `failed` with
+# its reason, after the same roll back.
+pub fn within routes connect
+  (_ rest -> to routes connect rest)
+
+pub fn to routes connect steps
+  connect .> (db -> rolled_back db (steps (visit routes db {} 0 [] "")))
+
+fn rolled_back db stepping
+  judged = stepping .? (u -> effect (failed u.reason))
+  pg/run db "begin"
+    .> (_ -> judged)
+    .> (answer -> pg/run db "rollback" .> (_ -> effect answer))
+    .> (answer -> pg/close db .> (_ -> effect answer))
+
+pub fn get v path
+  asked v "GET" path [] ""
+
+# A form posted to `path`, with the fields of the map `fields`.
+pub fn post v path fields
+  sent v "POST" path fields
+
+# A form that stands for a PATCH, as senro's forms send one: a POST with
+# `_method` among its fields.
+pub fn patch v path fields
+  sent v "POST" path (put fields "_method" "PATCH")
+
+# A DELETE, sent the same way. (`delete` is kanso's own word.)
+pub fn remove v path
+  sent v "POST" path { "_method":"DELETE" }
+
+# A JSON object posted to `path`, as a program calling an API sends one.
+pub fn post_json v path json
+  asked v "POST" path ["content-type: application/json"] json
+
+fn sent v method path fields
+  kind = "content-type: application/x-www-form-urlencoded"
+  asked v method path [kind] (web/form_of fields)
+
+# The page the last answer sent the visitor on to, asked for as a browser
+# asks for it. A visit whose last answer was no redirect is answered as it
+# is.
+pub fn followed v
+  onward v (location v)
+
+fn onward v ""
+  effect v
+
+fn onward v path
+  get v path
+
+# Where the last answer sent the visitor, or "".
+pub fn location v
+  header v "location"
+
+# The value of the last answer's header `name`, or "".
+pub fn header v name
+  lines = list/to_list (list/select v.headers (h -> named? h name))
+  return "" if length lines == 0
+  after lines[1] ": "
+
+# Whether the last answer's body holds `words`.
+pub fn sees? v words
+  length (text/split v.body words) > 1
+
+# Whether the last answer sent the visitor on to `path`.
+pub fn sent_to? v path
+  v.status >= 300 and v.status < 400 and location v == path
+
+fn asked v method path lines body
+  held = text/join (list/to_list (list/map (keys v.cookies) (crumb v))) "; "
+  sized = "content-length: {length (text/bytes body)}"
+  head = list/concat ["{method} {path} HTTP/1.1" "host: localhost"] lines
+  all = list/concat head (with_cookies [sized] held)
+  raw = "{text/join all "\r\n"}\r\n\r\n{body}"
+  web/ask v.routes raw v.db .> (r -> effect (answered v r))
+
+fn crumb v
+  (name -> "{name}={v.cookies[name]}")
+
+fn with_cookies lines ""
+  lines
+
+fn with_cookies lines held
+  push lines "cookie: {held}"
+
+# The visit after an answer: its cookies with those the answer set, or
+# forgot, and the answer itself.
+fn answered v r
+  kept = list/fold r.headers v.cookies (acc h -> noted acc h)
+  visit v.routes v.db kept r.status r.headers r.body
+
+fn noted acc h
+  return acc if not named? h "set-cookie"
+  pair = text/split (said (list/first (text/split (after h ": ") ";"))) "="
+  name = said pair[1]
+  value = text/join (list/to_list (list/drop pair 1)) "="
+  return delete acc name if value == "" or forgotten? h
+  put acc name value
+
+fn forgotten? h
+  length (text/split h "Max-Age=0") > 1
+
+fn named? h name
+  text/starts_with? (text/lowercase h) "{name}: "
+
+fn after h mark
+  text/join (list/to_list (list/drop (text/split h mark) 1)) mark
+
+fn said none
+  ""
+
+fn said s
+  s

@@ -1,0 +1,27 @@
+import "../../visit"
+import "./given"
+import "std/expect"
+import "std/spec"
+
+# The readings' API, asked as a program asks it. `senro test` runs these
+# against the test database, and each example runs in a transaction that is
+# rolled back, so none of them sees what another wrote.
+test_readings = describe "readings" [
+  around (visit/within routes connected)
+  it "are listed" listed
+  it "are made from what is posted" made
+  it "are not made from a field that breaks its rule" refused
+]
+
+fn listed v
+  visit/get v "/readings" .> (v -> effect (expect v.status . to (equal 200)))
+
+fn made v
+  visit/post v "/readings" given/reading
+    .> (v -> effect (expect v.status . to (equal 201)))
+
+fn refused v
+  visit/post v "/readings" broken
+    .> (v -> effect (expect v.status . to (equal 422)))
+
+broken = put given/reading "minutes" "many"

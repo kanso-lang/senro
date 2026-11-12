@@ -1,0 +1,27 @@
+import "../../visit"
+import "./given"
+import "std/expect"
+
+# A visit's writes are gone when it is over. spec.sh copies this file into
+# the app the generators wrote and runs it there. Each test makes a note on
+# one visit and asks for it on the next, which finds none: the first ends
+# as its steps answer, and the second in a failure that carries the note's
+# path out as its reason.
+test_a_visit_is_rolled_back = visit/to routes connected made .> sought
+
+test_a_failed_visit_is_rolled_back = visit/to routes connected stopped .> lost
+
+fn made v
+  visit/post v "/notes" given/note .> (v -> effect (visit/location v))
+
+fn stopped v
+  visit/post v "/notes" given/note .> (v -> err (visit/location v))
+
+fn lost f:visit/failed
+  sought f.reason
+
+fn sought path
+  visit/to routes connected (v -> missing v path)
+
+fn missing v path
+  visit/get v path .> (v -> effect (expect v.status . to (equal 404)))

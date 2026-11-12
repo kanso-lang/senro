@@ -5,8 +5,8 @@ import "std/text"
 
 # What `generate authentication` writes, as Rails 8's authentication
 # generator does: an account an address and a password make, signing in and
-# out, and a password reset by mail. The files are copied from
-# generate/authentication, where they are written as an app two
+# out, a password reset by mail, and a spec of signing in. The files are
+# copied from generate/authentication, where they are written as an app two
 # directories below senro would hold them, and each import of senro is
 # pointed at the app's own path back to it.
 pub copied = [
@@ -14,6 +14,7 @@ pub copied = [
   "registration.kso"
   "resets.kso"
   "session.kso"
+  "session_test.kso"
   "user.kso"
   "views/door.kata"
   "views/reset_asked.kata"

@@ -239,8 +239,29 @@ fn foreign? origin host
   length parts != 2 or list/last parts != host
 
 fn crossed c req method
-  r = http/respond 403 [] "Forbidden: a request from another site\n"
-  logged_as req method r .> (_ -> sent c r)
+  logged_as req method cross_site .> (_ -> sent c cross_site)
+
+cross_site = http/respond 403 [] "Forbidden: a request from another site\n"
+
+# What the app answers a request, with no socket: `raw` is the request as a
+# client would send it, and the answer is the response the server would
+# write. The route is found and its action called with `db`, as `serve`
+# does, and the answer is finished the same way, so a test sees the cookies,
+# the notice and the refusals a browser would. Nothing is logged, no call is
+# counted against a limit, and the request is stamped with the time now and
+# the address `127.0.0.1`. `visit` builds on this.
+pub fn ask routes raw db
+  time/now .> (t -> asked routes (arrived raw t "127.0.0.1") db)
+
+fn asked routes req db
+  method = method_of req
+  return effect cross_site if forged? method req
+  action = matched routes method (unformatted req.path)
+  by = sender req.headers["senro-page"]
+  answered_by action req db
+    .> (r -> told db method by r)
+    .> (r -> versioned by r)
+    .> (r -> effect (finished req r))
 
 fn let_in true _ answering _
   answering
@@ -369,7 +390,13 @@ fn responded c db req method by answer
     .> (r -> told db method by r)
     .> (r -> versioned by r)
     .> (r -> logged_as req method r)
-    .> (r -> sent c (secured req (notice_shown req (unchanged req r))))
+    .> (r -> sent c (finished req r))
+
+# An answer as it leaves the server: without a session it would only set
+# again, with a shown notice forgotten, and with its cookies marked for
+# HTTPS when the request came over it.
+fn finished req r
+  secured req (notice_shown req (unchanged req r))
 
 # A proxy that took a request over HTTPS says so in `X-Forwarded-Proto`,
 # and every cookie the answer to it sets is marked `Secure`, as Rails'

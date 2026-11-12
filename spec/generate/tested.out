@@ -1,0 +1,40 @@
+the home page
+  is shown
+
+1 examples, 0 failed
+test_home ... ok
+notes
+  are listed
+  are made from the form and shown
+  are changed from the form
+  are not made from a field that breaks its rule
+  are gone once removed
+
+5 examples, 0 failed
+test_notes ... ok
+pages
+  are listed
+  are made from the form and shown
+  are changed from the form
+  are gone once removed
+
+4 examples, 0 failed
+test_pages ... ok
+readings
+  are listed
+  are made from what is posted
+  are not made from a field that breaks its rule
+
+3 examples, 0 failed
+test_readings ... ok
+signing in
+  is asked of a stranger
+  with an account
+    opens the app
+    is over once the visitor signs out
+    takes the address and password again
+    refuses a wrong password
+
+5 examples, 0 failed
+test_signing_in ... ok
+5 passed, 0 failed

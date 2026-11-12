@@ -1,0 +1,14 @@
+import "../../visit"
+import "std/expect"
+import "std/spec"
+
+# The app, asked for a page as a browser asks. `senro test` runs the specs
+# in files named like this one against the test database, and each example
+# runs in a transaction that is rolled back.
+test_home = describe "the home page" [
+  around (visit/within routes connected)
+  it "is shown" shown
+]
+
+fn shown v
+  visit/get v "/" .> (v -> effect (expect v.status . to (equal 200)))

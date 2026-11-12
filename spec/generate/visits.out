@@ -1,0 +1,3 @@
+test_a_visit_is_rolled_back ... ok
+test_a_failed_visit_is_rolled_back ... ok
+2 passed, 0 failed

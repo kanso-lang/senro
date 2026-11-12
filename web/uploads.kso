@@ -310,6 +310,10 @@ fn dir_or none
 fn dir_or d
   d
 
+# A map of fields as a browser posts a form, which `form` reads back.
+pub fn form_of fields
+  encoded_form (list/to_list (list/map (keys fields) (k -> [k fields[k]])))
+
 # The fields as a posted form writes them, so `form` reads them as it reads
 # any other.
 fn encoded_form pairs
