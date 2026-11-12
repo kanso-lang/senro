@@ -24,7 +24,17 @@ views, the tables and their models, the routes, the jobs and the data
 providers. `app/run` runs the app's migrations, compares the database with
 them, and serves.
 
-`kanso install` fetches the repository and writes the lock.
+senro has no release tag yet, so a plain `kanso install` refuses it
+(`kanso-lang/senro publishes no vX.Y.Z release tag`). Pin it to the branch
+instead:
+
+```
+kanso install . --from kanso-lang/senro@main
+```
+
+That fetches the repository and writes the branch and its commit into
+`hako.lock`. `kanso list` marks the pin as interim until a tag replaces it.
+
 `examples/guestbook` and `examples/pantry` are whole apps. They import the
 modules by relative path because they live in this repository. The pantry
 adds, counts, renames and removes things on a shelf without a page reload.
