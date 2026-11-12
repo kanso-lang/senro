@@ -20,7 +20,7 @@ fn offered req id true
   effect (shown req id)
 
 fn offered _ _ false
-  effect (told stale)
+  effect (web/redirect "/" stale)
 
 stale = "That link has expired or was used."
 
@@ -30,12 +30,12 @@ pub fn update req db id
   held db id .> (good -> opened req db id good)
 
 fn opened _ _ _ false
-  effect (told stale)
+  effect (web/redirect "/" stale)
 
 fn opened _ db token true
   id = id_text (tokens/id_of token)
   account/update (models/as_app db) id { "failures":"0" "locked":"" }
-    .> (_ -> effect (told "Your account is unlocked. Sign in."))
+    .> (_ -> effect (web/redirect "/" "Your account is unlocked. Sign in."))
 
 # Whether `token` is good now for the account it names.
 fn held db token
@@ -54,10 +54,6 @@ fn id_text none
 fn id_text n
   "{n}"
 
-fn told notice
-  web/noticed (web/redirect "/") notice
-
 fn shown req id
   page = views/unlock_offered_view "/unlocks/{id}"
-  framed = views/layout_view "Unlock your account · Guestbook" page
-  views/answer_as req 200 framed
+  views/answer req 200 "Unlock your account · Guestbook" page

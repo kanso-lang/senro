@@ -1,0 +1,4 @@
+error[derive]: a server answers its pages inside `views/layout.kata`, which takes `title body`; add one
+  --> ./home.kso:4:11
+   4 |   effect (views/answer req 200 "Hello" (views/greet_view "Ada"))
+                 ^

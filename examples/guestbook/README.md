@@ -133,6 +133,7 @@ place, rendered on the server.
   `views` module while the app compiles. The page reads the `signature`
   records `entries.kso` builds by their fields, which needs no import.
   `entries.kso` describes the page with `views/signed_view` and answers
-  with `views/answer_as`, 200 or 422: HTML to a browser that asked for the
-  page itself, and the page as bytes to senro's script once `browser.kso`,
-  built for the browser, has loaded and can draw it.
+  with `views/answer`, 200 or 422, inside `views/layout.kata`: HTML to a
+  browser that asked for the page itself, and the page as bytes to senro's
+  script once `browser.kso`, built for the browser, has loaded and can draw
+  it.

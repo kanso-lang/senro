@@ -23,7 +23,7 @@ pub fn new req _
 # eight characters or more. Both are looked up before the password is
 # stretched, so a sign-up that cannot succeed costs no hashing.
 pub fn create req db
-  f = web/form req.body
+  f = web/input req
   name = text/trim (web/value f "name")
   email = text/lowercase (text/trim (web/value f "email"))
   asked = signup name email (web/value f "password")
@@ -55,7 +55,7 @@ fn joined req db asked by_name by_email
 # and the account can ask again by signing in.
 fn made db kept:account/account
   told = "Welcome, {kept.name}. Confirm your address with the link we sent."
-  welcomed = web/noticed (web/redirect "/") told
+  welcomed = web/redirect "/" told
   account_mailer/confirmation db kept.id kept.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect welcomed)
@@ -69,5 +69,4 @@ fn opened req name email problems code
   heading = "Make an account"
   to = "/registration"
   page = views/door_view heading to "Make it" name email problems true false
-  framed = views/layout_view "Make an account · Guestbook" page
-  views/answer_as req code framed
+  views/answer req code "Make an account · Guestbook" page

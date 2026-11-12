@@ -131,20 +131,23 @@ the component's next rendering into place.
 
 A template that binds no action is a page, and an app can have its pages
 rendered in the browser. The action describes the page instead of rendering
-it, and answers with `answer`, or with `answer_as` and a status:
+it, and answers with `answer`, a status and a title:
 
 ```
 page = views/signed_view book form notice removals
-views/answer req (views/layout_view "Guestbook" page)
+views/answer req 200 "Guestbook" page
 ```
 
-Once the app names `answer` or `answer_as`, kata writes `signed_view` for
+`answer` answers the page inside the module's `layout.kata`, which takes
+`title body`, as a Rails layout wraps a view; a module of pages a server
+answers without one is refused. Once the app names `answer`, kata writes
+`signed_view` for
 each page in the module. It takes what `signed` takes and answers the page:
 those values, a function that writes them onto bytes, and a function that
 draws them as markup. A page may hold another page as a value, which is how
 a layout holds its body.
 
-`answer` and `answer_as` draw the page on the server for a request the
+`answer` draws the page on the server for a request the
 browser made itself. senro's page script asks with a `senro-view` header
 and gets the page as bytes, which the app's browser module reads and draws
 before the script morphs the result into the page.
@@ -174,8 +177,8 @@ names, so a program with them cannot tell.
 `spec/runs/pages` draws one page from its records, from its bytes and by
 calling the templates directly, and the three are the same bytes. Its event
 is the page's bytes, and the browser module draws the same page from them
-natively, interpreted and as wasm. A template named `answer`, `answer_as`,
-`rendered` or `packed` is refused, since it would take one of these names.
+natively, interpreted and as wasm. A template named `answer`, `rendered` or
+`packed` is refused, since it would take one of these names.
 
 The browser module hands `rendered` to `browser/answer_pages`, with the
 app's browser components, here none:

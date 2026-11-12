@@ -7,7 +7,7 @@ pub fn index req _
 
 # A note made, which sends the browser to the list with a notice for it.
 pub fn create _ _
-  effect (web/noticed (web/redirect "/notes") "Noted; thank you.")
+  effect (web/redirect "/notes" "Noted; thank you.")
 
 fn shown ""
   "nothing"

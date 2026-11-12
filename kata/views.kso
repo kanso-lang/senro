@@ -27,7 +27,7 @@ fn templates p m
   acts = if (length bound == 0) [] (acting m bound)
   bytes_read = has? asked "{m.name}/rendered"
   head = derive/define m.name (head_of (length bound > 0) use bytes_read)
-  pages = if (use == "") [] (pages_of m use keep bytes_read)
+  pages = if (use == "") [] (pages_of m use keep bytes_read calls)
   types = if (use == "") [] (types_of m use keep bytes_read)
   rest = list/concat (list/concat (list/concat [head] found) acts) pages
   list/concat types rest
@@ -212,7 +212,7 @@ leaned_on = """
 # The names of the functions a module of pages answers with, which no
 # template may take.
 fn taken? name
-  list/any? ["answer" "answer_as" "rendered" "packed"] (n -> n == name)
+  list/any? ["answer" "rendered" "packed"] (n -> n == name)
 
 fn reserved f name
   "`{f}` would be the function `{name}`, which kata writes for every page"
@@ -222,7 +222,7 @@ fn reserved f name
 # with `views/rendered`, whether it calls the function or hands it on. An app
 # that does neither compiles as it did.
 fn used asked m
-  serving = has? asked "{m.name}/answer" or has? asked "{m.name}/answer_as"
+  serving = has? asked "{m.name}/answer"
   return "serve" if serving
   drawn = has? asked "{m.name}/rendered" or has? asked "{m.name}/packed"
   if drawn "render" ""
@@ -252,7 +252,7 @@ fn head_of bound use bytes_read
 # and that is what keeps a field a record lacks a compile error there: the
 # reader's record types hold every field a template reads, so a program
 # with them has some record with any field a template names.
-fn pages_of m use keep bytes_read
+fn pages_of m use keep bytes_read calls
   files = list/to_list (list/sort (keys m.files))
   pages = list/to_list (list/select files (f -> page? f m.files[f]))
   numbers = list/to_list (list/take list/naturals (length pages))
@@ -261,10 +261,29 @@ fn pages_of m use keep bytes_read
   wanted = list/select numbers (i -> viewing? use keep pages[i])
   answers = list/to_list (list/map wanted (i -> view_of m pages[i] i))
   packs = if (length answers == 0) [] [(derive/define m.name packed_source)]
-  serves = if (use == "serve") [(derive/define m.name answering)] []
+  serves = if (use == "serve") (answering_of m pages calls) []
   sent = list/concat (list/concat answers packs) serves
   drawn = if bytes_read (readers_of m pages numbers marks) []
   list/concat (push drawn opened) sent
+
+# A server's pages are answered inside the app's layout, as a Rails layout
+# wraps a view, so a module of pages a server answers has one, and each
+# call that answers through a module without one is refused where it is
+# written.
+fn answering_of m pages calls
+  return [(derive/define m.name answering)] if list/any? pages layout?
+  answers = list/select calls (c -> c.callee == "{m.name}/answer")
+  list/to_list (list/map answers (c -> derive/refuse_call c unframed))
+
+fn layout? f
+  f == "layout.kata"
+
+unframed = text/join unframed_words " "
+
+unframed_words = [
+  "a server answers its pages inside `views/layout.kata`, which takes"
+  "`title body`; add one"
+]
 
 fn readers_of m pages numbers marks
   readers = list/to_list (list/map pages (f -> reader_of m f m.files[f]))
@@ -416,17 +435,15 @@ packed_source = """
     wire/written (text/to_bytes kata_marks) page
 """
 
-# A page answers a request a browser made itself as HTML, drawn here from
-# the records. The page's script asks with a `senro-view` header, and gets
-# the page as bytes, which it draws with the app's browser module.
-# `answer_as` answers with a status of the action's choosing, such as 422
-# for a form sent back with its problems.
+# `answer req status title page` answers `page` inside the app's layout,
+# titled `title`, with `status`: 200, or 422 for a form sent back with its
+# problems. A request a browser made itself gets HTML, drawn here from the
+# records. The page's script asks with a `senro-view` header, and gets the
+# page as bytes, which it draws with the app's browser module.
 answering = """
-  pub fn answer req page
-    answer_as req 200 page
-
-  pub fn answer_as req code page
-    kata_answered req.headers["senro-view"] code page
+  pub fn answer req status title page
+    framed = layout_view title page
+    kata_answered req.headers["senro-view"] status framed
 
   fn kata_answered none code page
     html = ["content-type: text/html; charset=utf-8"]

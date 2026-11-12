@@ -19,14 +19,14 @@ pub fn new req _
   effect (form req "/notes" "POST" blank {} 200)
 
 pub fn create req db
-  given = sent (web/form req.body)
+  given = sent (web/input req)
   note/create db given .> (w -> effect (made req w))
 
 pub fn edit req db id:int
   note/find db id .> (r -> effect (editing req id r))
 
 pub fn update req db id:int
-  given = picked (web/form req.body)
+  given = picked (web/input req)
   note/update db id given .> (w -> effect (changed req id w))
 
 pub fn destroy _ db id:int
@@ -37,7 +37,7 @@ fn listing req p
   mapped = list/to_list (list/map p.rows as_json)
   return web/json 200 mapped if web/wants_json? req
   page = views/notes_index_view p.rows p.number p.more
-  views/answer_as req 200 (views/layout_view "Notes" page)
+  views/answer req 200 "Notes" page
 
 fn shown _ none
   http/not_found
@@ -46,7 +46,7 @@ fn shown req record
   attributes = note/note_attributes record
   return web/json 200 attributes if web/wants_json? req
   page = views/notes_show_view record
-  views/answer_as req 200 (views/layout_view "Note" page)
+  views/answer req 200 "Note" page
 
 fn editing _ _ none
   http/not_found
@@ -88,7 +88,7 @@ fn gone _
 # problem with each, if any.
 fn form req path method fields problems code
   page = views/notes_form_view path method fields problems
-  views/answer_as req code (views/layout_view "Note" page)
+  views/answer req code "Note" page
 
 blank = { "cover":"" "pages":"" "title":"" }
 

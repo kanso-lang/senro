@@ -491,14 +491,10 @@ notice_cookie = "senro_notice"
 fn leaves_notice? h
   text/starts_with? h "set-cookie: {notice_cookie}="
 
-# The answer `r`, leaving `message` for the request after it to show, as
-# Rails' `redirect_to path, notice: message` does:
-#
-#   web/noticed (web/redirect "/") "Thank you for signing."
-#
-# The next request reads it with `notice`, and the server forgets it once
-# that request is answered.
-pub fn noticed r message
+# The answer `r`, leaving `message` for the request after it to show. The
+# next request reads it with `notice`, and the server forgets it once that
+# request is answered.
+fn noticed r message
   kept_lines = list/to_list (list/reject r.headers leaves_notice?)
   line = "set-cookie: {notice_cookie}={escaped message}; Path=/; HttpOnly"
   http/respond r.status (push kept_lines "{line}; SameSite=Lax") r.body
@@ -1107,9 +1103,16 @@ fn drawn c next
 plain = "content-type: text/plain; charset=utf-8"
 
 # A 303 to `path`: the browser asks for it with a GET, which is how a form
-# post ends without leaving a page that posts again when reloaded.
+# post ends without leaving a page that posts again when reloaded. With a
+# notice, the page it asks for shows it, as Rails' `redirect_to path,
+# notice: message` does:
+#
+#   web/redirect "/" "Thank you for signing."
 pub fn redirect path
   http/respond 303 ["location: {path}"] ""
+
+pub fn redirect path message
+  noticed (redirect path) message
 
 # `answer` as JSON with `status`, as Rails' `render json:` answers: a map or
 # a list of maps, such as a model's `note_attributes` gives.
@@ -1482,7 +1485,7 @@ fn read_back m
 
 # A form posted as application/x-www-form-urlencoded, as a map from each
 # field's name to its value. A field the form did not send reads as "".
-pub fn form body
+fn form body
   pairs = text/split body "&"
   list/fold pairs {} (acc pair -> field acc (text/split pair "="))
 

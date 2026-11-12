@@ -2,4 +2,4 @@ import "./views"
 
 pub fn index req _
   page = views/home_view "notebook"
-  effect (views/answer req (views/layout_view "notebook" page))
+  effect (views/answer req 200 "notebook" page)

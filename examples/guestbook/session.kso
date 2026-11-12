@@ -57,7 +57,7 @@ pub fn new req _
 # refusal takes as long whether or not the name exists, and the answer is
 # the same: a name and a password that do not match.
 pub fn create req db
-  f = web/form req.body
+  f = web/input req
   name = text/trim (web/value f "name")
   password = web/value f "password"
   remember = web/value f "remember" == "yes"
@@ -131,7 +131,7 @@ fn signed req name a remember
   s = web/session req entries/secret
   back = web/return_to req entries/secret "/"
   signing = kept_if (delete s "return_to") remember
-  home = web/noticed (web/redirect back) "Signed in as {name}."
+  home = web/redirect back "Signed in as {name}."
   effect (web/signed_in req home entries/secret signing name a.digest)
 
 # A visitor who ticked "Keep me signed in" keeps the sign-in after the
@@ -162,10 +162,10 @@ pub fn over_limit req
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
   s = web/signed_out (web/session req entries/secret)
-  r = web/noticed (web/redirect "/") "Signed out."
+  r = web/redirect "/" "Signed out."
   effect (web/kept r entries/secret s)
 
 fn opened req name problems code
   to = "/session"
   page = views/door_view "Sign in" to "Sign in" name "" problems false true
-  views/answer_as req code (views/layout_view "Sign in · Guestbook" page)
+  views/answer req code "Sign in · Guestbook" page

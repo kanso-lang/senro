@@ -6,6 +6,6 @@ import "std/text"
 # What a form with two files and a title reads as: the title as typed, and
 # each file as the key it was stored under.
 pub fn create req _
-  f = web/form req.body
+  f = web/input req
   said = list/map ["title" "photo" "notes"] (n -> web/value f n)
   effect (http/text_page (text/join (list/to_list said) "\n"))

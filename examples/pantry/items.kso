@@ -15,13 +15,13 @@ pub fn edit req db id:int
   shelf req db "{id}"
 
 pub fn create req db
-  name = web/value (web/form req.body) "name"
+  name = web/value (web/input req) "name"
   stock/create db { "name":name "quantity":"0" } .> (_ -> back)
 
 # Two forms update an item: one renames it, and the plus and minus buttons
 # send `by`, which moves its count and never below zero.
 pub fn update req db id:int
-  f = web/form req.body
+  f = web/input req
   moved db id (web/value f "name") (text/to_int (web/value f "by"))
 
 fn moved db id name none
@@ -56,7 +56,7 @@ fn shown req items editing
   stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
   plan = planner/view (planner/planned 3)
   page = views/shelf_view items editing total plan stars
-  effect (views/answer req (views/layout_view "Pantry" page))
+  effect (views/answer req 200 "Pantry" page)
 
 # Each item's staple star, a component whose state is the item's id and flag.
 # senro/pg reads a boolean column as true or false.

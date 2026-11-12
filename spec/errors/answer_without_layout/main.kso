@@ -1,0 +1,12 @@
+import "../../../kata"
+import "../../../routes"
+import "../../../web"
+import "./home"
+import "./views"
+
+derive kata/views
+derive routes/rest
+
+# A server answers its pages inside the app's layout, and this app has
+# none, so `answer` is refused.
+web/serve 3000 routes (effect none)
