@@ -1,3 +1,4 @@
+import "../mail"
 import "../pg"
 import "../web"
 import "std/list"
@@ -98,6 +99,28 @@ fn onward v ""
 
 fn onward v path
   get v path
+
+# The mail the visit's requests queued, newest first, as Rails' tests read
+# `ActionMailer::Base.deliveries`. Nothing is sent: the worker never runs
+# inside a visit, and the transaction takes the queue with it.
+pub fn mailed v
+  mail/queued v.db
+
+# The path of the first link `letter` carries, to ask the app for as the
+# reader would follow it, or "" when it carries none. A link starts with the
+# site `mail/url_for` put before it, which a visit has no use for.
+pub fn link_in letter
+  words = text/split (text/replace letter.body "\n" " ") " "
+  linked = list/select words (w -> text/starts_with? w "http")
+  path_of (list/first linked)
+
+fn path_of none
+  ""
+
+fn path_of url
+  parts = text/split url "/"
+  return "" if length parts < 4
+  "/{text/join (list/to_list (list/drop parts 3)) "/"}"
 
 # Where the last answer sent the visitor, or "".
 pub fn location v

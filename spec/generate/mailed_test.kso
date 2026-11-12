@@ -1,0 +1,25 @@
+import "../../visit"
+import "std/expect"
+import "std/list"
+
+# A visit reads the mail its requests queued. spec.sh copies this file into
+# the app the generators wrote and runs it there. Asking for a password
+# reset queues one letter; the visit finds it, and the link it carries opens
+# the page that chooses a new password.
+test_a_visit_reads_its_mail = visit/to routes connected asked
+
+fn asked v
+  visit/post v "/registration" account
+    .> (v -> visit/post v "/resets" { "email":account["email"] })
+    .> (v -> visit/mailed v .> (letters -> opened v (list/first letters)))
+
+fn opened _ none
+  err "the reset queued no mail"
+
+fn opened v letter
+  visit/get v (visit/link_in letter)
+    .> (v -> effect (expect "{letter.subject}: {v.status}" . to (equal seen)))
+
+seen = "Reset your password: 200"
+
+account = { "email":"ada@example.test" "password":"a long password" }

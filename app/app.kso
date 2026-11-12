@@ -67,10 +67,11 @@ fn mailer? name
 
 # `run name routes connected d` runs the app's migrations, recorded in
 # `senro_migrations` under `name`, compares the database's schema with the
-# one they make, and serves `routes` on the port `PORT` names, 3000 when it
-# is unset. A worker beside the server does the app's jobs when it has
-# any, and another sends its mail when it has a mailer. `senro migrate`
-# stops after the comparison.
+# one they make, makes the table jobs and mail wait in (`jobs/prepared`), and
+# serves `routes` on the port `PORT` names, 3000 when it is unset. A worker
+# beside the server does the app's jobs when it has any, and another sends
+# its mail when it has a mailer. `senro migrate` stops before serving, so
+# the database it leaves, a test's among them, can queue both.
 pub fn run name routes connected d
   os/env "PORT" .> (port -> started name routes connected d (port_of port))
 
@@ -81,6 +82,7 @@ fn started name routes connected d port
   connected
     .> (db -> models/applied db name (or_none d["migrations"]))
     .> (db -> models/compared db (or_empty d["schema"]))
+    .> (db -> jobs/prepared db)
     .> (db -> pg/close db)
     .> (_ -> mailed connected d["mailing"] working)
 

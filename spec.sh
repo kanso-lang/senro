@@ -13,8 +13,9 @@
 # requests as its golden holds them; the guestbook and the pantry, used in a
 # browser, update in place without a reload; the generators write
 # examples/notebook, which checks and serves its resource, and whose own
-# specs pass under `senro test`; a visit's writes are rolled back; a lock on a
-# guestbook account runs out by the clock (spec/lapsed); pages listening for
+# specs pass under `senro test`; a visit's writes are rolled back, and it
+# reads the mail it queued; a lock on a guestbook account runs out by the
+# clock (spec/lapsed); pages listening for
 # changes cost the server a connection each and Postgres nothing
 # (spec/live); each app under spec/errors is refused with the message its
 # golden holds; wire and a second writing of its format read each other's
@@ -517,6 +518,21 @@ else
   else
     bad "a visit's writes are rolled back"
     printf '%s\n' "$visits" | diff spec/generate/visits.out -
+  fi
+  # A visit reads the mail its requests queued: spec/generate/mailed_test.kso
+  # asks for a password reset, finds the letter, and follows its link.
+  cp spec/generate/mailed_test.kso "$gen/mailed_test.kso"
+  mailed=$(cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 KANSO="$kanso_at" \
+    "$senro" test mailed_test.kso 2>&1 | grep -v '^senro: made the database')
+  rm -f "$gen/mailed_test.kso"
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$mailed" > spec/generate/mailed.out
+  fi
+  if printf '%s\n' "$mailed" | diff spec/generate/mailed.out - >/dev/null; then
+    note "ok: a visit reads the mail it queued"
+  else
+    bad "a visit reads the mail it queued"
+    printf '%s\n' "$mailed" | diff spec/generate/mailed.out -
   fi
 fi
 # A resource with many fields, written into the same app, still checks:

@@ -55,6 +55,16 @@ queued = """
   values ($1, $2, $3, $4::bigint)
 """
 
+# The arguments of the jobs waiting on `queue`, newest first, as a test reads
+# back what the requests it made queued.
+pub fn queued_on db queue
+  pg/query db waiting [queue] .> (r -> effect (args_of r.rows))
+
+waiting = "select args from senro_jobs where queue = $1 order by id desc"
+
+fn args_of rows
+  list/to_list (list/map rows (row -> json/decode (cell row "args")))
+
 # An app's own jobs, by convention. A module named `<name>_job` is the job
 # `<name>`, as a Rails job is a class named for it, and its `perform db args`
 # does the work: `db` is a database session and `args` the map of strings
