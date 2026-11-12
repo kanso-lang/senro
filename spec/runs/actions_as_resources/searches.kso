@@ -1,0 +1,7 @@
+import "../../../web"
+
+# A search over the posts is a resource of its own: its index reads the
+# query string.
+pub fn index req _
+  q = web/query req
+  "posts matching {web/value q "q"}"
