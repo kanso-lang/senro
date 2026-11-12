@@ -206,7 +206,7 @@ fn model_imports singular parent
   text/join (list/to_list (list/map both (n -> "import \"./{n}\""))) "\n"
 
 # Words as `# ` lines of at most 76 columns, as a person would wrap them.
-fn comment words
+pub fn comment words
   w = list/fold (text/split words " ") (wrap [] "") wrapped
   lines = list/concat w.lines [w.line]
   text/join (list/to_list (list/map lines (l -> "# {l}"))) "\n"
@@ -588,7 +588,7 @@ fn form_about singular
 
 # A map from each field's name, as a constant or a function's one line: on
 # one line when it fits, and one entry to a line when it does not.
-fn map_line head indent fields value
+pub fn map_line head indent fields value
   ordered = list/sort (names_of fields)
   by_name = list/fold fields {} (m f -> put m f.name f)
   pairs = list/to_list (list/map ordered (n -> pair_of by_name[n] value))

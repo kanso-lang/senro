@@ -1,0 +1,51 @@
+import "../../visit"
+import "std/expect"
+import "std/spec"
+
+# Signing in, asked for as a browser asks. `signed` is the app as the entry
+# serves it, with the sign-in requirement around its routes, so an example
+# meets the door a visitor meets. A visit keeps the cookies the app sets:
+# the examples under "with an account" begin signed in, since `joined` has
+# made the account and making one signs its visitor in.
+test_signing_in = describe "signing in" [
+  around (visit/within signed connected)
+  it "is asked of a stranger" turned_back
+  context "with an account" [
+    before joined
+    it "opens the app" opened
+    it "is over once the visitor signs out" over
+    it "takes the address and password again" returned
+    it "refuses a wrong password" refused
+  ]
+]
+
+fn turned_back v
+  visit/get v "/" .> (v -> effect (expect (visit/location v) . to (equal door)))
+
+fn joined v
+  visit/post v "/registration" account
+
+fn opened v
+  visit/get v "/" .> (v -> effect (expect v.status . to (equal 200)))
+
+fn over v
+  visit/remove v "/session"
+    .> (v -> visit/get v "/")
+    .> (v -> effect (expect (visit/location v) . to (equal door)))
+
+fn returned v
+  visit/remove v "/session"
+    .> (v -> visit/post v "/session" account)
+    .> (v -> visit/get v "/")
+    .> (v -> effect (expect v.status . to (equal 200)))
+
+fn refused v
+  visit/remove v "/session"
+    .> (v -> visit/post v "/session" mistaken)
+    .> (v -> effect (expect v.status . to (equal 422)))
+
+account = { "email":"ada@example.test" "password":"a long password" }
+
+mistaken = put account "password" "another password"
+
+door = "/session/new"

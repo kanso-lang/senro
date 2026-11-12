@@ -1,3 +1,4 @@
+import "../pg"
 import "./command"
 import "./listing"
 import "std/io"
@@ -19,8 +20,8 @@ import "std/text"
 #   senro generate              (lists every generator it can find)
 #   senro routes                (lists every route the app answers)
 #
-# `server` and `migrate` are the launcher's, because they hand the terminal
-# to the app. A generator senro does not ship is a kanso program at
+# `server`, `migrate` and `test` are the launcher's, because they hand the
+# terminal to the app. A generator senro does not ship is a kanso program at
 # `generators/<name>.kso` or `generators/<name>/main.kso`, in the app or
 # beside a library the app's entry imports by path. It is run in the app's
 # directory with the words that followed its name.
@@ -40,6 +41,12 @@ fn asked "g" rest
 fn asked "routes" _
   os/env "KANSO" .> (k -> os/run (kanso_of k) ["derived" "."]) .> routed
 
+# The launcher's own: `senro test` asks for the app's test database before
+# it migrates it, on a session with the server's `postgres` database.
+fn asked "database" rest
+  name = worded (list/first rest)
+  pg/from_env .> (db -> pg/ensure db name .> (made -> told db name made))
+
 fn asked _ _
   declined (text/join usage_lines "\n")
 
@@ -50,6 +57,7 @@ usage_lines = [
   "       senro routes                           lists the routes"
   "       senro server                           (or `senro s`)"
   "       senro migrate"
+  "       senro test [file]                      (or `senro t`)"
 ]
 
 pub built_in = [
@@ -158,6 +166,12 @@ fn catalogued all
   own = list/to_list (list/map built_in (b -> "  {b}"))
   theirs = list/to_list (list/map all (g -> "  {g[1]}   ({g[2]})"))
   io/write "{text/join (list/concat own theirs) "\n"}\n"
+
+fn told db _ false
+  pg/close db
+
+fn told db name true
+  io/write "senro: made the database `{name}`\n" .> (_ -> pg/close db)
 
 fn declined why
   io/write_err "senro: {why}\n" .> (_ -> os/exit 2)

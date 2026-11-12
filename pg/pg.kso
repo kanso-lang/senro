@@ -209,6 +209,25 @@ pub fn run s sql
     .> (_ -> replies s.conn ready?)
     .> answered
 
+# The database `name` on the session's server, made when the server has
+# none by that name: `senro test` asks for an app's test database this way.
+# Answers whether it made one. A database's name is no value a statement can
+# bind, so one that is not lowercase letters, digits and `_` is refused.
+pub fn ensure s name
+  plain = name != "" and list/all? (text/chars name) plain?
+  return err "cannot make a database named `{name}`" if not plain
+  query s "select 1 from pg_database where datname = $1" [name]
+    .> (r -> made_unless s name (length r.rows))
+
+fn made_unless _ _ 1
+  effect false
+
+fn made_unless s name _
+  run s "create database {name}" .> (_ -> effect true)
+
+fn plain? c
+  (c >= "a" and c <= "z") or (c >= "0" and c <= "9") or c == "_"
+
 fn extended sql params
   parse = framed 80 (list/concat (cstring "") (list/concat (cstring sql) [0 0]))
   binding = framed 66 (bound params)

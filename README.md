@@ -114,7 +114,8 @@ write over. A module that sends one imports the mailer.
 kind gives the column a unique index, as Rails' generator reads it
 (`email:text:uniq`). A field's name is a lowercase letter and
 then letters, digits and underscores, at most 24 in all; a resource's name
-is spelled the same way, at most 16. It writes two modules and three views.
+is spelled the same way, at most 16. It writes two modules, three views and
+a spec of the resource (Tests, below).
 `note.kso` is the model: the module is named for the record, so the models
 derivation declares `note` in it from the table's columns, and it holds the
 policies and the rules. `notes.kso` is the resource: seven actions that
@@ -176,6 +177,47 @@ already stops it before it writes anything, and so does a name or field it
 cannot read. `examples/notebook` is the app the four commands above write
 when they are given that path. The specs write it again and compare the two.
 
+### Tests
+
+```
+senro test                  every spec in the app
+senro test notes_test.kso   one file
+```
+
+An app's tests are specs beside its modules, in `<name>_test.kso` files,
+written with kanso's `std/spec` and `std/expect`. `scaffold` and `resource`
+write one for what they make, and `authentication` writes one of signing
+in. This is what `scaffold` wrote for the notebook's notes, in part:
+
+```
+test_notes = describe "notes" [
+  around (visit/within routes connected)
+  it "are listed" listed
+  it "are made from the form and shown" made
+  it "are gone once removed" removed
+]
+
+fn made v
+  visit/post v "/notes" given/note
+    .> (v -> visit/followed v)
+    .> (v -> effect (expect v.body . to (contain "milk")))
+```
+
+An example is handed a visit. `visit/get`, `visit/post`, `visit/patch` and
+`visit/remove` ask the app for a path through the route table it serves,
+with no server and no socket, and the visit keeps the cookies the app sets,
+so an example that signs in is signed in for what it asks next.
+`visit/within routes connected` is the hook that gives every example a
+visit of its own inside a transaction, rolled back when the example has
+answered, as a Rails test's is. `routes` and `connected` are names the
+app's entry binds, which a test file beside the entry reads; `signed` is
+the same routes behind the sign-in. `given.kso` holds a map for each model,
+what a form sends to make one, and each generator adds its own.
+
+`senro test` runs against a database of its own, the app's with `_test`
+after its name. It makes that database when the server has none by the
+name and brings it up to the migrations before it runs anything.
+
 ### Migrations
 
 An app keeps its migrations one to a file, in `migrations`, as Rails keeps
@@ -221,6 +263,11 @@ until the app is changed with it.
 
 ## What is here
 
+- `visit`: a visitor for an app's tests. A visit asks the app for pages with
+  no server, keeps its cookies between requests, and holds the last answer's
+  status, headers and body. `visit/within` is the `around` hook that wraps an
+  example in a transaction and rolls it back; `visit/to` is the same for one
+  function. Steps that end in a failure are rolled back too.
 - `routes`: the REST convention, run as a derivation while the app compiles.
   A pub function in one of the app's modules is an action, and its module
   and its name place it: `posts/index` answers GET /posts, `posts/show` GET

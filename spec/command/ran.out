@@ -1,5 +1,6 @@
   create blog/main.kso
   create blog/home.kso
+  create blog/home_test.kso
   create blog/migrations/.keep
   create blog/views/layout.kata
   create blog/views/home.kata
@@ -140,5 +141,6 @@ senro: usage: senro new <app>
        senro routes                           lists the routes
        senro server                           (or `senro s`)
        senro migrate
+       senro test [file]                      (or `senro t`)
 main.kso: ok
 generate: ./main.kso has no `derive jobs/performers`, which finds a job; `new` writes one

@@ -8,6 +8,7 @@ import "./mailer"
 import "./migration"
 import "./resource"
 import "./scaffold"
+import "./specs"
 import "std/io"
 import "std/list"
 import "std/os"
@@ -189,6 +190,7 @@ fn laid app senro
     .> (_ -> os/make_dir "{app}/views")
     .> (_ -> written "{app}/main.kso" (app/entry senro name))
     .> (_ -> written "{app}/home.kso" (app/home name))
+    .> (_ -> written "{app}/home_test.kso" (specs/home senro))
     .> (_ -> os/make_dir "{app}/migrations")
     .> (_ -> written "{app}/migrations/.keep" "")
     .> (_ -> written "{app}/views/layout.kata" app/layout)
@@ -305,6 +307,7 @@ fn wrote app singular fields main names
   index = scaffold/index_view singular fields
   shown = scaffold/shown_view singular fields
   form = scaffold/form_view singular fields
+  spec = specs/pages senro singular fields
   views = "{app}/views"
   os/is_dir views
     .> (there -> made_dir there views)
@@ -313,8 +316,21 @@ fn wrote app singular fields main names
     .> (_ -> written "{views}/{plural}_index.kata" index)
     .> (_ -> written "{views}/{singular}_shown.kata" shown)
     .> (_ -> written "{views}/{singular}_form.kata" form)
+    .> (_ -> written "{app}/{plural}_test.kso" spec)
+    .> (_ -> given_in app (specs/given singular fields))
     .> (_ -> stamped app names made (migration/create senro plural fields))
     .> (_ -> changed "{app}/main.kso" (said entry))
+
+# A model's map joins the app's `given` module, which the first makes.
+fn given_in app map
+  path = "{app}/given.kso"
+  os/read_file path .> (held -> given_with path held map)
+
+fn given_with path _:os/file_not_found map
+  written path "{specs/about_given}\n{map}\n"
+
+fn given_with path held map
+  changed path "{held}\n{map}\n"
 
 # The entry imports the model's module and the resource's, since a
 # derivation reads the modules the entry names.
@@ -394,8 +410,11 @@ fn resource_wrote app singular fields main names
   return refused bare if entry == none
   return refused "{app}/migrations/{held} is there already" if held != ""
   api = resource/module senro singular fields
+  spec = specs/api senro singular fields
   written "{app}/{singular}.kso" (scaffold/model senro singular fields)
     .> (_ -> written "{app}/{plural}.kso" api)
+    .> (_ -> written "{app}/{plural}_test.kso" spec)
+    .> (_ -> given_in app (specs/given singular fields))
     .> (_ -> stamped app names made (migration/create senro plural fields))
     .> (_ -> changed "{app}/main.kso" (said entry))
 

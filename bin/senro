@@ -6,9 +6,10 @@
 #   senro routes                   list the routes the app answers
 #   senro server                   run the app
 #   senro migrate                  bring the database up to the migrations
+#   senro test                     run the app's tests
 #
-# `server` and `migrate` run the app itself, which needs the terminal, so
-# they are handed to kanso here. Everything else is senro.kso. KANSO names
+# `server`, `migrate` and `test` run the app itself, which needs the
+# terminal, so they are handed to kanso here. Everything else is senro.kso. KANSO names
 # the kanso to run when it is not the one on the PATH.
 set -e
 kanso=${KANSO:-kanso}
@@ -21,6 +22,27 @@ case "${1:-}" in
     ;;
   migrate)
     SENRO_ONLY=migrate exec "$kanso" run .
+    ;;
+  test|t)
+    shift
+    # Tests have a database of their own, the app's with `_test` after its
+    # name, so a test never meets a row somebody typed. It is made when the
+    # server has none by that name, as `rails test` makes one, and brought
+    # up to the migrations. A password is stretched by one round, as Devise
+    # sets `stretches` to 1 in a Rails app's tests: the tests run on the
+    # interpreter, where the rounds an app ships with take minutes.
+    PGDATABASE="${PGDATABASE:-${PGUSER:-postgres}}_test"
+    SENRO_PASSWORD_ROUNDS="${SENRO_PASSWORD_ROUNDS:-1}"
+    export SENRO_PASSWORD_ROUNDS
+    PGDATABASE=postgres SENRO_HOME="$home" "$kanso" run "$home/senro.kso" \
+      -- database "$PGDATABASE"
+    export PGDATABASE
+    if ! SENRO_ONLY=migrate "$kanso" run . >/dev/null; then
+      echo "senro: could not migrate the test database \`$PGDATABASE\`." >&2
+      exit 1
+    fi
+    if [ $# -eq 0 ]; then set -- .; fi
+    exec "$kanso" test "$@"
     ;;
 esac
 SENRO_HOME="$home" exec "$kanso" run "$home/senro.kso" -- "$@"

@@ -12,7 +12,8 @@
 # spec/serve, served and asked over HTTP, answers its golden, and one logs the
 # requests as its golden holds them; the guestbook and the pantry, used in a
 # browser, update in place without a reload; the generators write
-# examples/notebook, which checks and serves its resource; a lock on a
+# examples/notebook, which checks and serves its resource, and whose own
+# specs pass under `senro test`; a visit's writes are rolled back; a lock on a
 # guestbook account runs out by the clock (spec/lapsed); pages listening for
 # changes cost the server a connection each and Postgres nothing
 # (spec/live); each app under spec/errors is refused with the message its
@@ -481,6 +482,38 @@ else
     rm -f "$log"
     rm -rf "$outbox"
   done
+  # The specs the generators wrote pass against the app they wrote them
+  # for: `senro test` makes the test database when the server has none,
+  # migrates it, and runs each example in a transaction it rolls back. The
+  # line that says the database was made is there on a first run only, so
+  # it is set aside.
+  tested=$(cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 KANSO="$kanso_at" \
+    "$senro" test 2>&1 | grep -v '^senro: made the database')
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$tested" > spec/generate/tested.out
+  fi
+  if printf '%s\n' "$tested" | diff spec/generate/tested.out - >/dev/null; then
+    note "ok: the generated app's specs pass (senro test)"
+  else
+    bad "the generated app's specs pass (senro test)"
+    printf '%s\n' "$tested" | diff spec/generate/tested.out -
+  fi
+  # A visit's writes are gone when it is over, whether its steps answered or
+  # ended in a failure: spec/generate/visits_test.kso, run in the same app,
+  # makes a note on one visit and finds none on the next.
+  cp spec/generate/visits_test.kso "$gen/visits_test.kso"
+  visits=$(cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 KANSO="$kanso_at" \
+    "$senro" test visits_test.kso 2>&1 | grep -v '^senro: made the database')
+  rm -f "$gen/visits_test.kso"
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$visits" > spec/generate/visits.out
+  fi
+  if printf '%s\n' "$visits" | diff spec/generate/visits.out - >/dev/null; then
+    note "ok: a visit's writes are rolled back"
+  else
+    bad "a visit's writes are rolled back"
+    printf '%s\n' "$visits" | diff spec/generate/visits.out -
+  fi
 fi
 # A resource with many fields, written into the same app, still checks:
 # every list the scaffold writes spans lines once it is too long for one.

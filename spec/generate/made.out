@@ -1,5 +1,6 @@
   create spec/notebook/main.kso
   create spec/notebook/home.kso
+  create spec/notebook/home_test.kso
   create spec/notebook/migrations/.keep
   create spec/notebook/views/layout.kata
   create spec/notebook/views/home.kata
@@ -8,6 +9,8 @@
   create spec/notebook/views/notes_index.kata
   create spec/notebook/views/note_shown.kata
   create spec/notebook/views/note_form.kata
+  create spec/notebook/notes_test.kso
+  create spec/notebook/given.kso
   create spec/notebook/migrations/20261111180512_create_notes.kso
   change spec/notebook/main.kso
   create spec/notebook/page.kso
@@ -15,12 +18,15 @@
   create spec/notebook/views/pages_index.kata
   create spec/notebook/views/page_shown.kata
   create spec/notebook/views/page_form.kata
+  create spec/notebook/pages_test.kso
+  change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180513_create_pages.kso
   change spec/notebook/main.kso
   create spec/notebook/password_mailer.kso
   create spec/notebook/registration.kso
   create spec/notebook/resets.kso
   create spec/notebook/session.kso
+  create spec/notebook/session_test.kso
   create spec/notebook/user.kso
   create spec/notebook/views/door.kata
   create spec/notebook/views/reset_asked.kata
@@ -29,6 +35,8 @@
   change spec/notebook/main.kso
   create spec/notebook/reading.kso
   create spec/notebook/readings.kso
+  create spec/notebook/readings_test.kso
+  change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180515_create_readings.kso
   change spec/notebook/main.kso
 generate: spec/notebook/readings.kso is there already

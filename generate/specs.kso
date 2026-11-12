@@ -1,0 +1,272 @@
+import "../models"
+import "./scaffold"
+import "std/list"
+import "std/text"
+
+# What the generators write for an app's specs, as Rails' generators write a
+# test beside what they make. `<plural>_test.kso` is a spec of the resource,
+# asked for as a browser or a program asks, and the app's `given` module
+# holds a map for each model: what a form sends to make one. `senro test`
+# runs the specs. Each function here answers a file's text, so a spec of
+# the generator reads what would be written without writing it.
+#
+# A resource being specified: its names, the reference to its parent when it
+# is nested, and its fields of each kind a form types.
+type subject
+  singular
+  plural
+  parent
+  texts
+  numbers
+
+# The comment the `given` module opens with, above the first model's map.
+pub about_given = scaffold/comment (text/join given_words " ")
+
+given_words = [
+  "What the app's specs make rows from: a map for each model, holding what"
+  "a form sends to make one. The generators add a model's map here, and a"
+  "spec reads it as `given/<model>`."
+]
+
+# A model's map in the `given` module: a value for each field a form
+# types, text for a text and a number for a number. A file and a parent are
+# left out, since a row is made without the one and under the other.
+pub fn given singular fields
+  forms = typed fields
+  return "pub {singular} = \{}" if length forms == 0
+  scaffold/map_line "pub {singular}" "" forms sample
+
+fn sample f
+  if (f.kind == "integer") "\"3\"" "\"milk\""
+
+fn typed fields
+  kinds = (f -> f.kind == "text" or f.kind == "integer")
+  list/to_list (list/select fields kinds)
+
+fn of_kind fields kind
+  list/to_list (list/select fields (f -> f.kind == kind))
+
+fn subject_of singular fields
+  parent = scaffold/parent_of fields
+  texts = of_kind fields "text"
+  numbers = of_kind fields "integer"
+  subject singular (models/plural singular) parent texts numbers
+
+# The spec `new` writes, of the page a new app answers `/` with: one
+# example, so `senro test` has something to run from the first minute, and
+# the hook every later spec opens with.
+pub fn home senro
+  lines = [
+    "import \"{senro}/visit\""
+    "import \"std/expect\""
+    "import \"std/spec\""
+    ""
+    (scaffold/comment (text/join home_words " "))
+    "test_home = describe \"the home page\" ["
+    "  around (visit/within routes connected)"
+    "  it \"is shown\" shown"
+    "]"
+    ""
+    "fn shown v"
+    (chain ["visit/get v \"/\""] [ok])
+  ]
+  "{text/join lines "\n"}\n"
+
+home_words = [
+  "The app, asked for a page as a browser asks. `senro test` runs the specs"
+  "in files named like this one against the test database, and each example"
+  "runs in a transaction that is rolled back."
+]
+
+# The spec of a resource's pages, as `scaffold` writes them: listed, made,
+# changed and removed through its forms.
+pub fn pages senro singular fields
+  s = subject_of singular fields
+  about = [
+    "The {s.plural}, asked for as a browser asks. `senro test` runs these"
+    "against the test database, and each example runs in a transaction"
+    "that is rolled back, so none of them sees what another wrote."
+  ]
+  examples = [
+    (example "listed" true (lists s))
+    (example "made" true (makes s))
+    (example "changed" (length s.texts > 0) (changes s))
+    (example "refused" (length s.numbers > 0) (refuses s))
+    (example "removed" true (removes s))
+    gone
+  ]
+  whole senro s about (page_lines s) examples (constants s true)
+
+# The spec of a resource's API, as `resource` writes it.
+pub fn api senro singular fields
+  s = subject_of singular fields
+  about = [
+    "The {s.plural}' API, asked as a program asks it. `senro test` runs"
+    "these against the test database, and each example runs in a"
+    "transaction that is rolled back, so none of them sees what another"
+    "wrote."
+  ]
+  examples = [
+    (example "listed" true (lists s))
+    (example "made" true (answers s))
+    (example "refused" (length s.numbers > 0) (refuses s))
+  ]
+  whole senro s about (api_lines s) examples (constants s false)
+
+fn whole senro s about its examples maps
+  imports = [
+    "import \"{senro}/visit\""
+    "import \"./given\""
+    "import \"std/expect\""
+    "import \"std/spec\""
+    ""
+  ]
+  head = [
+    (scaffold/comment (text/join about " "))
+    "test_{s.plural} = describe \"{s.plural}\" ["
+    "  around (visit/within routes connected)"
+  ]
+  described = list/concat (list/concat head its) ["]"]
+  parts = list/concat (list/concat imports described) (kept examples)
+  after = list/concat (below s s.parent) maps
+  "{text/join (list/concat parts after) "\n"}\n"
+
+fn page_lines s
+  lines = [
+    "  it \"are listed\" listed"
+    "  it \"are made from the form and shown\" made"
+    (if (length s.texts > 0) "  it \"are changed from the form\" changed" "")
+    (if (length s.numbers > 0) "  it \"{breaking}\" refused" "")
+    "  it \"are gone once removed\" removed"
+  ]
+  kept lines
+
+fn api_lines s
+  lines = [
+    "  it \"are listed\" listed"
+    "  it \"are made from what is posted\" made"
+    (if (length s.numbers > 0) "  it \"{breaking}\" refused" "")
+  ]
+  kept lines
+
+breaking = "are not made from a field that breaks its rule"
+
+fn kept lines
+  list/to_list (list/select lines (l -> l != ""))
+
+# An example's function, or "" for one this resource has no field for.
+fn example _ false _
+  ""
+
+fn example name true body
+  "\nfn {name} v\n{body}"
+
+fn lists s
+  chain (asking s "visit/get v" "") [ok]
+
+fn makes s
+  seen = if (length s.texts > 0) (holds "milk") ok
+  chain (asking s "visit/post v" "given/{s.singular}") [followed seen]
+
+fn answers s
+  chain (asking s "visit/post v" "given/{s.singular}") [(status 201)]
+
+fn changes s
+  patch = "(v -> visit/patch v (visit/location v) edited)"
+  steps = [patch followed (holds "bread")]
+  chain (asking s "visit/post v" "given/{s.singular}") steps
+
+fn refuses s
+  chain (asking s "visit/post v" "broken") [(status 422)]
+
+fn removes s
+  steps = ["(v -> gone v (visit/location v))"]
+  chain (asking s "visit/post v" "given/{s.singular}") steps
+
+# The row at `at` removed, and then asked for.
+gone = text/join gone_lines "\n"
+
+gone_lines = [
+  ""
+  "fn gone v at"
+  "  visit/remove v at"
+  "    .> (v -> visit/get v at)"
+  "    .> {status 404}"
+]
+
+ok = status 200
+
+followed = "(v -> visit/followed v)"
+
+fn status n
+  "(v -> effect (expect v.status . to (equal {n})))"
+
+fn holds words
+  "(v -> effect (expect v.body . to (contain \"{words}\")))"
+
+# The opening of an example: the request `verb` at the resource's path,
+# which a nested resource learns from the parent it first makes.
+fn asking s verb sent
+  tail = if (sent == "") "" " {sent}"
+  opening s verb tail s.parent
+
+fn opening s verb tail none
+  ["{verb} \"/{s.plural}\"{tail}"]
+
+fn opening s verb tail _
+  ["{s.plural}_path v" "(at -> {verb} at{tail})"]
+
+# An example's body: its steps as one line when they fit, and a step to a
+# line when they do not.
+fn chain start steps
+  all = list/concat start steps
+  one = "  {text/join all " .> "}"
+  return one if length one <= 80
+  rest = list/to_list (list/drop all 1)
+  each = list/to_list (list/map rest (s -> "    .> {s}"))
+  "  {worded (list/first all)}\n{text/join each "\n"}"
+
+# A nested resource's parent, made through its model for an example's rows
+# to sit under, and the path to those rows.
+fn below _ none
+  []
+
+fn below s parent
+  name = scaffold/parent_name parent
+  parents = models/plural name
+  about = [
+    "A {name} for an example's {s.plural} to sit under, and the path to"
+    "them."
+  ]
+  made = "{name}/create v.db given/{name}"
+  path = "(n -> effect \"/{parents}/\{n.id}/{s.plural}\")"
+  [
+    ""
+    (scaffold/comment (text/join about " "))
+    "fn {s.plural}_path v"
+    (chain [made] [path])
+  ]
+
+# The maps an example sends in place of the model's: one with a text
+# changed, for a spec that changes a row, and one whose number is no number.
+fn constants s changing
+  map = "given/{s.singular}"
+  texts = list/to_list (list/map s.texts (f -> f.name))
+  numbers = list/to_list (list/map s.numbers (f -> f.name))
+  lines = [
+    (constant "edited" map (if changing (list/first texts) none) "bread")
+    (constant "broken" map (list/first numbers) "many")
+  ]
+  kept lines
+
+fn constant _ _ none _
+  ""
+
+fn constant name map field value
+  "\n{name} = put {map} \"{field}\" \"{value}\""
+
+fn worded none
+  ""
+
+fn worded s
+  s
