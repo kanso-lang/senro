@@ -1,4 +1,5 @@
 import "../../models"
+import "../../routes"
 import "../../web"
 import "./removal"
 import "./signature"
@@ -46,7 +47,7 @@ fn signed req db w:models/invalid
 # A signature kept. The answer sends the browser back to the list, so
 # reloading it does not sign the book again.
 fn signed _ _ _
-  effect (web/redirect "/" "Thank you for signing.")
+  effect (web/redirect (routes/path_to "home/index") "Thank you for signing.")
 
 # The page goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the

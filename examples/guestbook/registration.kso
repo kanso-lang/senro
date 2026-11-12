@@ -1,5 +1,6 @@
 import "../../models"
 import "../../passwords"
+import "../../routes"
 import "../../web"
 import "./account"
 import "./account_mailer"
@@ -55,7 +56,7 @@ fn joined req db asked by_name by_email
 # and the account can ask again by signing in.
 fn made db kept:account/account
   told = "Welcome, {kept.name}. Confirm your address with the link we sent."
-  welcomed = web/redirect "/" told
+  welcomed = web/redirect (routes/path_to "home/index") told
   account_mailer/confirmation db kept.id kept.email
     .? (u -> io/write_err "guestbook: no confirmation mail: {u.reason}\n")
     .> (_ -> effect welcomed)
@@ -67,6 +68,6 @@ fn made _ _
 # each field, if any. A password is never sent back.
 fn opened req name email problems code
   heading = "Make an account"
-  to = "/registration"
+  to = routes/path_to "registration/create"
   page = views/door_view heading to "Make it" name email problems true false
   views/answer req code "Make an account · Guestbook" page
