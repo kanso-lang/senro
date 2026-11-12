@@ -597,7 +597,7 @@ until the app is changed with it.
   its viewer (`spec/serve/idle`). `web/signed_out` forgets the sign-in and
   keeps the rest. An answer can
   leave a notice for the next page, as Rails' flash does:
-  `web/noticed (web/redirect "/") "Thank you for signing."` sends the browser
+  `web/redirect "/" "Thank you for signing."` sends the browser
   on with one, the page it lands on reads it with `web/notice req`, and the
   server forgets it once that page is answered. A notice has a cookie of its
   own, so forgetting one never sets the session. It also serves

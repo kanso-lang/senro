@@ -10,5 +10,5 @@ derive kata/views
 # module. This run is not counted.
 held = reading/view (reading/holding 5)
 listed = views/board_view (board/topics 50) board/signed_in held
-answer = views/answer board/for_data (views/layout_view "Board" listed)
+answer = views/answer board/for_data 200 "Board" listed
 print (base64/encode answer.body)

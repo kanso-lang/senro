@@ -28,12 +28,12 @@ pub fn new req _
 # which addresses are registered. A failure to queue goes to standard error,
 # and the worker logs a failure to send.
 pub fn create req db
-  f = web/form req.body
+  f = web/input req
   email = text/lowercase (text/trim (web/value f "email"))
   user/find_by db "email" email
     .> (u -> sent db u)
     .? (u -> io/write_err "no reset mail: {u.reason}\n")
-    .> (_ -> effect (told "/session/new" on_its_way))
+    .> (_ -> effect (web/redirect "/session/new" on_its_way))
 
 on_its_way = "If that address has an account, a link is on its way to it."
 
@@ -51,7 +51,7 @@ fn offered req token true
   effect (chosen req token {} 200)
 
 fn offered _ _ false
-  effect (told "/resets/new" expired)
+  effect (web/redirect "/resets/new" expired)
 
 expired = "That link has expired or was used. Ask for another."
 
@@ -59,11 +59,11 @@ expired = "That link has expired or was used. Ask for another."
 # still good. Setting it changes the digest, which is what retires the link
 # and ends every sign-in made with the old password.
 pub fn update req db id
-  password = web/value (web/form req.body) "password"
+  password = web/value (web/input req) "password"
   checked db id .> (good -> chose req db id password good)
 
 fn chose _ _ _ _ false
-  effect (told "/resets/new" expired)
+  effect (web/redirect "/resets/new" expired)
 
 fn chose req db token password true
   short = { "password":"Use eight characters or more." }
@@ -71,7 +71,7 @@ fn chose req db token password true
   id = id_of (passwords/reset_id token)
   passwords/digested password
     .> (d -> user/update (models/as_app db) id { "digest":d })
-    .> (_ -> effect (told "/session/new" changed))
+    .> (_ -> effect (web/redirect "/session/new" changed))
 
 changed = "Your password is changed. Sign in with it."
 
@@ -92,15 +92,10 @@ fn id_of none
 fn id_of n
   "{n}"
 
-# A redirect carrying a notice for the page it lands on.
-fn told to notice
-  web/noticed (web/redirect to) notice
-
 fn asked req code
   page = views/reset_asked_view (web/notice req) {}
-  framed = views/layout_view "Forgot your password" page
-  views/answer_as req code framed
+  views/answer req code "Forgot your password" page
 
 fn chosen req token problems code
   page = views/reset_chosen_view "/resets/{token}" problems
-  views/answer_as req code (views/layout_view "A new password" page)
+  views/answer req code "A new password" page

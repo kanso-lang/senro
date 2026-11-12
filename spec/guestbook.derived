@@ -497,11 +497,9 @@ pub fn unlock_offered_view path
 pub fn packed page
   wire/written (text/to_bytes kata_marks) page
 # in views, by app/conventions
-pub fn answer req page
-  answer_as req 200 page
-
-pub fn answer_as req code page
-  kata_answered req.headers["senro-view"] code page
+pub fn answer req status title page
+  framed = layout_view title page
+  kata_answered req.headers["senro-view"] status framed
 
 fn kata_answered none code page
   html = ["content-type: text/html; charset=utf-8"]

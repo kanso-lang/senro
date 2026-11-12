@@ -48,7 +48,7 @@ fn written true name plural action
   lines = [
     "pub fn {action} req _{id_of action}"
     "  page = views/{plural}_{action}_view \"{titled plural action}\""
-    "  effect (views/answer req (views/layout_view \"{name}\" page))"
+    "  effect (views/answer req 200 \"{name}\" page)"
   ]
   text/join lines "\n"
 

@@ -1,0 +1,4 @@
+import "./views"
+
+pub fn index req _
+  effect (views/answer req 200 "Hello" (views/greet_view "Ada"))

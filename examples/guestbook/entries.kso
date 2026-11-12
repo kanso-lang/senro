@@ -33,7 +33,7 @@ pub sender = "Guestbook <noreply@guestbook.test>"
 # text and never read as SQL.
 pub fn create req db
   viewer = web/viewer req secret
-  f = put (web/form req.body) "name" viewer
+  f = put (web/input req) "name" viewer
   signature/create db f .> (w -> signed req db w)
 
 # A signature the rules turned back: the page again, answered 422, with the
@@ -46,7 +46,7 @@ fn signed req db w:models/invalid
 # A signature kept. The answer sends the browser back to the list, so
 # reloading it does not sign the book again.
 fn signed _ _ _
-  effect (web/noticed (web/redirect "/") "Thank you for signing.")
+  effect (web/redirect "/" "Thank you for signing.")
 
 # The page goes out as HTML to a browser that asked for it, and as data to
 # senro's page script, which renders it with the views compiled for the
@@ -55,7 +55,7 @@ fn shown req book s form code
   who = said s["viewer"]
   removals = list/fold book {} (m e -> put m "{e.id}" (removal_of e who))
   page = views/signed_view book form (web/notice req) removals who
-  effect (views/answer_as req code (views/layout_view "Guestbook" page))
+  effect (views/answer req code "Guestbook" page)
 
 # Each entry's remove button, drawn only for the person who signed it. The
 # policy is what stops anyone else; the button is a convenience.

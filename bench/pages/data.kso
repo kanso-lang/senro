@@ -8,5 +8,5 @@ derive kata/views
 # The page as the server answers a browser that asked for its data.
 held = reading/view (reading/holding 5)
 listed = views/board_view (board/topics 50) board/signed_in held
-answer = views/answer board/for_data (views/layout_view "Board" listed)
+answer = views/answer board/for_data 200 "Board" listed
 print (length answer.body)

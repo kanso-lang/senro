@@ -21,7 +21,7 @@ pub fn edit req db id
   held db id .> (a -> offered req id a)
 
 fn offered _ _ none
-  effect (told stale)
+  effect (web/redirect "/" stale)
 
 fn offered req id a
   effect (shown req id a.email)
@@ -34,12 +34,14 @@ pub fn update req db id
   held db id .> (a -> confirmed req db a)
 
 fn confirmed _ _ none
-  effect (told stale)
+  effect (web/redirect "/" stale)
 
 fn confirmed _ db a
   time/now
     .> (t -> account/update (models/as_app db) a.id { "confirmed":"{t}" })
-    .> (_ -> effect (told "Your address is confirmed. Sign in with it."))
+    .> (_ -> effect (web/redirect "/" confirmed_notice))
+
+confirmed_notice = "Your address is confirmed. Sign in with it."
 
 # The account a token confirms now, or none when the token is no good for
 # the account it names.
@@ -67,10 +69,6 @@ fn id_text none
 fn id_text n
   "{n}"
 
-fn told notice
-  web/noticed (web/redirect "/") notice
-
 fn shown req id email
   page = views/confirm_offered_view "/confirmations/{id}" email
-  framed = views/layout_view "Confirm your address · Guestbook" page
-  views/answer_as req 200 framed
+  views/answer req 200 "Confirm your address · Guestbook" page
