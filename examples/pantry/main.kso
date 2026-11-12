@@ -13,7 +13,7 @@ derive app/conventions
 
 # The components whose actions run on the server. The planner runs in the
 # browser, from browser.kso.
-served = { "staple":(web/component staple/act staple/view) }
+served = [staple/component]
 
 # The planner asks the server for the staples the week runs short of, through
 # the provider in item.kso.

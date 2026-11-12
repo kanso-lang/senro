@@ -35,12 +35,6 @@ type book
 type moved
   path
 
-# A component whose actions run on the server: the `act` kata wrote for its
-# module and the view that draws a state.
-type wired
-  act
-  view
-
 # What a model's checked write answers when its policy says no, and when the
 # row it was asked for is not there. The server answers a server action that
 # answers one of them as a 403 or a 404.
@@ -959,29 +953,28 @@ pub fn refusal absent
   http/not_found
 
 # The app's components whose actions run on the server, added to its route
-# table. Each answers POST /senro/act/<component> and nothing else, so only
-# a component the app names here, and only an action one of its templates
-# binds, can be reached from a page:
+# table. `derive kata/views` writes `component` into the module of each one,
+# and the app lists them:
 #
-#   web/serve 3001 (web/components routes { "stars": stars }) connected
+#   web/serve 3001 (web/components routes [stars/component]) connected
 #
-# where `stars = web/component stars/act stars/view`. An action that asks for
-# the viewer is handed the one the request's session names.
-pub fn component act view
-  wired act view
+# Each answers POST /senro/act/<component> and nothing else, so only a
+# component the app names here, and only an action one of its templates
+# binds, can be reached from a page. A request is answered as the page it
+# names would be, as a provider's is: the page's module must lean on the
+# component's, behind `requiring_sign_in` a page that asks for a sign-in
+# answers only a visitor who has one, and the module's `admits` is asked
+# for the page's action. An action that asks for the viewer is handed the
+# one the request's session names.
+pub fn components routes named
+  list/fold named routes (acc c -> put acc (act_route c) (act_row c routes))
 
-pub fn components routes table
-  list/fold (keys table) routes (acc n -> routed_to acc n table[n])
+fn act_route c
+  "POST /senro/act/{c.name}"
 
-fn routed_to routes _ none
-  routes
-
-fn routed_to routes n c
-  put routes "POST /senro/act/{n}" (act_row c)
-
-fn act_row c
-  acting = (req db -> acted_as c req (asking_for db req))
-  { "action":acting "id":"" "open":true }
+fn act_row c pages
+  acting = (req db -> acted_as c pages req (asking_for db req))
+  { "action":acting "component":c "id":"" "open":true }
 
 # The app's providers: what an action running in the browser asks the server
 # for with `data/ask`, by the name the table gives it. Each is a function of
@@ -1116,11 +1109,29 @@ fn one table call who db got
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is
 # what keeps a page elsewhere from acting with this visitor's cookie.
-fn acted_as c req db
-  acted c req db (pg/asker db)
+fn acted_as c pages req db
+  acted c pages req db (pg/asker db)
 
-fn acted c req db who
+fn acted c pages req db who
   return effect forbidden if req.headers["senro-page"] == none
+  page = page_at pages (unformatted (said req.headers["senro-from"]))
+  return effect forbidden if not acted_from? c page who
+  page_admits page who db .> (ok -> acted_if ok c req db who)
+
+# Whether the page a request names draws the component, and whether this
+# visitor may be on it at all.
+fn acted_from? _ none _
+  false
+
+fn acted_from? c page who
+  closed = page["walled"] != none and page["open"] == none and who == ""
+  module = module_of (said page["name"])
+  list/any? c.pages (p -> p == module) and not closed
+
+fn acted_if false _ _ _ _
+  effect forbidden
+
+fn acted_if true c req db who
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
   stated c lines[1] (state_of (wire/from_text lines[2])) req db who
@@ -1210,7 +1221,20 @@ fn unformatted path
 pub fn requiring_sign_in routes bound_of
   each = (acc e -> put acc e.key (guarded e.value bound_of))
   walled = list/fold (entries routes) {} each
-  asked_within walled bound_of routes[data_route]
+  rewall = (acc e -> acted_within acc e.key e.value bound_of)
+  acting = list/fold (entries routes) walled rewall
+  asked_within acting bound_of routes[data_route]
+
+# A component's row is made again over the wrapped pages, as the providers'
+# is below, so the page a request names is the one behind the wall.
+fn acted_within walled key row bound_of
+  rewalled_act walled key row["component"] bound_of
+
+fn rewalled_act walled _ none _
+  walled
+
+fn rewalled_act walled key c bound_of
+  put walled key (guarded (act_row c walled) bound_of)
 
 # A table that answers providers already answers them from behind the wall:
 # its row is made again over the wrapped pages, so a request that names a

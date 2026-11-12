@@ -1,0 +1,4 @@
+takes said
+div.tally
+  span = said
+  button on-click=raised +

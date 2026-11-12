@@ -2,9 +2,16 @@ HTTP/1.1 403 Forbidden: Forbidden
 HTTP/1.1 403 Forbidden: Forbidden
 HTTP/1.1 403 Forbidden: Forbidden
 HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
 HTTP/1.1 200 OK: ["3 years of books, read for viewer 2"]
 HTTP/1.1 403 Forbidden: Forbidden
 HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 403 Forbidden: Forbidden
+HTTP/1.1 200 OK: <div data-component="tally" data-runs="server" data-state="i3JhaXNlZCBieSAy"><div class="tally"><span>raised by 2</span><button data-on-click="raised">+</button></div></div>
 HTTP/1.1 200 OK: the ledger, which asks the server: true
+<div data-component="tally" data-runs="server" data-state="kHJhaXNlZCBieSBub2JvZHk="><div class="tally"><span>raised by nobody</span><button data-on-click="raised">+</button></div></div>
 HTTP/1.1 200 OK: ["3 years of books, read for viewer 1"]
 HTTP/1.1 404 Not Found: not found
+HTTP/1.1 200 OK: <div data-component="tally" data-runs="server" data-state="i3JhaXNlZCBieSAx"><div class="tally"><span>raised by 1</span><button data-on-click="raised">+</button></div></div>

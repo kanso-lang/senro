@@ -395,14 +395,14 @@ script = """
     {runner}
     const ran = (event, page) => module_run(runtime, app, event, page);
 
-    // A component whose actions need the server posts its state there, and
-    // the server answers the same way the module does. What the action
-    // changed on the server may show elsewhere on the page too, so the page
-    // then refreshes the rest of itself.
+    // A component whose actions need the server posts its state there, with
+    // the page it is on, and the server answers the same way the module
+    // does. What the action changed on the server may show elsewhere on the
+    // page too, so the page then refreshes the rest of itself.
     const posted = async (root, action) => \{
       const r = await fetch("/senro/act/" + root.dataset.component, \{
         method: "POST",
-        headers: \{ "senro-page": self },
+        headers: \{ "senro-page": self, "senro-from": location.pathname },
         body: action + "\\n" + root.dataset.state,
       });
       if (stale(r)) return null;

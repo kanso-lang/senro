@@ -178,10 +178,16 @@ fn page_row m f
 # list is those modules, so `web/providers` can tell a page that uses the
 # provider from one that only names it.
 fn pages_of p m f
-  askers = askers_of p m f
-  leaning = list/select p.modules (x -> leans_on? p x.name askers)
-  names = list/to_list (list/map leaning (x -> "\"{x.name}\""))
+  leaning = leaning_on p (askers_of p m f)
+  names = list/to_list (list/map leaning (x -> "\"{x}\""))
   spread "{f.name}_pages =" "[" (list/sort names) "]"
+
+# The names of the modules that lean on one of `askers`: the module itself,
+# or one its calls reach, in turn. `kata/views` lists the modules that may
+# act on a server component the same way.
+pub fn leaning_on p askers
+  leaning = list/select p.modules (x -> leans_on? p x.name askers)
+  list/to_list (list/map leaning (x -> x.name))
 
 # The modules that call the provider short.
 fn askers_of p m f

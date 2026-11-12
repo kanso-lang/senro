@@ -1,5 +1,6 @@
 import "../../../data"
 import "./books"
+import "./tally"
 import "std/net/http"
 
 # Only the bookkeeper, viewer 1, may reach the ledger.
@@ -7,7 +8,8 @@ pub fn admits _ viewer _
   effect (viewer == "1")
 
 # The ledger asks the server for the books' total, as a component's action
-# would from the browser.
+# would from the browser, and draws the tally, whose action runs there.
 pub fn index _ _
   asks = data/asking? (books/total 3)
-  effect (http/text_page "the ledger, which asks the server: {asks}")
+  drawn = tally/view "raised by nobody"
+  effect (http/text_page "the ledger, which asks the server: {asks}\n{drawn}")

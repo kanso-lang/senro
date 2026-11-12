@@ -351,9 +351,10 @@ until the app is changed with it.
   every older sign-in, as Devise's does. An action that asks for a sign-in
   sends that visitor to sign in again; an open one runs as if nobody had
   signed in, and its answer tells the browser to forget the sign-in.
-  Components' actions are open, since their models' policies decide, so
-  the table goes through `web/components` first and then through
-  `web/requiring_sign_in`. An app whose sign-ins rest on nothing passes
+  A component's action is answered as the page it was posted from, so the
+  table goes through `web/components` first and then through
+  `web/requiring_sign_in`, which applies that page's wall and its
+  `admits` to the action. An app whose sign-ins rest on nothing passes
   `web/unbound` and "".
   A module says who may reach its pages with `pub fn admits action viewer
   db`, which answers an effect of true or false, as a Rails controller's

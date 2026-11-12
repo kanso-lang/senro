@@ -19,7 +19,7 @@ import "./views"
 derive app/conventions
 
 # The components whose actions run on the server.
-served = { "removal":(web/component removal/act removal/view) }
+served = [removal/component]
 
 acting = web/components routes served
 

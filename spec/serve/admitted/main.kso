@@ -1,4 +1,5 @@
 import "../../../data"
+import "../../../kata"
 import "../../../pg"
 import "../../../routes"
 import "../../../web"
@@ -8,13 +9,17 @@ import "./home"
 import "./ledger"
 import "./nested"
 import "./session"
+import "./tally"
 
 derive data/providers
+derive kata/views
 derive routes/rest
 
 connected = pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
 
-answering = web/providers routes books/provided
+acting = web/components routes [tally/component]
+
+answering = web/providers acting books/provided
 
 guarded = web/requiring_sign_in answering web/unbound
 
