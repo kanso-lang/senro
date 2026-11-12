@@ -187,6 +187,7 @@ fn names_of fields
 fn imports senro singular parent
   lines = [
     "import \"{senro}/models\""
+    "import \"{senro}/routes\""
     "import \"{senro}/web\""
     (model_imports singular parent)
     "import \"./views\""
@@ -295,7 +296,8 @@ fn actions singular plural fields
     "  {singular}/find db id .> (r -> effect (shown req r))"
     ""
     "pub fn new req _"
-    "  effect (form req \"/{plural}\" \"POST\" blank \{} 200)"
+    "  path = routes/path_to \"{plural}/create\""
+    "  effect (form req path \"POST\" blank \{} 200)"
     ""
     "pub fn create req db"
     "  given = {made_with fields} (web/input req)"
@@ -317,7 +319,6 @@ fn actions singular plural fields
 fn helpers singular plural fields
   title = capitalized singular
   every_title = capitalized plural
-  path = "\"/{plural}/\{id}\""
   lines = [
     "fn listing req p"
     "  as_json = {singular}/{singular}_attributes"
@@ -339,19 +340,22 @@ fn helpers singular plural fields
     "  http/not_found"
     ""
     "fn editing req id record"
-    "  form req {path} \"PATCH\" (filled record) \{} 200"
+    "  path = routes/path_to \"{plural}/update\" id"
+    "  form req path \"PATCH\" (filled record) \{} 200"
     ""
     "fn made req w:models/invalid"
-    "  form req \"/{plural}\" \"POST\" (filled w.record) w.problems 422"
+    "  path = routes/path_to \"{plural}/create\""
+    "  form req path \"POST\" (filled w.record) w.problems 422"
     ""
     "fn made _ w:web/denied"
     "  web/refusal w"
     ""
     "fn made _ w"
-    "  web/redirect \"/{plural}/\{w.id}\""
+    "  web/redirect (routes/path_to \"{plural}/show\" w.id)"
     ""
     "fn changed req id w:models/invalid"
-    "  form req {path} \"PATCH\" (filled w.record) w.problems 422"
+    "  path = routes/path_to \"{plural}/update\" id"
+    "  form req path \"PATCH\" (filled w.record) w.problems 422"
     ""
     "fn changed _ _ w:web/denied"
     "  web/refusal w"
@@ -360,7 +364,7 @@ fn helpers singular plural fields
     "  web/refusal w"
     ""
     "fn changed _ id _"
-    "  web/redirect \"/{plural}/\{id}\""
+    "  web/redirect (routes/path_to \"{plural}/show\" id)"
     ""
     "fn gone w:web/denied"
     "  web/refusal w"
@@ -369,7 +373,7 @@ fn helpers singular plural fields
     "  web/refusal w"
     ""
     "fn gone _"
-    "  web/redirect \"/{plural}\""
+    "  web/redirect (routes/path_to \"{plural}/index\")"
     ""
     (comment (form_about singular))
     "fn form req path method fields problems code"
@@ -470,10 +474,10 @@ fn nested_actions singular plural fields parent
     "  {singular}/destroy db id"
     ""
     "fn listed_path {k}"
-    "  \"/{parents}/\{{k}}/{plural}\""
+    "  routes/path_to \"{plural}/index\" {k}"
     ""
     "fn shown_path {k} id"
-    "  \"\{listed_path {k}}/\{id}\""
+    "  routes/path_to \"{plural}/show\" {k} id"
     ""
   ]
   text/join lines "\n"

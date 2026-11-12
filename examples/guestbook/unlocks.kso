@@ -1,4 +1,5 @@
 import "../../models"
+import "../../routes"
 import "../../tokens"
 import "../../web"
 import "./account"
@@ -20,7 +21,7 @@ fn offered req id true
   effect (shown req id)
 
 fn offered _ _ false
-  effect (web/redirect "/" stale)
+  effect (web/redirect (routes/path_to "home/index") stale)
 
 stale = "That link has expired or was used."
 
@@ -30,12 +31,12 @@ pub fn update req db id
   held db id .> (good -> opened req db id good)
 
 fn opened _ _ _ false
-  effect (web/redirect "/" stale)
+  effect (web/redirect (routes/path_to "home/index") stale)
 
 fn opened _ db token true
   id = id_text (tokens/id_of token)
   account/update (models/as_app db) id { "failures":"0" "locked":"" }
-    .> (_ -> effect (web/redirect "/" "Your account is unlocked. Sign in."))
+    .> (_ -> effect (web/redirect home "Your account is unlocked. Sign in."))
 
 # Whether `token` is good now for the account it names.
 fn held db token
@@ -55,5 +56,8 @@ fn id_text n
   "{n}"
 
 fn shown req id
-  page = views/unlock_offered_view "/unlocks/{id}"
+  page = views/unlock_offered_view (routes/path_to "unlocks/update" id)
   views/answer req 200 "Unlock your account · Guestbook" page
+
+# The book, where a visitor lands once the link has done its work.
+home = routes/path_to "home/index"
