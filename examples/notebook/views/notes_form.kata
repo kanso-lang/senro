@@ -2,7 +2,7 @@ takes path method fields problems
 header
   h1 Note
   p.lede
-    a href="/notes" All notes
+    a href=(path_to "notes/index") All notes
 form method="post" action=path enctype="multipart/form-data"
   input type="hidden" name="_method" value=method
   label

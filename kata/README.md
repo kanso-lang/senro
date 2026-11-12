@@ -49,6 +49,16 @@ ol.entries
   `class` attribute is joined onto the shorthand's classes.
 - Attributes are `name="text"`, where the text may hold `{expr}`, or
   `name=expr` for a value.
+- A link names its route as an action does: `a href=(path_to "notes/show"
+  r.id)`. kata writes the route's path while it derives the view, here
+  `href="/notes/{r.id}"`, so a template's links are checked against the
+  routes like an action's, and the views module imports nothing for them. A
+  route the template names that does not exist, or a call with the wrong
+  ids, is refused with the template's line
+  (`spec/errors/a_template_link_to_no_route`,
+  `spec/errors/a_template_link_missing_its_id`). A stored file is
+  `src=(blob_path e.photo)`. A link to another page of the same list names
+  only its query, `href="?page={number + 1}"`, which keeps the page's path.
 - `= expr` writes a value escaped and `== expr` writes it raw. Text after a
   tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace. A value
   that may be none, such as a map's entry, writes nothing under `=`.

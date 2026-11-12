@@ -2,14 +2,14 @@ takes note_id rows number more
 header
   h1 Pages
   p.lede
-    a href="/notes/{note_id}/pages/new" New page
-    a href="/notes/{note_id}" Back to the note
+    a href=(path_to "pages/new" note_id) New page
+    a href=(path_to "notes/show" note_id) Back to the note
 ul.pages
   each rows r ->
     li
-      a href="/notes/{note_id}/pages/{r.id}" = r.body
+      a href=(path_to "pages/show" note_id r.id) = r.body
 nav.pages
   if number > 1
-    a href="/notes/{note_id}/pages?page={number - 1}" Previous page
+    a href="?page={number - 1}" Previous page
   if more
-    a href="/notes/{note_id}/pages?page={number + 1}" Next page
+    a href="?page={number + 1}" Next page

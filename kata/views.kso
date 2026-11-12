@@ -18,11 +18,8 @@ pub fn views p
 fn templated p m
   return [] if not list/any? (keys m.files) (f -> text/ends_with? f ".kata")
   v = viewed_of p m
-  return refusals v if length v.refused > 0
+  return v.refused if length v.refused > 0
   templates p v
-
-fn refusals v
-  list/to_list (list/map v.refused (why -> derive/refuse v.name why))
 
 fn templates p m
   calls = list/fold p.modules [] (acc x -> list/concat acc x.calls)

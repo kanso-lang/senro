@@ -1,0 +1,4 @@
+error[derive]: views/list.kata:5: `posts/shwo` names no route
+  --> ./main.kso:5:1
+   5 | derive kata/views
+       ^

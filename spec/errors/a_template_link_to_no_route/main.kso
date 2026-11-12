@@ -1,0 +1,8 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+
+derive kata/views
+
+# A template's link is checked against the routes as an action's is.
+print (views/list [1 2])

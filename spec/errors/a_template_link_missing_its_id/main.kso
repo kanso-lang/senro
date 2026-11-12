@@ -1,0 +1,8 @@
+import "../../../kata"
+import "./posts"
+import "./views"
+
+derive kata/views
+
+# A link to a row names the row's id.
+print (views/list [1 2])

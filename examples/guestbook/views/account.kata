@@ -2,7 +2,7 @@ takes path problems seen
 header
   h1 Your account
   p.lede
-    a href="/" Back to the book
+    a href=(path_to "home/index") Back to the book
 if seen != ""
   p.seen = seen
 form method="post" action=path

@@ -2,7 +2,7 @@ takes heading path button name email problems asks remembers
 header
   h1 = heading
   p.lede
-    a href="/" Back to the book
+    a href=(path_to "home/index") Back to the book
 form method="post" action=path
   input name="name" placeholder="name" required="required" value=name
   if problems["name"] != none
@@ -21,4 +21,4 @@ form method="post" action=path
   button = button
 if remembers
   p.forgot
-    a href="/resets/new" Forgot your password?
+    a href=(path_to "resets/new") Forgot your password?

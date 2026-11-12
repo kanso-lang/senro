@@ -2,10 +2,10 @@ takes notice problems
 header
   h1 Forgot your password?
   p.lede
-    a href="/session/new" Back to signing in
+    a href=(path_to "session/new") Back to signing in
 if notice != ""
   p.notice = notice
-form method="post" action="/resets"
+form method="post" action=(path_to "resets/create")
   input type="email" name="email" placeholder="the address your account has" required="required"
   if problems["email"] != none
     p.problem = problems["email"]

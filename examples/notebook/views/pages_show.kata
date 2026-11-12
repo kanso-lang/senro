@@ -2,12 +2,12 @@ takes row
 header
   h1 Page {row.id}
   p.lede
-    a href="/notes/{row.note_id}/pages" All pages
+    a href=(path_to "pages/index" row.note_id) All pages
 dl
   dt body
   dd = row.body
 p
-  a href="/notes/{row.note_id}/pages/{row.id}/edit" Edit
-form method="post" action="/notes/{row.note_id}/pages/{row.id}"
+  a href=(path_to "pages/edit" row.note_id row.id) Edit
+form method="post" action=(path_to "pages/destroy" row.note_id row.id)
   input type="hidden" name="_method" value="DELETE"
   button Delete

@@ -1,5 +1,6 @@
 import "../routes"
 import "../web"
+import "std/derive"
 import "std/list"
 import "std/text"
 
@@ -14,7 +15,7 @@ type pathed
   refused
 
 # A module as kata reads it: the fields it reads, with each template's paths
-# path_text out, and why any could not be.
+# written out, and a refusal for each that could not be.
 type read_module
   name
   functions
@@ -24,17 +25,19 @@ type read_module
 
 fn viewed_of p m
   table = routes/routes_in p
-  each = (acc f -> file_paths acc f m.files[f] table)
+  each = (acc f -> file_paths acc m.name f m.files[f] table)
   out = list/fold (keys m.files) (pathed {} []) each
   read_module m.name m.functions m.calls out.source out.refused
 
-fn file_paths acc _ none _
+fn file_paths acc _ _ none _
   acc
 
-fn file_paths acc f src table
+fn file_paths acc m f src table
   return pathed (put acc.source f src) acc.refused if not template? f src
-  l = pathed_in f src table
-  pathed (put acc.source f l.source) (list/concat acc.refused l.refused)
+  l = pathed_in "{m}/{f}" src table
+  page_at = "{m}/{text/replace f ".kata" ""}"
+  told = list/to_list (list/map l.refused (why -> derive/refuse page_at why))
+  pathed (put acc.source f l.source) (list/concat acc.refused told)
 
 fn template? _ none
   false
