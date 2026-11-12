@@ -13,10 +13,15 @@ import "std/text"
 # `views/signed`. A directory of templates holds no kanso source of its own;
 # its functions are written here while the program compiles.
 pub fn views p
-  list/fold p.modules [] (acc m -> list/concat acc (templates p m))
+  list/fold p.modules [] (acc m -> list/concat acc (templated p m))
+
+fn templated p m
+  return [] if not list/any? (keys m.files) (f -> text/ends_with? f ".kata")
+  v = viewed_of m
+  return v.refused if length v.refused > 0
+  templates p v
 
 fn templates p m
-  return [] if not list/any? (keys m.files) (f -> text/ends_with? f ".kata")
   calls = list/fold p.modules [] (acc x -> list/concat acc x.calls)
   asked = list/fold calls [] named_in
   use = used asked m

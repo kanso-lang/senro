@@ -1,4 +1,5 @@
 import "../models"
+import "../names"
 import "std/list"
 import "std/text"
 
@@ -163,7 +164,7 @@ fn said s
 # The models derivation declares the record in it and answers for the table
 # by the module's name.
 pub fn model senro singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   rules = problems_of singular fields
   head = if (length rules == 0) [] ["import \"{senro}/models\"" ""]
   parts = [(record singular plural) (policies singular)]
@@ -173,7 +174,7 @@ pub fn model senro singular fields
 # The resource's module: the seven actions Rails' scaffold writes, each
 # reading and writing through the model.
 pub fn resource senro singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   parts = [
     (imports senro singular (parent_of fields))
     (actions_of singular plural fields (parent_of fields))
@@ -395,7 +396,7 @@ fn helpers singular plural fields
 fn nested_actions singular plural fields parent
   k = parent.name
   name = parent_name parent
-  parents = models/plural name
+  parents = names/plural name
   about = [
     "A row of `{plural}` belongs to a {name}, so each action takes the"
     "{name}'s id and the routes nest under it: `index` answers"
@@ -627,41 +628,40 @@ pub fn index_view singular fields
   index_of singular fields (parent_of fields)
 
 fn index_of singular fields none
-  plural = models/plural singular
+  plural = names/plural singular
   first = (said_field (list/first fields)).name
   lines = [
     "takes rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
-    "    a href=\"/{plural}/new\" New {singular}"
+    "    a href=(path_to \"{plural}/new\") New {singular}"
     "ul.{plural}"
     "  each rows r ->"
     "    li"
-    "      a href=\"/{plural}/\{r.id}\" = r.{first}"
+    "      a href=(path_to \"{plural}/show\" r.id) = r.{first}"
   ]
-  lines = list/concat lines (page_links "/{plural}")
+  lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
 
 fn index_of singular fields parent
-  plural = models/plural singular
+  plural = names/plural singular
   k = parent.name
   name = parent_name parent
-  at = "/{models/plural name}/\{{k}}"
   first = (said_field (list/first (own fields))).name
   lines = [
     "takes {k} rows number more"
     "header"
     "  h1 {capitalized plural}"
     "  p.lede"
-    "    a href=\"{at}/{plural}/new\" New {singular}"
-    "    a href=\"{at}\" Back to the {name}"
+    "    a href=(path_to \"{plural}/new\" {k}) New {singular}"
+    "    a href=(path_to \"{names/plural name}/show\" {k}) Back to the {name}"
     "ul.{plural}"
     "  each rows r ->"
     "    li"
-    "      a href=\"{at}/{plural}/\{r.id}\" = r.{first}"
+    "      a href=(path_to \"{plural}/show\" {k} r.id) = r.{first}"
   ]
-  lines = list/concat lines (page_links "{at}/{plural}")
+  lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
 
 fn said_field none
@@ -671,33 +671,32 @@ fn said_field f
   f
 
 pub fn shown_view singular fields
-  plural = models/plural singular
-  shown_under singular fields (listed_at plural (parent_of fields))
+  shown_under singular fields (parent_id (parent_of fields))
 
-# Where a resource's rows are listed: under the parent its row names, when
-# it is nested.
-fn listed_at plural none
-  "/{plural}"
+# The parent's id a nested row's links name first, or nothing for a row
+# that is not nested.
+fn parent_id none
+  ""
 
-fn listed_at plural parent
-  "/{models/plural (parent_name parent)}/\{row.{parent.name}}/{plural}"
+fn parent_id parent
+  " row.{parent.name}"
 
-fn shown_under singular fields at
-  plural = models/plural singular
+fn shown_under singular fields under
+  plural = names/plural singular
   each = spread (own fields) shown_lines
   head = [
     "takes row"
     "header"
     "  h1 {capitalized singular} \{row.id}"
     "  p.lede"
-    "    a href=\"{at}\" All {plural}"
+    "    a href=(path_to \"{plural}/index\"{under}) All {plural}"
     "dl"
   ]
   lines = list/concat head each
   tail = [
     "p"
-    "  a href=\"{at}/\{row.id}/edit\" Edit"
-    "form method=\"post\" action=\"{at}/\{row.id}\""
+    "  a href=(path_to \"{plural}/edit\"{under} row.id) Edit"
+    "form method=\"post\" action=(path_to \"{plural}/destroy\"{under} row.id)"
     "  input type=\"hidden\" name=\"_method\" value=\"DELETE\""
     "  button Delete"
   ]
@@ -710,11 +709,11 @@ fn shown_lines f
     "  dt {f.name}"
     "  dd"
     "    if row.{f.name} != \"\""
-    "      a href=\"/senro/blobs/\{row.{f.name}}\" open"
+    "      a href=(blob_path row.{f.name}) open"
   ]
 
 pub fn form_view singular fields
-  plural = models/plural singular
+  plural = names/plural singular
   each = spread (own fields) field_lines
   head = [
     "takes path method fields problems"
@@ -731,7 +730,7 @@ pub fn form_view singular fields
 # A nested form's way back is the path it is sent to: the list it adds to,
 # or the row it changes.
 fn back_link plural none
-  "    a href=\"/{plural}\" All {plural}"
+  "    a href=(path_to \"{plural}/index\") All {plural}"
 
 fn back_link _ _
   "    a href=path Back"
@@ -764,12 +763,11 @@ fn file_lines f
   ]
 
 # The links to the pages either side of the one shown, each only when that
-# page has rows.
-fn page_links path
-  [
-    "nav.pages"
-    "  if number > 1"
-    "    a href=\"{path}?page=\{number - 1}\" Previous page"
-    "  if more"
-    "    a href=\"{path}?page=\{number + 1}\" Next page"
-  ]
+# page has rows. A link that is only a query keeps the page's own path.
+page_links = [
+  "nav.pages"
+  "  if number > 1"
+  "    a href=\"?page=\{number - 1}\" Previous page"
+  "  if more"
+  "    a href=\"?page=\{number + 1}\" Next page"
+]

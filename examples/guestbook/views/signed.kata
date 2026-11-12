@@ -4,18 +4,18 @@ header
   p.lede Leave a line for whoever comes next.
 if viewer == ""
   nav.door
-    a href="/session/new" Sign in
-    a href="/registration/new" Make an account
+    a href=(path_to "session/new") Sign in
+    a href=(path_to "registration/new") Make an account
 else
-  form.out method="post" action="/session"
+  form.out method="post" action=(path_to "session/destroy")
     input type="hidden" name="_method" value="DELETE"
     span Signed in as {viewer}.
-    a href="/password/edit" Your account
+    a href=(path_to "password/edit") Your account
     button Sign out
 if notice != ""
   p.notice = notice
 if viewer != ""
-  form.sign method="post" action="/entries" enctype="multipart/form-data"
+  form.sign method="post" action=(path_to "entries/create") enctype="multipart/form-data"
     textarea name="message" placeholder="say something" required="required" = form.message
     if form.problems["message"] != none
       p.problem = form.problems["message"]
@@ -28,6 +28,6 @@ ol.entries
     li
       p.message = e.message
       if e.photo != ""
-        img.photo src="/senro/blobs/{e.photo}" alt="a photo from {e.name}"
+        img.photo src=(blob_path e.photo) alt="a photo from {e.name}"
       p.who = e.name
       == removals["{e.id}"]

@@ -1,0 +1,5 @@
+takes ids
+ul
+  each ids id ->
+    li
+      a href=(path_to "posts/show") post

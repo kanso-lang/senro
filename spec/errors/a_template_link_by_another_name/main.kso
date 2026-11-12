@@ -1,0 +1,12 @@
+import "../../../kata"
+import "../../../routes"
+import "./notes"
+import "./pages"
+import "./views"
+
+derive routes/rest
+derive kata/views
+
+# The browser spells a nested link from its parent's id, which is named
+# after the parent.
+print (views/list 3 [4])

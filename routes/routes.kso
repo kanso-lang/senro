@@ -1,5 +1,7 @@
 import "../data"
+import "../kata"
 import "../models"
+import "../names"
 import "std/derive"
 import "std/list"
 import "std/text"
@@ -75,26 +77,38 @@ type limits
 # that has a `show` action, and refuses a `path_to` whose route name is no
 # route or whose id does not match the route.
 pub fn rest p
-  apps = list/to_list (list/select p.modules (m -> routed? m))
-  conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
-  start = aliases [] []
-  aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
-  placed = list/concat conventional aliased.routes
+  apps = apps_of p
+  laid = laid_out apps
+  placed = laid.routes
   limited = list/fold apps (limits {} []) limits_in
   open = list/fold apps (limits {} []) opens_in
   asked = list/fold apps {} admitting_in
   each = (acc r -> put acc (spelled r) (row r limited open asked))
   rows = list/fold placed {} each
   turned = list/concat limited.refused open.refused
-  given = list/concat aliased.refused turned
+  given = list/concat laid.refused turned
   calls = data/calls_of_program p
   odd = list/fold apps given (acc m -> list/concat acc (strays m calls))
   clashing = list/fold placed (clashes [] []) clashed
   declared = [(derive/declare "routes" "routes" rows)]
   arms = list/fold apps [] (acc m -> list/concat acc (arms_of m))
   links = list/fold apps [] (acc m -> list/concat acc (links_of m placed))
+  pages = list/fold p.modules [] (acc m -> list/concat acc (paged m placed))
   told = list/concat (list/concat declared odd) clashing.out
-  list/concat (list/concat told arms) links
+  list/concat (list/concat (list/concat told arms) links) pages
+
+# The routes `rest` places, conventional and aliased.
+pub fn routes_in p
+  (laid_out (apps_of p)).routes
+
+fn apps_of p
+  list/to_list (list/select p.modules (m -> routed? m))
+
+fn laid_out apps
+  conventional = list/fold apps [] (acc m -> list/concat acc (routes_of m))
+  start = aliases [] []
+  aliased = list/fold apps start (acc m -> aliases_in acc m conventional)
+  aliases (list/concat conventional aliased.routes) aliased.refused
 
 # A module holding templates is the app's views or one of its components.
 # A component's pub functions are its actions, which its template binds, and
@@ -129,15 +143,7 @@ fn path_in none name _
   err "`{name}` names no route"
 
 fn path_in (place _ path) _ id
-  joined path id
-
-# A route's path with its `:id` filled, or with the segment left out when
-# there is no id, which is how a singular resource's path reads.
-fn joined path ""
-  text/replace path "/:id" ""
-
-fn joined path id
-  text/replace path ":id" id
+  names/id_filled path id
 
 fn arms_of m
   nest = nest_of m
@@ -161,7 +167,7 @@ fn arm_for m r one nest
   lacks = "`{t}` has no `{nest}`, so `path_to` cannot place it under its parent"
   held = list/any? r.fields (f -> f == nest)
   return derive/refuse "{m}/{t}" lacks if not held
-  parent = "/{parent_plural nest}/\{x.{nest}}/{m}"
+  parent = "/{names/parent_plural nest}/\{x.{nest}}/{m}"
   body = own_path parent one
   derive/define "{m}/{t}" "fn routes/path_to x:{t}\n  \"{body}\"\n"
 
@@ -208,6 +214,39 @@ fn links_of m placed
 
 # A first argument that is not a string written whole is the record form,
 # which dispatch checks.
+# A link a template writes is held to the table as a call to `path_to` is:
+# its name must be a route and its ids the route's. kata spells the link by
+# the convention the routes are placed by, so the browser can draw the page
+# without the table, and the spelling must give the route's own path.
+fn paged m placed
+  pages = list/select (keys m.files) (f -> text/ends_with? f ".kata")
+  each = (acc f -> list/concat acc (page_links m f m.files[f] placed))
+  list/fold pages [] each
+
+fn page_links _ _ none _
+  []
+
+fn page_links m f src placed
+  origin = "{m.name}/{text/replace f ".kata" ""}"
+  at = "{m.name}/{f}"
+  each = (acc l -> list/concat acc (held_link origin at l placed))
+  list/fold (kata/links src) [] each
+
+fn held_link origin at l placed
+  spelt = blank_if_none (names/link_path l.name l.exprs)
+  return [] if spelt == ""
+  ids = list/to_list (list/map l.exprs (e -> "\{{e}}"))
+  why = unlinked l.name (length ids) placed
+  where = "{at}:{l.line}"
+  return [(derive/refuse origin "{where}: {why}")] if why != ""
+  answered = path_with l.name ids placed
+  return [] if answered == spelt
+  [(derive/refuse origin "{where}: {unspelled l.name spelt answered}")]
+
+fn unspelled name spelt answered
+  told = "`{name}` is {answered}, and a page drawn in the browser would link"
+  "{told} to {spelt}: name the parent's id as `<parent>_id`"
+
 fn named _ none _
   []
 
@@ -215,13 +254,27 @@ fn named _ "" _
   []
 
 fn named c name placed
+  why = unlinked name (length c.arguments - 1) placed
+  if (why == "") [] [(derive/refuse_call c why)]
+
+# Why naming the route `name` with `given` ids links nowhere, or "" when it
+# links to a route.
+pub fn unlinked name given placed
   found = list/to_list (list/select placed (r -> r.origin == name))
-  return [(derive/refuse_call c "`{name}` names no route")] if length found == 0
+  return "`{name}` names no route" if length found == 0
   r = found[1]
-  wanted = ids_of r
-  given = length c.arguments - 1
-  return [] if wanted == given
-  miscounted c name r
+  return "" if ids_of r == given
+  miscounted name r
+
+# The path of the route `name` names with its ids written as `ids` spell
+# them, the parent's first, for a route `unlinked` finds no fault with.
+pub fn path_with name ids placed
+  r = (list/to_list (list/select placed (r -> r.origin == name)))[1]
+  parent = blank_if_none ids[1]
+  own = blank_if_none ids[length ids]
+  marker = blank_if_none (text/split r.path "/")[3]
+  nested = if (r.within == "") r.path (text/replace r.path marker parent)
+  if (r.id == "") nested (text/replace nested ":id" own)
 
 # How many ids a route's path takes: its parent's, then its own.
 fn ids_of r
@@ -233,10 +286,9 @@ fn count ""
 fn count _
   1
 
-fn miscounted c name r
+fn miscounted name r
   third = blank_if_none (text/split r.path "/")[3]
-  parent = text/replace third ":" ""
-  [(derive/refuse_call c (how name parent r.within r.id))]
+  how name (text/replace third ":" "") r.within r.id
 
 fn how name _ "" ""
   "`{name}` takes no id"
@@ -422,11 +474,7 @@ fn under nest found
   beneath nest found
 
 fn beneath nest (place method path)
-  place method "/{parent_plural nest}/:{nest}{path}"
-
-# `post_id` is under `/posts`.
-fn parent_plural nest
-  models/plural (blank_if_none (text/slice nest 1 (length nest - 3)))
+  place method "/{names/parent_plural nest}/:{nest}{path}"
 
 fn blank_if_none none
   ""
@@ -439,7 +487,7 @@ fn placed_in none true
   none
 
 fn placed_in (place method path) true
-  place method (joined path "")
+  place method (names/id_filled path "")
 
 fn placed_in found false
   found
@@ -502,32 +550,14 @@ fn int_or_any "int"
 fn int_or_any _
   "any"
 
-fn path_of "home" "index"
-  place "GET" "/"
+fn path_of m a
+  placed_at (names/action_path m a) a
 
-fn path_of m "index"
-  place "GET" "/{m}"
-
-fn path_of m "new"
-  place "GET" "/{m}/new"
-
-fn path_of m "create"
-  place "POST" "/{m}"
-
-fn path_of m "show"
-  place "GET" "/{m}/:id"
-
-fn path_of m "edit"
-  place "GET" "/{m}/:id/edit"
-
-fn path_of m "update"
-  place "PATCH" "/{m}/:id"
-
-fn path_of m "destroy"
-  place "DELETE" "/{m}/:id"
-
-fn path_of _ _
+fn placed_at none _
   none
+
+fn placed_at path a
+  place (names/action_method a) path
 
 # A policy or a model's `problems` sits in its model's module beside the
 # actions, and is no route. Nor is a provider the app calls from the browser,
@@ -578,7 +608,7 @@ fn nested_first? f nest
   given != [] and given[1].name == nest
 
 fn unnested_said m f nest
-  first = "`{m.name}` nests under `{parent_plural nest}`"
+  first = "`{m.name}` nests under `{names/parent_plural nest}`"
   rule = "so each of its actions takes `{nest}` after the request and database"
   derive/refuse "{m.name}/{f.name}" "{first}, {rule}"
 

@@ -49,6 +49,20 @@ ol.entries
   `class` attribute is joined onto the shorthand's classes.
 - Attributes are `name="text"`, where the text may hold `{expr}`, or
   `name=expr` for a value.
+- A link names its route as an action does: `a href=(path_to "notes/show"
+  r.id)`. kata writes the path while it derives the view, here
+  `href="/notes/{r.id}"`, spelling it by the convention the routes are
+  placed by (`names`). It needs no route table and nothing of the server, so
+  a page drawn in the browser links as the server's does. A nested link
+  names its parent's id after the parent, `row.note_id`, which puts it under
+  `/notes`. Where the app's routes are, `routes/rest` holds each link to
+  them: a name that is no route, the wrong ids, or a spelling that misses the
+  route's path is refused with the template's line
+  (`spec/errors/a_template_link_to_no_route`,
+  `spec/errors/a_template_link_missing_its_id`,
+  `spec/errors/a_template_link_by_another_name`). A stored file is
+  `src=(blob_path e.photo)`. A link to another page of the same list names
+  only its query, `href="?page={number + 1}"`, which keeps the page's path.
 - `= expr` writes a value escaped and `== expr` writes it raw. Text after a
   tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace. A value
   that may be none, such as a map's entry, writes nothing under `=`.

@@ -1,0 +1,175 @@
+import "../names"
+import "std/derive"
+import "std/list"
+import "std/text"
+
+# A template names a route as an action does, `a href=(path_to "notes/show"
+# r.id)`, and a stored file as `img src=(blob_path e.photo)`. kata writes
+# each as the text it stands for, `href="/notes/{r.id}"`, while it derives
+# the view. It spells the path by the convention the routes are placed by
+# (`names/link_path`), so it needs nothing of the server, and a program that
+# only draws pages, as the browser's does, carries none of it. A name no
+# action can have is refused here, with the template's line; where the app's
+# routes are, `routes/rest` holds each link to the table (`links`).
+type pathed
+  source
+  refused
+
+# A link a template writes: the route it names, the expressions of its ids,
+# and its line.
+type link
+  name
+  exprs
+  line
+
+# A module as kata reads it: the fields it reads, with each template's paths
+# written out, and a refusal for each that could not be.
+type read_module
+  name
+  functions
+  calls
+  files
+  refused
+
+fn viewed_of m
+  each = (acc f -> file_paths acc m.name f m.files[f])
+  out = list/fold (keys m.files) (pathed {} []) each
+  read_module m.name m.functions m.calls out.source out.refused
+
+fn file_paths acc _ _ none
+  acc
+
+fn file_paths acc m f src
+  return pathed (put acc.source f src) acc.refused if not template? f src
+  l = pathed_in "{m}/{f}" src
+  page_at = "{m}/{text/replace f ".kata" ""}"
+  told = list/to_list (list/map l.refused (why -> derive/refuse page_at why))
+  pathed (put acc.source f l.source) (list/concat acc.refused told)
+
+fn template? _ none
+  false
+
+fn template? f _
+  text/ends_with? f ".kata"
+
+# A template's source with its paths written out, and why any could not be.
+fn pathed_in f src
+  lines = text/split src "\n"
+  swept = paths_of_lines lines 1 f (pathed [] [])
+  pathed (text/join swept.source "\n") swept.refused
+
+fn paths_of_lines lines i f acc
+  return acc if i < 1 or length lines < i
+  l = line_paths lines[i] "{f}:{i}"
+  next = pathed (push acc.source l.source) (list/concat acc.refused l.refused)
+  paths_of_lines lines (i + 1) f next
+
+# A line's `=(path_to ...)` and `=(blob_path ...)` values. Any other value in
+# parentheses is left as it was written.
+fn line_paths line at
+  pieces = text/split line "=("
+  return pathed line [] if length pieces < 2
+  start = pathed pieces[1] []
+  list/fold (list/drop pieces 1) start (acc p -> path_piece acc p at)
+
+fn path_piece acc p at
+  cs = text/chars p
+  close = value_end cs 1 0 false
+  asked = text/starts_with? p "path_to " or text/starts_with? p "blob_path "
+  return pathed "{acc.source}=({p}" acc.refused if not asked or close == 0
+  inner = or_blank (text/slice p 1 (close - 1))
+  ws = call_words (text/chars inner) 1 0 false "" []
+  rest = text/slice p (close + 1) (length p)
+  w = path_text ws at
+  source = "{acc.source}=\"{w.source}\"{or_blank rest}"
+  pathed source (list/concat acc.refused w.refused)
+
+fn or_blank none
+  ""
+
+fn or_blank s
+  s
+
+# Where the parenthesis that opened the value closes, outside any string,
+# or 0 when it does not.
+fn value_end cs i depth in_string
+  return 0 if length cs < i
+  c = cs[i]
+  return value_end cs (i + 2) depth in_string if in_string and c == "\\"
+  return value_end cs (i + 1) depth (not in_string) if c == "\""
+  return value_end cs (i + 1) depth in_string if in_string
+  return i if c == ")" and depth == 0
+  return value_end cs (i + 1) (depth - 1) in_string if c == ")"
+  return value_end cs (i + 1) (depth + 1) in_string if c == "("
+  value_end cs (i + 1) depth in_string
+
+# A call's words, split at the spaces outside brackets and strings.
+fn call_words cs i depth in_string word acc
+  return with_word acc word if length cs < i
+  c = or_blank cs[i]
+  next = i + 1
+  cut = cut? c depth in_string
+  return call_words cs next depth in_string "" (with_word acc word) if cut
+  inside = if in_string (c != "\"") (c == "\"")
+  deeper = depth + depth_step c in_string
+  call_words cs next deeper inside "{word}{c}" acc
+
+fn cut? c depth in_string
+  c == " " and depth == 0 and not in_string
+
+fn depth_step c false
+  return 1 if c == "(" or c == "["
+  return -1 if c == ")" or c == "]"
+  0
+
+fn depth_step _ true
+  0
+
+fn with_word acc ""
+  acc
+
+fn with_word acc word
+  push acc word
+
+fn path_text ws at
+  return blob_text ws at if ws[1] == "blob_path"
+  route_text ws at
+
+fn blob_text ws at
+  return pathed "" ["{at}: `blob_path` takes the file's key"] if length ws != 2
+  pathed (names/blob_path (path_hole ws[2])) []
+
+fn route_text ws at
+  first = or_blank ws[2]
+  whole = text/starts_with? first "\"" and text/ends_with? first "\""
+  by_name = "a template names a route by its name: path_to \"notes/show\" id"
+  return pathed "" ["{at}: {by_name}"] if not whole
+  name = or_blank (text/slice first 2 (length first - 1))
+  exprs = list/to_list (list/drop ws 2)
+  spelt = or_blank (names/link_path name exprs)
+  return pathed "" ["{at}: `{name}` names no route"] if spelt == ""
+  pathed spelt []
+
+fn path_hole w
+  "\{{w}}"
+
+# The routes a template's links name, each with the expressions of its ids
+# and its line, for `routes/rest` to hold to the table.
+pub fn links src
+  lines = text/split src "\n"
+  numbers = list/to_list (list/take list/naturals (length lines))
+  each = (acc i -> list/concat acc (links_on (or_blank lines[i]) i))
+  list/fold numbers [] each
+
+fn links_on line i
+  pieces = list/to_list (list/drop (text/split line "=(") 1)
+  routed = list/select pieces (p -> text/starts_with? p "path_to ")
+  list/to_list (list/map routed (p -> link_of p i))
+
+fn link_of p i
+  close = value_end (text/chars p) 1 0 false
+  inner = or_blank (text/slice p 1 (close - 1))
+  ws = call_words (text/chars inner) 1 0 false "" []
+  first = or_blank ws[2]
+  name = or_blank (text/slice first 2 (length first - 1))
+  link name (list/to_list (list/drop ws 2)) i
