@@ -26,8 +26,8 @@
 page_bytes=9636
 state_bytes=36
 server_records_instructions=344151
-server_data_instructions=1130114
-server_html_instructions=3087790
-browser_start_instructions=13665
-browser_page_instructions=3667356
-browser_act_instructions=115251
+server_data_instructions=1130160
+server_html_instructions=3087836
+browser_start_instructions=13643
+browser_page_instructions=3667266
+browser_act_instructions=115229

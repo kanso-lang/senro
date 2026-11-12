@@ -7,9 +7,6 @@ import "./migrations"
 import "./planner"
 import "./views"
 
-# `models/tables` runs first: it declares `item` in item.kso, and a
-# module's derived file is written in the order the derivations run, so the
-# record goes ahead of the provider `data/providers` writes there.
 derive models/tables
 derive data/providers
 derive kata/views
