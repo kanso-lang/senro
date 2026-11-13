@@ -499,10 +499,17 @@ until the app is changed with it.
   answers the records whose field holds the value, oldest first, that the
   viewer may see: a post's comments are `models/where viewer db
   comment/comment_model "post_id" id`. A foreign key the migrations add
-  writes that call for the app, once in each direction, as Rails'
-  `has_many` and `belongs_to` do. `pages.note_id` holding a row of `notes`
-  gives `page/of_note viewer db note`, the pages of a note the viewer may
-  see, and `note/of_page viewer db page`, the note a page belongs to. Each
+  writes a reader for the app, once in each direction, as Rails' `has_many`
+  and `belongs_to` do. Each takes the session, which carries the viewer, and
+  is named for the key's column without its `_id`. `pages.note_id` holding a
+  row of `notes` gives `page/of_note db note`, the pages of a note the viewer
+  may see, and `note/of_page db page`, the note a page belongs to.
+  `notes.author_id` holding a row of `writers` gives `note/of_author db
+  writer` and `writer/author_of_note db note`: the parent's reader names the
+  column when the column is not named for the parent, so two keys to one
+  table read apart. A key column with a unique index holds at most one row
+  per parent, as Rails' `has_one`, and `cover/of_note db note` answers that
+  cover or none. Each reader lives in the module whose rows it answers and
   reads the other record's field by name, so neither module imports the
   other. A module that declares a function of the same name keeps its own,
   as does one that declares a pub function or record named as the parameter

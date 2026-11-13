@@ -1,0 +1,4 @@
+# The `writers` table's model. `notes.author_id` names a writer, and since
+# `author` is not `writer`, the reader here is `author_of_note`.
+pub fn named w
+  "writer: {w.name}"

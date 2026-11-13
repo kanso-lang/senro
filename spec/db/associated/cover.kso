@@ -1,0 +1,4 @@
+# The `covers` table's model. `covers.note_id` has a unique index, so a note
+# has at most one cover and `of_note` answers it, or none.
+pub fn shown c
+  "cover: {c.image}"
