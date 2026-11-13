@@ -1,3 +1,8 @@
 note 1: ["a" "b"]
 note 2: ["c"]
 page 2: note: second
+writer 1: ["note: first" "note: third"]
+note 2: writer: bo
+note 2: cover: kettle.png
+note 1: no cover
+cover 1: note: second

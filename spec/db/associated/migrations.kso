@@ -1,15 +1,40 @@
 import "../../../models"
 
-pub all = [notes pages pages_to_notes]
+pub all = [
+  writers
+  notes
+  pages
+  covers
+  pages_to_notes
+  notes_to_writers
+  covers_to_notes
+  one_cover
+]
 
-notes = models/create_table "notes" [title]
+writers = models/create_table "writers" [name]
+
+notes = models/create_table "notes" [title author_id]
 
 pages = models/create_table "pages" [note_id body]
 
+covers = models/create_table "covers" [note_id image]
+
 pages_to_notes = models/add_foreign_key "pages" "note_id" "notes"
 
+notes_to_writers = models/add_foreign_key "notes" "author_id" "writers"
+
+covers_to_notes = models/add_foreign_key "covers" "note_id" "notes"
+
+one_cover = models/add_unique_index "covers" "note_id"
+
+name = models/column "name" "text not null"
+
 title = models/column "title" "text not null"
+
+author_id = models/column "author_id" "integer not null"
 
 note_id = models/column "note_id" "integer not null"
 
 body = models/column "body" "text not null"
+
+image = models/column "image" "text not null"

@@ -1,15 +1,21 @@
 import "../../../models"
 import "../../../pg"
+import "./cover"
 import "./migrations"
 import "./note"
 import "./page"
 import "./reading"
+import "./writer"
 
 derive models/tables
 
-# A page belongs to a note. The derivation reads the foreign key the
-# migrations add and writes a reader each way: `page/of_note` lists a
-# note's pages, and `note/of_page` finds the note a page belongs to.
+# A page belongs to a note, a note to the writer its `author_id` names, and
+# a cover to one note, its `note_id` being unique. The derivation reads each
+# foreign key the migrations add and writes a reader each way, named for the
+# key's column: `page/of_note` lists a note's pages and `note/of_page` finds
+# the note a page belongs to; `note/of_author` lists a writer's notes and
+# `writer/author_of_note` finds a note's writer; `cover/of_note` answers a
+# note's one cover, or none.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
@@ -17,8 +23,11 @@ fresh = """
 """
 
 seeded = """
-  insert into notes (title) values ('first'), ('second');
-  insert into pages (note_id, body) values (1, 'a'), (2, 'c'), (1, 'b')
+  insert into writers (name) values ('ada'), ('bo');
+  insert into notes (title, author_id) values ('first', 1), ('second', 2),
+    ('third', 1);
+  insert into pages (note_id, body) values (1, 'a'), (2, 'c'), (1, 'b');
+  insert into covers (note_id, image) values (2, 'kettle.png')
 """
 
 made = models/made schema
@@ -29,3 +38,8 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> reading/pages_of db 1)
   .> (db -> reading/pages_of db 2)
   .> (db -> reading/note_of db 2)
+  .> (db -> reading/notes_by db 1)
+  .> (db -> reading/author_of db 2)
+  .> (db -> reading/cover_of db 2)
+  .> (db -> reading/cover_of db 1)
+  .> (db -> reading/note_of_cover db 1)

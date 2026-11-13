@@ -1,17 +1,45 @@
 import "../../../models"
+import "./cover"
 import "./note"
 import "./page"
+import "./writer"
 import "std/list"
 
 pub fn pages_of db id
-  models/found "" db note/note_model id
-    .> (n -> page/of_note "" db n)
+  models/find db note/note_model id
+    .> (n -> page/of_note db n)
     .> (ps -> said db "note {id}: {list/to_list (list/map ps page/bodied)}")
 
 pub fn note_of db id
-  models/found "" db page/page_model id
-    .> (p -> note/of_page "" db p)
+  models/find db page/page_model id
+    .> (p -> note/of_page db p)
     .> (n -> said db "page {id}: {note/titled n}")
+
+pub fn notes_by db id
+  models/find db writer/writer_model id
+    .> (w -> note/of_author db w)
+    .> (ns -> said db "writer {id}: {list/to_list (list/map ns note/titled)}")
+
+pub fn author_of db id
+  models/find db note/note_model id
+    .> (n -> writer/author_of_note db n)
+    .> (w -> said db "note {id}: {writer/named w}")
+
+pub fn cover_of db id
+  models/find db note/note_model id
+    .> (n -> cover/of_note db n)
+    .> (c -> said db "note {id}: {shown c}")
+
+pub fn note_of_cover db id
+  models/find db cover/cover_model id
+    .> (c -> note/of_cover db c)
+    .> (n -> said db "cover {id}: {note/titled n}")
+
+fn shown none
+  "no cover"
+
+fn shown c
+  cover/shown c
 
 fn said db line
   print line .> (_ -> effect db)

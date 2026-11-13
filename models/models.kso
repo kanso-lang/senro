@@ -180,7 +180,7 @@ pub fn tables p
   each_read = (acc m -> list/concat acc (readers m schema uniq))
   given = list/fold p.modules [] each_read
   fks = keys_of p p.files["schema.sql"]
-  each = (acc m -> list/concat acc (linked m schema fks))
+  each = (acc m -> list/concat acc (linked m schema fks uniq))
   joined = list/fold p.modules [] each
   declared = list/concat [(derive/declare "schema" "schema" schema)] kinds
   steps = list/fold p.modules [] (acc m -> list/concat acc (ordered m))
@@ -684,41 +684,54 @@ fn indexed seen line
   alone seen table (between line " (" ")")
 
 # Each foreign key reads both ways, as Rails' `has_many` and `belongs_to`
-# do. The child's module gets `of_<parent>`, the rows of its table that hold
-# a given parent, which the viewer may see: `pages/of_note viewer db note`.
-# The parent's module gets `of_<child>`, the row a given child holds:
-# `notes/of_page viewer db page`. Each reads the other record's field by
-# name, so neither module imports the other, and an app may import either
-# into the other without a cycle. A module that declares a function of the
-# same name keeps its own, and so does one that declares the name its
-# parameter takes.
-fn linked m schema fks
+# do, and each reader is named for the key's column, its stem being the
+# column without `_id`. The child's module gets `of_<stem>`, the rows of its
+# table that hold a given parent, which the viewer may see: `pages/of_note db
+# note`, or `posts/of_owner db user` for `posts.owner_id`. When the column
+# has a unique index a parent holds at most one, as Rails' `has_one`, and
+# the reader answers that row or none. The parent's module gets the row a
+# given child holds: `of_<child>` when the stem is the parent's own name, as
+# `notes/of_page db page`, and `<stem>_of_<child>` when it is not, as
+# `users/owner_of_post db post`, so two keys to one parent read apart. Each
+# reader lives in the module whose rows it answers and reads the other
+# record's field by name, so neither module imports the other, and an app
+# may import either into the other without a cycle. A module that declares a
+# function of the same name keeps its own, and so does one that declares
+# the name its parameter takes.
+fn linked m schema fks uniq
   each = records_of m schema
-  list/fold each [] (acc r -> list/concat acc (associated m r fks))
+  list/fold each [] (acc r -> list/concat acc (associated m r fks uniq))
 
-fn associated m r fks
+fn associated m r fks uniq
   return [] if not list/any? r.fields (f -> f == "id")
   table = names/plural r.name
   owned = list/select fks (k -> k.table == table)
   owners = list/select fks (k -> k.parent == table)
-  rows = list/fold owned [] (acc k -> list/concat acc (rows_of m r k))
+  only = (k -> list/any? (present uniq[k.table]) (c -> c == k.column))
+  rows = list/fold owned [] (acc k -> list/concat acc (rows_of m r k (only k)))
   list/fold owners rows (acc k -> list/concat acc (owner_of m r k))
 
-fn rows_of m r k
-  name = "of_{singular k.parent}"
-  given = singular k.parent
+fn rows_of m r k one?
+  given = stem k.column
+  name = "of_{given}"
   return [] if given == "" or declares? m name or named? m given
-  args = ["viewer" "db" "{r.name}_model" "\"{k.column}\"" "{given}.id"]
-  call = wrapped "  models/where" args
-  [(derive/define m.name (association name given call))]
+  reads = if one? "  models/find_by" "  models/matching"
+  args = ["db" "{r.name}_model" "\"{k.column}\"" "{given}.id"]
+  [(derive/define m.name (association name given (wrapped reads args)))]
 
 fn owner_of m r k
-  name = "of_{singular k.table}"
   given = singular k.table
+  own = stem k.column == r.name
+  name = if own "of_{given}" "{stem k.column}_of_{given}"
   return [] if given == "" or declares? m name or named? m given
-  args = ["viewer" "db" "{r.name}_model" "{given}.{k.column}"]
-  call = wrapped "  models/found" args
+  args = ["db" "{r.name}_model" "{given}.{k.column}"]
+  call = wrapped "  models/find" args
   [(derive/define m.name (association name given call))]
+
+# A key column's name without its `_id`: `owner_id` reads as `owner`.
+fn stem col
+  return col if not text/ends_with? col "_id"
+  plain (text/slice col 1 (length col - 3))
 
 # Whether the module declares a function or a record of this name, which
 # a parameter of that name could not shadow.
@@ -728,7 +741,7 @@ fn named? m name
 # `../models` is this module, written from here, as a definition's imports
 # are; kanso rewrites it from the module the reader joins.
 fn association name given call
-  "import \"../models\"\n\npub fn {name} viewer db {given}\n{call}\n"
+  "import \"../models\"\n\npub fn {name} db {given}\n{call}\n"
 
 # A call as the formatter writes it: on one line when it fits in 80 columns,
 # and one argument to a line, two spaces in, when it does not. `head` holds
