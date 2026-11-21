@@ -82,7 +82,7 @@ fn decoded _ _ none
 
 fn decoded components parts state
   rounds = given_rounds (json/decode (part parts 4))
-  value = valued (json/decode (part parts 5))
+  value = data/value_of (json/decode (part parts 5))
   found (called components (part parts 1)) (part parts 2) value state rounds
 
 # The component an event is for, found in the list the app handed `answer`
@@ -113,16 +113,6 @@ fn found c action value state rounds
   next = data/settled (c.act action value state) rounds
   return "?\n{json/encode (data/calls_in next)}" if data/asking? next
   "\n{c.view next}"
-
-# An event that carries no value, a click, is handed "".
-fn valued none
-  ""
-
-fn valued v:string
-  v
-
-fn valued _
-  ""
 
 fn given_rounds none
   []
