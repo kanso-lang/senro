@@ -6,6 +6,7 @@
 // spec.sh to compare with spec/browser/pantry.out. Run as:
 //
 //   node spec/browser/pantry.mjs <port> <browser> [screenshot directory]
+import { statSync, utimesSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -298,4 +299,25 @@ const kept = await page.evaluate(() =>
   [...document.querySelectorAll(".items li button.staple")]
     .map((b) => b.textContent.trim()).join(" "));
 console.log(`staples after a reload: ${kept}`);
+
+// A deploy that changes only the import map. The page holds the map it
+// opened with, so the next answer, which names the new version, has it load
+// itself again, once; the click after that is answered in place.
+const map = "examples/pantry/importmap.json";
+const was = statSync(map);
+await page.evaluate(() => { window.senroMark = "kept"; });
+const later = new Date(Date.now() + 60000);
+utimesSync(map, later, later);
+const reloaded = page.waitForEvent("load");
+await row(0).locator("button.plus").click();
+await reloaded;
+await page.waitForSelector("html.senro-ready", { state: "attached" });
+const after = await page.evaluate(() => window.senroMark || "lost");
+await page.evaluate(() => { window.senroMark = "kept"; });
+const before = await page.textContent(".items li .count");
+await row(0).locator("button.plus").click();
+await settled(`document.querySelector(".items li .count").textContent != "${before}"`);
+const then = await page.evaluate(() => window.senroMark || "lost");
+utimesSync(map, was.atime, was.mtime);
+console.log(`a new import map: the page reloaded (mark ${after}), then kept its mark (${then})`);
 await browser.close();
