@@ -11,7 +11,9 @@ permissions:
   contents: write
 jobs:
   tag:
-    runs-on: ubuntu-latest
+    # Pinned, as kanso and kq pin theirs: ubuntu-latest moved to 26.04,
+    # which Playwright 1.56.1 cannot install browsers for.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
