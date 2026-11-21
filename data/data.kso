@@ -1,4 +1,5 @@
 import "std/derive"
+import "std/json"
 import "std/list"
 import "std/text"
 
@@ -23,6 +24,25 @@ pub type provided_table
 # provider gave.
 pub fn ask name args
   asked [[name args]] (xs -> xs[1])
+
+# The value an event carries, as the page sends it beside an action: a JSON
+# string on a line of its own, so a value with a line break in it stays one
+# line. A missing line, or one holding anything but a string, is a click's
+# value, "".
+pub fn value_of none
+  ""
+
+pub fn value_of line
+  told (json/decode line)
+
+fn told none
+  ""
+
+fn told v:string
+  v
+
+fn told _
+  ""
 
 # `a`, then `f` of what it answers.
 pub fn then a f

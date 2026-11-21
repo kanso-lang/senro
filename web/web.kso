@@ -1183,7 +1183,7 @@ fn acted_if false _ _ _ _
 fn acted_if true c req db who
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
-  sent_value = text_of (json/decode (blank_if_none lines[3]))
+  sent_value = data/value_of lines[3]
   state = state_of (wire/from_text lines[2])
   stated c lines[1] state (handed req db who sent_value)
 
@@ -1196,15 +1196,6 @@ fn state_of none
 
 fn state_of bytes
   wire/unpacked bytes
-
-fn text_of none
-  ""
-
-fn text_of v:string
-  v
-
-fn text_of _
-  ""
 
 fn stated _ _ none _
   effect bad_request
