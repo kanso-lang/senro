@@ -82,7 +82,7 @@ fn decoded _ _ none
 
 fn decoded components parts state
   rounds = given_rounds (json/decode (part parts 4))
-  value = data/value_of (part parts 5)
+  value = data/value_of (json/decode (part parts 5))
   found (called components (part parts 1)) (part parts 2) value state rounds
 
 # The component an event is for, found in the list the app handed `answer`
