@@ -1,4 +1,4 @@
-takes items editing total planner stars
+takes items editing total planner stars names counts
 header
   h1 Pantry
   p.lede {total} things on the shelf, counted as you go.
@@ -32,3 +32,4 @@ ul.items
       form.remove method="post" action="/items/{i.id}"
         input type="hidden" name="_method" value="DELETE"
         button.delete aria-label="remove" ×
+.chart data-owned-by="chart" data-names=names data-counts=counts

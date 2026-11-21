@@ -123,6 +123,16 @@ The guestbook's pages work this way (`kata/README.md`). `spec/runs/pages`
 holds a page rendered from its data on the server, in the browser module on
 every engine, and by its template from the records, to the same bytes.
 
+## JavaScript is reached through the page
+
+A library such as a chart or a map is driven by JavaScript the app writes,
+which reads what the app's kanso code rendered into data attributes
+(kanso#2284). The language has no call into JavaScript, so every component
+stays a function from its state to HTML, and every engine runs it. senro
+supplies the rest: it vendors the app's packages with jspm, serves them, and
+keeps a library's element through the morph. The app writes the small
+module in between.
+
 ## Every behavior has a spec
 
 Each convention, refusal and runtime behavior has an app under `spec/` and

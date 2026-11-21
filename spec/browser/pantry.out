@@ -1,16 +1,19 @@
-emptied: 0 things on the shelf, counted as you go. [] mark kept
-added three: 0 things on the shelf, counted as you go. [Rice: 0, Tea: 0, Lentils: 0] mark kept
+emptied: 0 things on the shelf, counted as you go. [] chart [] mark kept
+added three: 0 things on the shelf, counted as you go. [Rice: 0, Tea: 0, Lentils: 0] chart [0 0 0] mark kept
 add field after Enter: ""
-counted: 3 things on the shelf, counted as you go. [Rice: 3, Tea: 0, Lentils: 0] mark kept
-renaming: 3 things on the shelf, counted as you go. [Rice: 3, Tea: 0, Lentils: 0] mark kept
-renamed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0, Lentils: 0] mark kept
-removed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0] mark kept
+counted: 3 things on the shelf, counted as you go. [Rice: 3, Tea: 0, Lentils: 0] chart [3 0 0] mark kept
+renaming: 3 things on the shelf, counted as you go. [Rice: 3, Tea: 0, Lentils: 0] chart [3 0 0] mark kept
+renamed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0, Lentils: 0] chart [3 0 0] mark kept
+removed: 3 things on the shelf, counted as you go. [Rice: 3, Green tea: 0] chart [3 0] mark kept
 path: /
 a rename opened while a refresh was in flight stays open: true
 planner: 4 after three clicks, 0 requests
 planner after the shelf changed: 4
 the browser module asked for again with its ETag: 304
 a module that is not there: 404
+the app's chart module asked for again with its ETag: 304
+the vendored chart library: 200, public, max-age=31536000, immutable
+requests off the app's origin: 0
 staples after starring the first: ★ ☆
 checked at 4 meals: Every staple covers the week.
 checked at 5 meals: Short for the week: Rice.

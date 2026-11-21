@@ -7,9 +7,12 @@
 #   senro server                   run the app
 #   senro migrate                  bring the database up to the migrations
 #   senro test                     run the app's tests
+#   senro js install               trace and vendor the app's JavaScript
+#   senro js check                 fail if an install would change anything
 #
 # `server`, `migrate` and `test` run the app itself, which needs the
-# terminal, so they are handed to kanso here. Everything else is senro.kso. KANSO names
+# terminal, so they are handed to kanso here. `js` is jspm's generator, which
+# is JavaScript, so it is handed to node. Everything else is senro.kso. KANSO names
 # the kanso to run when it is not the one on the PATH.
 set -e
 kanso=${KANSO:-kanso}
@@ -22,6 +25,10 @@ case "${1:-}" in
     ;;
   migrate)
     SENRO_ONLY=migrate exec "$kanso" run .
+    ;;
+  js)
+    shift
+    exec node "$home/bin/jspm.mjs" "$@"
     ;;
   test|t)
     shift

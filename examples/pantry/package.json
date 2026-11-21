@@ -1,0 +1,7 @@
+{
+  "name": "pantry",
+  "private": true,
+  "devDependencies": {
+    "@jspm/generator": "2.18.0"
+  }
+}

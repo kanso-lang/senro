@@ -118,3 +118,10 @@ button:hover { border-color: var(--accent); }
 }
 
 .planner .note { flex-basis: 100%; margin: 0.4rem 0 0; }
+
+/* The chart javascript/chart.js draws with Chartist, which leaves its
+   colours to the page. */
+.chart { margin-top: 1.6rem; }
+.chart .ct-bar { stroke: var(--accent); stroke-width: 1.4rem; }
+.chart .ct-grid { stroke: var(--line); stroke-dasharray: 2px; }
+.chart .ct-label { color: var(--soft); font-size: 0.8rem; }

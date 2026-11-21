@@ -132,5 +132,7 @@ senro: usage: senro new <app>
        senro server                           (or `senro s`)
        senro migrate
        senro test [file]                      (or `senro t`)
+       senro js install                       vendors the app's JavaScript
+       senro js check
 main.kso: ok
 generate: ./main.kso has no `derive app/conventions`, which finds a job; `new` writes one

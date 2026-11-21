@@ -56,7 +56,9 @@ fn shown req items editing
   total = list/fold items 0 (n i -> n + i.quantity)
   stars = list/fold items {} (m i -> put m "{i.id}" (starred i))
   plan = planner/view (planner/planned 3)
-  page = views/shelf_view items editing total plan stars
+  names = text/join (list/to_list (list/map items (i -> i.name))) "\n"
+  counts = text/join (list/to_list (list/map items (i -> "{i.quantity}"))) " "
+  page = views/shelf_view items editing total plan stars names counts
   effect (views/answer req 200 "Pantry" page)
 
 # Each item's staple star, a component whose state is the item's id and flag.

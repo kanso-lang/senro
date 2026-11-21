@@ -1,0 +1,17 @@
+{
+  "imports": {
+    "application": "/javascript/application.js",
+    "chart": "/javascript/chart.js"
+  },
+  "scopes": {
+    "/": {
+      "chartist": "https://ga.jspm.io/npm:chartist@2.2.1/dist/index.js"
+    }
+  },
+  "preload": [
+    "/javascript/application.js",
+    "/javascript/chart.js",
+    "https://ga.jspm.io/npm:chartist@2.2.1/_/BUd082zi.js",
+    "https://ga.jspm.io/npm:chartist@2.2.1/dist/index.js"
+  ]
+}

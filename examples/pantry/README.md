@@ -3,7 +3,8 @@
 A shelf of things with counts: add an item, step its count up or down, rename
 it in place, remove it. Every change is a form the server answers with the
 whole page, and senro's page script morphs that page into the live one, so
-the browser never reloads and the app holds no JavaScript of its own. Once
+the browser never reloads. The app's one piece of JavaScript draws the
+shelf's chart. Once
 the pantry's browser module has loaded, the page arrives as data and the
 module renders it.
 
@@ -41,3 +42,8 @@ it makes its `items` table on first run.
   `item.kso` that reads the starred items through the item's model. The
   page sends that call to `/senro/data`, gets the names back, and runs the
   action again with them; one click is one request.
+- `javascript/chart.js` draws the shelf's counts with Chartist, into the
+  element `views/shelf.kata` marks `data-owned-by="chart"`, and draws it
+  again when the counts change. `senro js install` vendored Chartist into
+  `vendor/javascript/` and wrote `importmap.json`; `package.json` pins the
+  jspm generator that traced it.
