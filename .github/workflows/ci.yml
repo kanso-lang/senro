@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 jobs:
   spec:
-    runs-on: ubuntu-latest
+    # Pinned, as kanso and kq pin theirs: ubuntu-latest moved to 26.04,
+    # which Playwright 1.56.1 cannot install browsers for.
+    runs-on: ubuntu-24.04
     # spec/db runs its apps against this server, which trusts every login as
     # the guestbook's development setup does.
     services:
