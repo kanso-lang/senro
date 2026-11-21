@@ -351,6 +351,12 @@ The pantry's chart is the example: `views/shelf.kata` writes
 and `javascript/chart.js` draws a Chartist bar chart into each such element,
 and draws it again when a `MutationObserver` sees `data-counts` change.
 
+The way back is an event. A library's module dispatches one on an element
+inside a component, `el.dispatchEvent(new CustomEvent("picked", { bubbles:
+true, detail: id }))`, and the component's template binds it as it binds a
+click, `on-picked=chose`. An action that names a parameter `value` is
+handed the event's `detail` as text (kata/README.md, Components).
+
 ## What is here
 
 - `app`: how an app starts. `derive app/conventions` runs every convention

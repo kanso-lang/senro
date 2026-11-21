@@ -1,13 +1,19 @@
 
-<div data-component="counter" data-state="BQ=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">5</span><button data-on-click="increment">+</button></div></div>
+<div data-component="counter" data-state="BQ=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">5</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
 --
 
-<div data-component="counter" data-state="xAA="><div class="counter"><button data-on-click="decrement">−</button><span class="count">-1</span><button data-on-click="increment">+</button></div></div>
+<div data-component="counter" data-state="xAA="><div class="counter"><button data-on-click="decrement">−</button><span class="count">-1</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
 --
 
-<div data-component="counter" data-state="Bw=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">7</span><button data-on-click="increment">+</button></div></div>
+<div data-component="counter" data-state="Bw=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">7</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
 --
 
 --
 
+--
+
+<div data-component="counter" data-state="DA=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">12</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
+--
+
+<div data-component="counter" data-state="AA=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">0</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
 --

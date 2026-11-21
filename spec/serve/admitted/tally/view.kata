@@ -2,3 +2,4 @@ takes said
 div.tally
   span = said
   button on-click=raised +
+  input on-change=noted

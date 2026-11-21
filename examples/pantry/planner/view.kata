@@ -4,6 +4,7 @@ div.planner
   button.minus on-click=fewer aria-label="one fewer" −
   span.count = plan["meals"]
   button.plus on-click=more aria-label="one more" +
+  input.meals type="number" min="0" aria-label="meals" on-change=typed
   button.check on-click=checked Check the staples
   case plan["note"]
     when none

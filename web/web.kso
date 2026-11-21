@@ -56,6 +56,7 @@ type handed
   req
   db
   viewer
+  value
 
 type site
   routes
@@ -1150,8 +1151,9 @@ fn one table call who db got
   provider = data/answer_named table call[1]
   provider who db call[2] .> (a -> effect (push got a))
 
-# The body is the action's name and the state as the page holds it, its
-# bytes in base64, on two lines. The answer is an empty line and the
+# The body is the action's name, the state as the page holds it, its bytes
+# in base64, and the event's value as a JSON string, one to a line; a body
+# with no third line carries "". The answer is an empty line and the
 # component rendered in its next state, as the browser module answers. A
 # request without the page's senro-page header did not come from senro's
 # script; a form on another site cannot set one, so it is refused, which is
@@ -1181,7 +1183,9 @@ fn acted_if false _ _ _ _
 fn acted_if true c req db who
   lines = text/split req.body "\n"
   return effect bad_request if length lines < 2
-  stated c lines[1] (state_of (wire/from_text lines[2])) req db who
+  sent_value = text_of (json/decode (blank_if_none lines[3]))
+  state = state_of (wire/from_text lines[2])
+  stated c lines[1] state (handed req db who sent_value)
 
 forbidden = http/respond 403 [] "Forbidden\n"
 
@@ -1193,11 +1197,20 @@ fn state_of none
 fn state_of bytes
   wire/unpacked bytes
 
-fn stated _ _ none _ _ _
+fn text_of none
+  ""
+
+fn text_of v:string
+  v
+
+fn text_of _
+  ""
+
+fn stated _ _ none _
   effect bad_request
 
-fn stated c action state req db who
-  c.act action (handed req db who) state .> (next -> drawn c next)
+fn stated c action state handing
+  c.act action handing state .> (next -> drawn c next)
 
 fn drawn _ none
   effect http/not_found

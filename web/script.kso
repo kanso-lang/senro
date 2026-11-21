@@ -284,6 +284,7 @@ script = """
         const fresh = document.importNode(to, true);
         from.replaceWith(fresh);
         if (fresh.nodeType === Node.ELEMENT_NODE) serve(fresh);
+        bindings(fresh);
       } else if (from.nodeType === Node.ELEMENT_NODE) \{
         if (kept(from, to)) return;
         attributes(from, to);
@@ -304,6 +305,7 @@ script = """
       for (const a of [...to.attributes]) \{
         const same = from.getAttribute(a.name) === a.value;
         if (!same) from.setAttribute(a.name, a.value);
+        if (a.name.startsWith("data-on-")) listen(a.name.slice(8));
       }
     };
 
@@ -312,7 +314,7 @@ script = """
       const wanted = [...to.childNodes];
       wanted.forEach((w, i) => \{
         if (i < had.length) morph(had[i], w);
-        else from.appendChild(document.importNode(w, true));
+        else bindings(from.appendChild(document.importNode(w, true)));
       });
       had.slice(wanted.length).forEach((h) => h.remove());
     };
@@ -425,11 +427,11 @@ script = """
     // the page it is on, and the server answers the same way the module
     // does. What the action changed on the server may show elsewhere on the
     // page too, so the page then refreshes the rest of itself.
-    const posted = async (root, action) => \{
+    const posted = async (root, action, value) => \{
       const r = await fetch("/senro/act/" + root.dataset.component, \{
         method: "POST",
         headers: \{ "senro-page": self, "senro-from": location.pathname },
-        body: action + "\\n" + root.dataset.state,
+        body: [action, root.dataset.state, JSON.stringify(value)].join("\\n"),
       });
       if (stale(r)) return null;
       return r.ok ? r.text() : null;
@@ -439,11 +441,12 @@ script = """
     // answers "?" and the calls it asks for. They go to the server in one
     // request, and the action runs again with every round of answers so
     // far, until it answers its next state.
-    const supplied = async (event) => \{
+    const supplied = async (event, value) => \{
       const rounds = [];
       for (let round = 0; round < 8; round++) \{
         const line = JSON.stringify(rounds);
-        const answer = await ran([...event, line].join("\\n"));
+        const lines = [...event, line, JSON.stringify(value)];
+        const answer = await ran(lines.join("\\n"));
         if (!answer.startsWith("?\\n")) return answer;
         const r = await fetch("/senro/data", \{
           method: "POST",
@@ -456,14 +459,14 @@ script = """
       return null;
     };
 
-    const acted = async (root, action) => \{
+    const acted = async (root, action, value) => \{
       const server = root.dataset.runs === "server";
       if (!server) await ready;
       if (!server && !app) return;
       const event = [root.dataset.component, action, root.dataset.state];
       const answer = server
-        ? await posted(root, action)
-        : await supplied(event);
+        ? await posted(root, action, value)
+        : await supplied(event, value);
       if (answer === null) return;
       const html = answer.slice(answer.indexOf("\\n") + 1);
       const next = new DOMParser().parseFromString(html, "text/html");
@@ -474,13 +477,39 @@ script = """
       if (server) refresh();
     };
 
-    addEventListener("click", (e) => \{
-      const bound = e.target.closest("[data-on-click]");
-      const root = bound && bound.closest("[data-component]");
-      if (!root) return;
-      e.preventDefault();
-      acted(root, bound.dataset.onClick);
-    });
+    // An element bound with `on-<event>=action` asks its component for the
+    // action when that event reaches it: a click, a field's input, or an
+    // event a library's module dispatches on an element it owns. The page
+    // listens for each event name a binding on it names, once each. The
+    // action is handed the event's value as text: a CustomEvent's detail, a
+    // field's value, or "" for a click.
+    const heard = new Set();
+    const listen = (name) => \{
+      if (heard.has(name)) return;
+      heard.add(name);
+      addEventListener(name, (e) => \{
+        const bound = e.target.closest && e.target.closest(`[data-on-$\{name}]`);
+        const root = bound && bound.closest("[data-component]");
+        if (!root) return;
+        if (name === "click") e.preventDefault();
+        acted(root, bound.getAttribute(`data-on-$\{name}`), valueOf(e));
+      });
+    };
+    const valueOf = (e) => \{
+      if (e instanceof CustomEvent) return e.detail == null ? "" : String(e.detail);
+      if (valueless(e.target)) return "";
+      return String(e.target.value);
+    };
+    const valueless = (el) => el.value === undefined || el.localName === "button";
+    const bindings = (el) => \{
+      if (el.nodeType !== Node.ELEMENT_NODE) return;
+      for (const one of [el, ...el.querySelectorAll("*")]) \{
+        for (const a of one.attributes) \{
+          if (a.name.startsWith("data-on-")) listen(a.name.slice(8));
+        }
+      }
+    };
+    bindings(document.body);
 
     // When a request anywhere changes what the app stores, the server says so
     // on this stream, and the page fetches itself again.

@@ -1,4 +1,9 @@
-# A note of who last raised the tally. The action asks for the viewer, so it
-# runs on the server, and the server answers it as the page that asks.
+# A note of who last raised the tally. The actions ask for the viewer, so
+# they run on the server, and the server answers each as the page that
+# asks. `noted` also takes the event's value, which the page posts beside
+# the state.
 pub fn raised viewer _
   effect "raised by {viewer}"
+
+pub fn noted viewer value _
+  effect "{value}, noted by {viewer}"

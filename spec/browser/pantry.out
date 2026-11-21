@@ -18,6 +18,9 @@ staples after starring the first: ★ ☆
 checked at 4 meals: Every staple covers the week.
 checked at 5 meals: Short for the week: Rice.
 calls the page sent: [["item/short",[4]]] [["item/short",[5]]]
+planner after its field reported 6: 6
+planner after a library's event carrying 2: 2
+requests while typing: 0
 act without the page's header: 403
 act naming an action no template binds: 404
 act with a state that is not JSON: 400

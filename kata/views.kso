@@ -91,14 +91,17 @@ fn bound_in acc f src
 # component's state, and answers the next state. An action whose parameters
 # ask for the request, a database session or the viewer needs the server,
 # and so does every action of a component that has one. Its `act` takes
-# what the server hands an action, the request, a session and the viewer as
-# the `req`, `db` and `viewer` fields of one value, before the state, and
-# answers none for a name no template binds, which the server answers as a
-# 404. A browser component's `act` leaves the state as it was for such a
-# name.
+# what the server hands an action, the request, a session, the viewer and
+# the event's value as the `req`, `db`, `viewer` and `value` fields of one
+# value, before the state, and answers none for a name no template binds,
+# which the server answers as a 404. A browser component's `act` takes the
+# event's value alone before the state, and leaves the state as it was for
+# such a name. The value is the text the event carried: a library's event's
+# `detail`, a field's value, or "" for a click.
 fn acting p m names
-  return recorded p m (in_browser names) false if not served? m
   refused = list/to_list (list/fold names [] (acc n -> misplaced acc m n))
+  return refused if length refused > 0
+  return recorded p m (in_browser m names) false if not served? m
   around = list/to_list (list/select m.calls (c -> around? names c))
   bypass = list/to_list (list/map around (c -> derive/refuse_call c (direct c)))
   return list/concat refused bypass if length refused + length bypass > 0
@@ -155,12 +158,20 @@ fn direct c
   through = "write through a model, so its policy checks the write"
   "`{c.caller}` is a server action and calls `{c.callee}` itself: {through}"
 
-fn in_browser names
-  arms = list/to_list (list/map names browser_arm)
-  "{text/join arms "\n"}\npub fn act _ state\n  state\n"
+fn in_browser m names
+  arms = list/to_list (list/map names (n -> browser_arm m n))
+  "{text/join arms "\n"}\npub fn act _ _ state\n  state\n"
 
-fn browser_arm n
-  "pub fn act \"{n}\" state\n  {n} state\n"
+fn browser_arm m n
+  given = list/to_list (list/map (params_of m n) (p -> valued p.name))
+  from = if (list/any? given (g -> g != "state")) "kata_value" "_"
+  "pub fn act \"{n}\" {from} state\n  {n} {text/join given " "}\n"
+
+fn valued "value"
+  "kata_value"
+
+fn valued _
+  "state"
 
 fn on_server m names
   arms = list/to_list (list/map names (n -> server_arm m n))
@@ -187,6 +198,9 @@ fn given_as "db"
 fn given_as "viewer"
   "kata_given.viewer"
 
+fn given_as "value"
+  "kata_given.value"
+
 fn given_as _
   "state"
 
@@ -199,13 +213,16 @@ fn served? m
   list/any? bound (n -> server? (params_of m n))
 
 fn server? params
-  list/any? params (p -> handed? p.name)
+  list/any? params (p -> served_by? p.name)
 
-fn handed? name
+fn served_by? name
   name == "req" or name == "db" or name == "viewer"
 
-# Only the request, a session, the viewer and the state can be handed to an
-# action, and the state comes last.
+fn handed? name
+  served_by? name or name == "value"
+
+# Only the request, a session, the viewer, the event's value and the state
+# can be handed to an action, and the state comes last.
 fn misplaced acc m n
   params = params_of m n
   return acc if length params == 0
@@ -215,7 +232,7 @@ fn misplaced acc m n
   push acc (derive/refuse "{m.name}/{n}" (handed_only n odd[1].name))
 
 fn handed_only n p
-  only = "an action is handed only req, db, viewer and its state"
+  only = "an action is handed only req, db, viewer, value and its state"
   "the action `{n}` takes `{p}` before its state, and {only}"
 
 # What every compiled template leans on, written once into each module that
