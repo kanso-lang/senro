@@ -38,7 +38,9 @@ linked() {
   mail=""
   tries=0
   while [ -z "$mail" ] && [ $tries -lt 300 ]; do
-    mail=$(grep -l "^Subject: $1" $(grep -l "^To: $email" "$outbox"/* 2>/dev/null) 2>/dev/null | head -1)
+    # Before the mail is there the inner grep names no file, and a grep given
+    # no file reads its standard input, so the outer one is handed none.
+    mail=$(grep -l "^Subject: $1" $(grep -l "^To: $email" "$outbox"/* 2>/dev/null) 2>/dev/null </dev/null | head -1)
     [ -z "$mail" ] && sleep 0.1
     tries=$((tries + 1))
   done
