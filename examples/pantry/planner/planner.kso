@@ -4,15 +4,19 @@ import "std/text"
 
 # The week's meal plan, counted in the browser, and the staples it would run
 # short of. These are the component's actions: each takes the plan and
-# answers the next one, and the planner's template binds them to its buttons.
-# `more` and `fewer` count in the browser alone and clear the last check;
-# `checked` asks the server.
+# answers the next one, and the planner's template binds them to its buttons
+# and its field. `more` and `fewer` count in the browser alone and clear the
+# last check, and so does `typed`, which takes the count the field reports as
+# its `value`; `checked` asks the server.
 pub fn more plan
   planned (meals_of plan + 1)
 
 pub fn fewer plan
   n = meals_of plan
   planned (if (n > 0) (n - 1) 0)
+
+pub fn typed value _
+  planned (counted (text/to_int value))
 
 pub fn checked plan
   asked = item/short (meals_of plan)

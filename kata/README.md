@@ -150,6 +150,28 @@ id the session signed in, and it writes through a model
 one that calls `pg/query` or `pg/run` itself. In both cases the page morphs
 the component's next rendering into place.
 
+Any event binds the same way. `on-change=typed` binds the `change` event,
+and senro's page script listens for every event name a binding on the page
+names. An action that names a parameter `value` is handed the event's value
+as text, before its state: a field's value for an event the browser fires,
+the `detail` of a `CustomEvent`, and `""` for a click. So a JavaScript
+library's module reaches a component by dispatching an event on an element
+inside it (README, JavaScript):
+
+```
+input.meals type="number" on-change=typed
+```
+
+```
+pub fn typed value _
+  planned (counted (text/to_int value))
+```
+
+The pantry's planner runs `typed` in the browser for both, and
+`spec/runs/component` hands `set` its value on every engine. `value` can be
+asked for in either place an action runs, and only `req`, `db` and `viewer`
+send an action to the server.
+
 ## Pages in the browser
 
 A template that binds no action is a page, and an app can have its pages

@@ -1,4 +1,5 @@
-<div data-component="counter" data-state="Aw=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">3</span><button data-on-click="increment">+</button></div></div>
+<div data-component="counter" data-state="Aw=="><div class="counter"><button data-on-click="decrement">−</button><span class="count">3</span><button data-on-click="increment">+</button><input data-on-change="set" class="set"></div></div>
 4
 2
 3
+12

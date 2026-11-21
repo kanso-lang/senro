@@ -91,7 +91,9 @@ note "== each browser module answers its events on every engine"
 # natively, interpreted and built for the browser. The file writes a state as
 # JSON, and spec/held turns it into the bytes a page holds. A page is an
 # event with no component and no action, whose third field is the page's
-# bytes in base64, handed over as a file. The browser build is run
+# bytes in base64, handed over as a file. A fourth field is the answers a
+# provider's calls have had so far and a fifth the event's value, a JSON
+# string, each sent as a line of its own. The browser build is run
 # by spec/browser/module.mjs against the kanso runtime for wasm32 named by
 # KANSO_RUNTIME_WASM, and is skipped without it. The JavaScript that runs it
 # is the page script's own, which spec/browser/runner prints.
@@ -134,7 +136,7 @@ for events in spec/runs/*.events; do
       # event ends in.
       event="$component$nl$action$nl$held"
       case "$line" in
-        *"$tab"*"$tab"*"$tab"*) event="$event$nl$(printf '%s' "$line" | cut -f4-)" ;;
+        *"$tab"*"$tab"*"$tab"*) event="$event$nl$(printf '%s' "$line" | cut -f4- | tr '\t' '\n')" ;;
       esac
       case $engine in
         native) (cd "$d" && SENRO_PAGE="$page" SENRO_EVENT="$event" "$KANSO" run browser.kso 2>&1) ;;

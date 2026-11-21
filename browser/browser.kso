@@ -15,9 +15,11 @@ type component
   pages
 
 # The page's script runs the app's browser module once for each event, and
-# hands it the event in SENRO_EVENT as three lines: the component's name, the
-# action's name and the state as the page holds it, its bytes in base64
-# (`wire`). The module prints an empty line, then the component rendered in
+# hands it the event in SENRO_EVENT as lines: the component's name, the
+# action's name, the state as the page holds it, its bytes in base64
+# (`wire`), the answers to its calls so far (below), and the event's value,
+# written as a JSON string so that a value holding a line break stays one
+# line. The module prints an empty line, then the component rendered in
 # its next state, which holds that state in turn.
 pub fn answer components
   os/env "SENRO_EVENT" .> (e -> print (heard components (said e)))
@@ -80,7 +82,8 @@ fn decoded _ _ none
 
 fn decoded components parts state
   rounds = given_rounds (json/decode (part parts 4))
-  found (called components (part parts 1)) (part parts 2) state rounds
+  value = valued (json/decode (part parts 5))
+  found (called components (part parts 1)) (part parts 2) value state rounds
 
 # The component an event is for, found in the list the app handed `answer`
 # by the name kata recorded for it.
@@ -97,7 +100,7 @@ fn picked c components name at
   return c if c.name == name
   among components name (at + 1)
 
-fn found none _ _ _
+fn found none _ _ _ _
   ""
 
 # An action that reads what only the server holds answers what it asks for
@@ -106,10 +109,20 @@ fn found none _ _ _
 # action is run through them. While it still asks, the module prints `?` and
 # the calls, which the page sends to the server in one request. An answer's
 # first line is empty otherwise, so the two cannot be confused.
-fn found c action state rounds
-  next = data/settled (c.act action state) rounds
+fn found c action value state rounds
+  next = data/settled (c.act action value state) rounds
   return "?\n{json/encode (data/calls_in next)}" if data/asking? next
   "\n{c.view next}"
+
+# An event that carries no value, a click, is handed "".
+fn valued none
+  ""
+
+fn valued v:string
+  v
+
+fn valued _
+  ""
 
 fn given_rounds none
   []

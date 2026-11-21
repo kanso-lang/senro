@@ -218,6 +218,26 @@ console.log(`checked at ${await planned()} meals: ${await note()}`);
 page.off("request", sent);
 console.log(`calls the page sent: ${calls.join(" ")}`);
 
+// The planner's field is bound `on-change=typed`, and `typed` takes the
+// event's value by naming it: a field's value for an event the browser
+// fires, and the detail of an event a library's module dispatches, here
+// dispatched as a library's module would. Both run in the browser and send
+// the server nothing.
+let typing = 0;
+const typed = (r) => { if (!r.url().endsWith(".wasm")) typing++; };
+page.on("request", typed);
+await page.fill(".planner input.meals", "6");
+await page.$eval(".planner input.meals",
+  (el) => el.dispatchEvent(new Event("change", { bubbles: true })));
+await settled(`document.querySelector(".planner .count").textContent == "6"`);
+console.log(`planner after its field reported 6: ${await planned()}`);
+await page.$eval(".planner input.meals",
+  (el) => el.dispatchEvent(new CustomEvent("change", { bubbles: true, detail: 2 })));
+await settled(`document.querySelector(".planner .count").textContent == "2"`);
+console.log(`planner after a library's event carrying 2: ${await planned()}`);
+page.off("request", typed);
+console.log(`requests while typing: ${typing}`);
+
 // What a page may ask the server to do: only an action a template binds, on
 // a component the app serves, from senro's own script.
 const act = async (component, body, headers) => {

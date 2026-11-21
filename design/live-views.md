@@ -10,18 +10,6 @@ browser by the app's views compiled to wasm, in bytes kata derives from
 each page's shape. This note keeps what is still to build, and it is deleted
 when that has shipped.
 
-## Reaching JavaScript: a library's events
-
-kanso#2284 settled the boundary: the app's own JavaScript reads data
-attributes and drives the library, and senro vendors packages with jspm and
-keeps a library's element through the morph (README, JavaScript). What is
-left is the way back. A library's event, a date picked or a pin dropped,
-should become an action of the component around it, with the value the
-library reports. senro.js already turns a click on `data-on-click` into an
-action. The open questions are how the library's module names the action and
-how the value reaches it as a kanso value, and each gets a spec before it
-gets code.
-
 ## Later, each measured first
 
 These are recorded and not yet built (kanso#2418). Each gets a benchmark

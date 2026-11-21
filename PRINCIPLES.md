@@ -49,7 +49,7 @@ declared, and so is the session module's `secret`, which `SENRO_SECRET`
 replaces in a deployed app. The request carries that secret to everything
 that signs, so no call takes it as an argument. A component's action that
 takes a parameter named `req`, `db` or `viewer` runs on the server and is
-handed it.
+handed it, and one that takes `value` is handed the event's value.
 
 ## Routes are resources
 
@@ -129,9 +129,10 @@ A library such as a chart or a map is driven by JavaScript the app writes,
 which reads what the app's kanso code rendered into data attributes
 (kanso#2284). The language has no call into JavaScript, so every component
 stays a function from its state to HTML, and every engine runs it. senro
-supplies the rest: it vendors the app's packages with jspm, serves them, and
-keeps a library's element through the morph. The app writes the small
-module in between.
+supplies the rest: it vendors the app's packages with jspm, serves them,
+keeps a library's element through the morph, and turns an event the library
+dispatches into a component's action. The app writes the small module in
+between.
 
 ## Every behavior has a spec
 

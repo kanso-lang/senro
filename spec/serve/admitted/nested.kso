@@ -10,8 +10,13 @@ total = "[[\"books/total\",[3]]]"
 
 act = "/senro/act/tally"
 
-# The tally's action and its state, as the page posts them.
-raising = "raised\n{wire/as_text (wire/packed "raised by nobody")}"
+# The tally's action and its state, as the page posts them, and an action
+# with the event's value on a third line, a JSON string.
+raising = "raised\n{held}"
+
+noting = "noted\n{held}\n\"a line\\nand more\""
+
+held = wire/as_text (wire/packed "raised by nobody")
 
 # A visitor asks for the books from a page that wants a sign-in and from the
 # open one, which does not use them, and is refused both times. Viewer 2
@@ -22,7 +27,8 @@ raising = "raised\n{wire/as_text (wire/packed "raised by nobody")}"
 # found. The tally the ledger draws is acted on the same way: refused to the
 # visitor who has not signed in, to viewer 2 from the ledger, the front page
 # and no page, and answered to viewer 2 from the desk and viewer 1 from the
-# ledger.
+# ledger. Viewer 1's `noted` is handed the value it posted, line break and
+# all.
 pub fn index _ _
   asked "POST" "/senro/data" "" "/desk" total
     .> (a -> asked "POST" "/senro/data" "" "/" total
@@ -55,7 +61,8 @@ fn as_one got one
     .> (a -> asked "POST" "/senro/data" one "/ledger" total
     .> (b -> asked "POST" "/senro/data" one "/ledger" nobody
     .> (c -> asked "POST" act one "/ledger" raising
-    .> (d -> said (list/concat got [a b c d])))))
+    .> (d -> asked "POST" act one "/ledger" noting
+    .> (e -> said (list/concat got [a b c d e]))))))
 
 fn asked method path cookie from sending
   net/dial "127.0.0.1" 24420 .> (c -> sent c method path cookie from sending)

@@ -3,3 +3,5 @@ counter	decrement	0
 counter	sideways	7
 nowhere	increment	4
 counter	increment	not json
+counter	set	4	[]	"12"
+counter	set	4	[]	"many"
