@@ -33,3 +33,4 @@ data from a page that is not there: 403
 the other visitor sees green tea at 1, mark kept
 every page the shelf fetched came as data: true
 staples after a reload: ★ ☆
+a new import map: the page reloaded (mark lost), then kept its mark (kept)

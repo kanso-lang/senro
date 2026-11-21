@@ -575,14 +575,16 @@ fn headed r line
   http/respond r.status (push r.headers line) r.body
 
 # The version of the app's browser modules: the modification times of the
-# module and the runtime it runs on, which a deploy that changes either moves.
-# The page script keeps both in the browser's Cache Storage under it, so a
-# returning visitor compiles them without asking for them.
+# module, the runtime it runs on, and the import map `senro js install`
+# wrote, which a deploy that changes any of them moves. The page script keeps
+# the two modules in the browser's Cache Storage under the first two, so a
+# returning visitor compiles them without asking for them. A page holds the
+# import map it opened with, so a new map reloads it like a new module.
 modules_version = os/modified "public/senro/app.wasm"
-  .> (a -> os/modified "public/senro/runtime.wasm" .> (b -> both a b))
+  .> (a -> os/modified "public/senro/runtime.wasm" .> (b -> mapped a b))
 
-fn both a b
-  effect "{stamp a}-{stamp b}"
+fn mapped a b
+  os/modified "importmap.json" .> (c -> effect "{stamp a}-{stamp b}-{stamp c}")
 
 fn stamp _:os/file_not_found
   "none"

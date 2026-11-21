@@ -719,8 +719,9 @@ handed the event's `detail` as text (kata/README.md, Components).
   browser. The script keeps the app's module and the runtime in the browser's
   Cache Storage, each under its modification time, which the server writes into
   `/senro.js`, so a returning visitor compiles them without asking for them.
-  Every answer to the script names that version, and a page opened before a
-  deploy that changed it loads itself again, once. A field the visitor is typing
+  Every answer to the script names that version, with the modification time
+  of `importmap.json` beside the two modules', and a page opened before a
+  deploy that changed any of them loads itself again, once. A field the visitor is typing
   in keeps what they typed, unless it was in the form just sent. A form that
   POSTs a `_method` of `PATCH` or `DELETE` is routed as that method, as in
   Rails. When a request that isn't a GET finishes, the server notifies
