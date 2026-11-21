@@ -715,6 +715,55 @@ else
   done
 fi
 
+note "== the pantry's JavaScript is what jspm traces"
+# `senro js check` traces the pantry's javascript/ again with the generator
+# its package-lock.json pins, downloads every module the trace reaches from
+# jspm.io, and fails when an install would change importmap.json or any file
+# under vendor/javascript/. A copy of the pantry with one vendored file
+# edited is refused as spec/javascript/edited.out says, and each app under
+# spec/javascript is refused as its golden says. The check needs jspm.io, so
+# SENRO_NO_NET=1 skips the pantry's part and says so.
+if [ "${SENRO_NO_NET:-}" = 1 ]; then
+  note "SKIPPED: the pantry's senro js check (SENRO_NO_NET=1)"
+elif ! (cd examples/pantry && npm ci --no-audit --no-fund >/dev/null 2>&1); then
+  bad "the pantry's node packages install"
+else
+  if out=$(cd examples/pantry && sh ../../bin/senro js check 2>&1); then
+    note "ok: the pantry's senro js check"
+  else
+    bad "the pantry's senro js check"
+    printf '%s\n' "$out"
+  fi
+  copy=$(mktemp -d)
+  cp -R examples/pantry/. "$copy"
+  printf '// edited\n' >> "$copy/vendor/javascript/ga.jspm.io/npm/chartist@2.2.1/dist/index.js"
+  got=$(cd "$copy" && sh "$here/bin/senro" js check 2>&1; echo "status $?")
+  rm -rf "$copy"
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$got" > spec/javascript/edited.out
+  fi
+  if printf '%s\n' "$got" | diff spec/javascript/edited.out - >/dev/null; then
+    note "ok: an edited vendored module is refused"
+  else
+    bad "an edited vendored module is refused"
+    printf '%s\n' "$got" | diff spec/javascript/edited.out -
+  fi
+fi
+for d in spec/javascript/*/; do
+  name=$(basename "$d")
+  want="spec/javascript/$name.out"
+  got=$(cd "$d" && sh "$here/bin/senro" js check 2>&1; echo "status $?")
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$got" > "$want"
+  fi
+  if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+    note "ok: senro js refuses $name"
+  else
+    bad "senro js refuses $name"
+    printf '%s\n' "$got" | diff "$want" -
+  fi
+done
+
 note "== each app under spec/errors is refused as its golden says"
 for d in spec/errors/*/; do
   name=$(basename "$d")

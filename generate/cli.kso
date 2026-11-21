@@ -58,6 +58,8 @@ usage_lines = [
   "       senro server                           (or `senro s`)"
   "       senro migrate"
   "       senro test [file]                      (or `senro t`)"
+  "       senro js install                       vendors the app's JavaScript"
+  "       senro js check"
 ]
 
 pub built_in = [

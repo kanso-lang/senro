@@ -854,16 +854,19 @@ fn limited (hit action kind id _) none
 fn limited (hit action kind id _) l
   hit action kind id l
 
-# A GET no route answers is senro's page script at /senro.js, or else it is
-# looked for under `public/` in the directory the server started in, the way
-# a stylesheet or an image is served. A path that climbs out of it, or a file
-# that is not there, is a 404.
+# A GET no route answers is senro's page script at /senro.js, one of the
+# app's JavaScript modules under `javascript/` or `vendor/javascript/`, or
+# else it is looked for under `public/` in the directory the server started
+# in, the way a stylesheet or an image is served. A path that climbs out of
+# its directory, or a file that is not there, is a 404.
 fn routed none req _
   return effect http/not_found if req.method != "GET"
   return page_script if req.path == "/senro.js"
   return blob req if text/starts_with? req.path "/senro/blobs/"
   return effect http/not_found if length (text/split req.path "..") > 1
   return served_module req if text/ends_with? req.path ".wasm"
+  return own_script req if text/starts_with? req.path "/javascript/"
+  return vendored req if text/starts_with? req.path "/vendor/javascript/"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
 
 # A wasm module is bytes, read as bytes: the app's components compiled for the
@@ -875,15 +878,24 @@ fn routed none req _
 # the bytes instead cost the interpreter four seconds a request on the
 # runtime.
 fn served_module req
-  had = blank_if_none req.headers["if-none-match"]
-  path = "public{req.path}"
-  os/modified path .> (at -> os/read_bytes path .> (got -> stamped had at got))
+  checked req "public{req.path}" "application/wasm"
 
-fn stamped _ _ _:os/file_not_found
+# One of the app's own modules, under `javascript/`, is checked the same
+# way, so the next page after an edit or a deploy loads the module as it now
+# stands.
+fn own_script req
+  checked req ".{req.path}" (kind_of req.path)
+
+fn checked req path kind
+  had = blank_if_none req.headers["if-none-match"]
+  os/modified path
+    .> (at -> os/read_bytes path .> (got -> stamped had at got kind))
+
+fn stamped _ _ _:os/file_not_found _
   effect http/not_found
 
-fn stamped had at got
-  served_bytes had "\"{at}-{length got}\"" got
+fn stamped had at got kind
+  served_bytes had "\"{at}-{length got}\"" got kind
 
 fn blank_if_none none
   ""
@@ -891,21 +903,45 @@ fn blank_if_none none
 fn blank_if_none v
   v
 
-fn served_bytes had tag body
+fn served_bytes had tag body kind
   fresh = ["etag: {tag}" "cache-control: no-cache"]
   return effect (http/respond 304 fresh "") if had == tag
-  effect (http/page (push fresh "content-type: application/wasm") body)
+  effect (http/page (push fresh "content-type: {kind}") body)
+
+# A module `senro js install` vendored from jspm.io. Its path names its
+# package's version, and a new version is a new path, so the browser may keep
+# a copy for a year without asking again.
+fn vendored req
+  path = ".{req.path}"
+  os/read_bytes path .> (got -> forever req.path got)
+
+fn forever _ _:os/file_not_found
+  effect http/not_found
+
+fn forever path body
+  year = "cache-control: public, max-age=31536000, immutable"
+  effect (http/page [year "content-type: {kind_of path}"] body)
 
 javascript = "content-type: text/javascript; charset=utf-8"
 
-# senro's page script, opened with the version of the app's modules. It is
-# small, and the browser is told to check it before reusing a copy, since a
-# copy from before a deploy would name the old version.
-page_script = modules_version .> (v -> effect (opened_with v))
+# senro's page script, opened with the version of the app's modules and,
+# when the app has JavaScript of its own, the import map `senro js install`
+# wrote. It is small, and the browser is told to check it before reusing a
+# copy, since a copy from before a deploy would name the old version.
+page_script = modules_version
+  .> (v -> os/read_file "importmap.json" .> (m -> effect (opened_with v m)))
 
-fn opened_with v
+fn opened_with v m
   heads = [javascript "cache-control: no-cache"]
-  http/page heads "const senroVersion = \"{v}\";\n{script}"
+  head = "const senroVersion = \"{v}\";\nconst senroImports = {imports m};"
+  http/page heads "{head}\n{script}"
+
+# The map's jspm.io modules are served from where the install keeps them.
+fn imports _:os/file_not_found
+  "null"
+
+fn imports m
+  text/replace m "https://ga.jspm.io/npm:" "/vendor/javascript/ga.jspm.io/npm/"
 
 fn served_file path body:string
   effect (http/page ["content-type: {kind_of path}"] body)
@@ -918,6 +954,8 @@ fn kind_of path
   return "text/html; charset=utf-8" if text/ends_with? path ".html"
   return "image/svg+xml" if text/ends_with? path ".svg"
   return "text/javascript; charset=utf-8" if text/ends_with? path ".js"
+  return "text/javascript; charset=utf-8" if text/ends_with? path ".mjs"
+  return "application/json" if text/ends_with? path ".map"
   "text/plain; charset=utf-8"
 
 fn routed (hit action kind id _) req db

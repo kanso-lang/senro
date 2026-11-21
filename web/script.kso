@@ -130,13 +130,35 @@ pub module_runner = runner
 
 # The page script senro serves at /senro.js. A layout that loads it gets
 # pages that update in place: a link followed or a form sent on the app's own
-# origin is fetched, and the page it answers is morphed into the live one.
+# origin is fetched, and the page it answers is morphed into the live one. An
+# app with JavaScript of its own gets its import map and its entry module from
+# the same script, so the layout needs no other tag.
 script = """
   // senro's page script. A link followed or a form sent on this origin is
   // fetched, and the page it answers is morphed into the live one, so the
   // browser never reloads. A field being typed in keeps what was typed,
   // unless its own form was sent: then the answer is what it should hold.
   (() => \{
+    // The app's own JavaScript, when it has some: the import map `senro js
+    // install` wrote, each module a page needs from the start fetched at
+    // once, and the entry, javascript/application.js, run as a module. The
+    // map has to be in place before any module loads, and this script loads
+    // the first.
+    if (senroImports) \{
+      const \{ preload, ...map } = senroImports;
+      const mapped = document.createElement("script");
+      mapped.type = "importmap";
+      mapped.textContent = JSON.stringify(map);
+      document.head.append(mapped);
+      for (const href of preload) \{
+        const link = document.createElement("link");
+        link.rel = "modulepreload";
+        link.href = href;
+        document.head.append(link);
+      }
+      import("application");
+    }
+
     let sent = null;
 
     // This page's name for itself, sent with each request. The server names
@@ -253,6 +275,10 @@ script = """
       from.dataset.component === to.dataset.component &&
       served.get(from) === to.dataset.state;
 
+    // An element marked `data-owned-by` belongs to a JavaScript library the
+    // app drives, a chart or a map, which draws its children. The morph
+    // keeps its attributes current, which is how the library hears of new
+    // data, and leaves its children to the library.
     const morph = (from, to) => \{
       if (from.nodeType !== to.nodeType || from.nodeName !== to.nodeName) \{
         const fresh = document.importNode(to, true);
@@ -261,7 +287,7 @@ script = """
       } else if (from.nodeType === Node.ELEMENT_NODE) \{
         if (kept(from, to)) return;
         attributes(from, to);
-        children(from, to);
+        if (to.dataset.ownedBy === undefined) children(from, to);
         field(from, to);
         if (to.dataset.component !== undefined) \{
           served.set(from, to.dataset.state);

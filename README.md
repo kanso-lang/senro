@@ -281,6 +281,76 @@ The schema the app is compiled against is folded from the same files, so a
 migration that renames a column the app reads is a compile error at the read
 until the app is changed with it.
 
+## JavaScript
+
+An app reaches a JavaScript library, a chart or a map, through the page
+(kanso#2284). Its kanso code renders an element with data attributes, and a
+module of the app's own reads them and drives the library. The language has
+no call into JavaScript, so a component stays a function from its state to
+HTML and runs on every engine.
+
+The app's modules live in `javascript/`, and `javascript/application.js` is
+the entry. A package is imported by name, and one of the app's modules by its
+path without `.js`, a directory's name standing for its `index.js`:
+
+```js
+import { BarChart } from "chartist";
+import "chart";                     // javascript/chart.js
+```
+
+senro manages the packages as jspm-rails manages a Rails app's. Install
+jspm's generator beside the app once, then trace:
+
+```
+npm install --save-dev @jspm/generator
+senro js install
+```
+
+```
+      traced  javascript/application.js
+    vendored  2 modules from ga.jspm.io
+       wrote  importmap.json
+```
+
+`senro js install` traces the entry, and every other module in
+`javascript/`, with the generator. It downloads each module the trace reaches
+from jspm.io, with its source map, into `vendor/javascript/`, and writes the
+import map and the modules a page needs at once to `importmap.json`. Commit
+both. senro's page script carries the map to the browser and loads the entry,
+so the layout needs no other tag, and a deployed app needs no Node and no
+jspm.io. A vendored module is served to be kept for a year, since its path
+names its version; one of the app's own is checked on each page load, like the
+browser modules.
+
+`importmap.json` is jspm's lockfile: an install keeps every version it already
+holds. A package npm installed at the top of `package-lock.json` takes the
+version npm chose instead, so a Dependabot bump reaches the map at the next
+install. To move a package installed only through jspm, delete its entries
+from the map and install again. When npm holds a second version of a package
+that a dependent asked for, the map can hold only one, so the install uses
+the top-level version everywhere and prints a `warn` line naming the package
+and both versions.
+
+`senro js check` traces and downloads again and writes nothing. It fails when
+an install would change `importmap.json`, or when a file under
+`vendor/javascript/` is missing, differs from what jspm.io serves, or is no
+longer reached. Run it in CI, and a hand edit to vendored code cannot land.
+A module of the app's that has a package's name is refused, since an import
+of that name could mean either.
+
+senro's page script morphs each new page into the live one, which would
+redraw a library's element from the server's HTML. An element marked
+`data-owned-by` keeps its children through the morph, and its attributes are
+kept current, so the library's module hears of new data by watching them.
+The pantry's chart is the example: `views/shelf.kata` writes
+
+```
+.chart data-owned-by="chart" data-names=names data-counts=counts
+```
+
+and `javascript/chart.js` draws a Chartist bar chart into each such element,
+and draws it again when a `MutationObserver` sees `data-counts` change.
+
 ## What is here
 
 - `app`: how an app starts. `derive app/conventions` runs every convention
@@ -631,7 +701,9 @@ until the app is changed with it.
   `web/redirect "/" "Thank you for signing."` sends the browser
   on with one, the page it lands on reads it with `web/notice req`, and the
   server forgets it once that page is answered. A notice has a cookie of its
-  own, so forgetting one never sets the session. It also serves
+  own, so forgetting one never sets the session. It serves the app's
+  JavaScript from `javascript/` and `vendor/javascript/` (JavaScript,
+  above). It also serves
   senro's page script at `/senro.js`. A layout that loads it gets pages that
   update in place: a link followed or a form sent on the app's own origin is
   fetched, and the page the server answers is morphed into the live one, so the

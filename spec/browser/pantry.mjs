@@ -22,7 +22,17 @@ const settled = async (check) => {
   await page.waitForFunction(check, null, { timeout: 5000 });
 };
 
+// The chart javascript/chart.js draws, as the values of its bars. A step is
+// read once the chart shows the counts the list shows, so a chart the morph
+// wiped, or one drawn from stale data, times out here.
+const chart = () => [...document.querySelectorAll(".chart .ct-bar")]
+  .map((b) => b.getAttribute("ct:value")).join(" ");
+const listed = () => [...document.querySelectorAll(".items li .count")]
+  .map((c) => c.textContent).join(" ");
+
 const said = async (step) => {
+  await page.waitForFunction(
+    `(${chart})() == (${listed})()`, null, { timeout: 5000 });
   const seen = await page.evaluate(() => ({
     mark: window.senroMark || "lost",
     lede: document.querySelector(".lede").textContent,
@@ -32,7 +42,8 @@ const said = async (step) => {
       return `${text}: ${li.querySelector(".count").textContent}`;
     }),
   }));
-  console.log(`${step}: ${seen.lede} [${seen.rows.join(", ")}] mark ${seen.mark}`);
+  const bars = await page.evaluate(chart);
+  console.log(`${step}: ${seen.lede} [${seen.rows.join(", ")}] chart [${bars}] mark ${seen.mark}`);
   if (shots) await page.screenshot({ path: `${shots}/${++shot}-${step.replace(/ /g, "-")}.png` });
 };
 
@@ -42,6 +53,12 @@ const row = (n) => page.locator(".items li").nth(n);
 // Each page the script fetches comes as data once the module has loaded,
 // and the pantry's views compiled for the browser render it.
 const fetched = [];
+// The app's JavaScript and the library it draws with come from the app's
+// own server, which vendored them; nothing is asked of jspm.io.
+const offsite = [];
+page.on("request", (r) => {
+  if (!r.url().startsWith(`http://127.0.0.1:${port}/`)) offsite.push(r.url());
+});
 page.on("response", (r) => {
   if (r.request().resourceType() !== "fetch" || r.status() !== 200) return;
   const path = new URL(r.url()).pathname;
@@ -158,6 +175,17 @@ const again = await fetch(module, { headers: { "if-none-match": tag } });
 console.log(`the browser module asked for again with its ETag: ${again.status}`);
 const nope = await fetch(`http://127.0.0.1:${port}/senro/nope.wasm`);
 console.log(`a module that is not there: ${nope.status}`);
+
+// The app's own modules are checked the same way, so an edit reaches the
+// next page. A vendored module's path names its version, so it is kept.
+const own = `http://127.0.0.1:${port}/javascript/chart.js`;
+const ownTag = (await fetch(own)).headers.get("etag");
+const ownAgain = await fetch(own, { headers: { "if-none-match": ownTag } });
+console.log(`the app's chart module asked for again with its ETag: ${ownAgain.status}`);
+const library = await fetch(
+  `http://127.0.0.1:${port}/vendor/javascript/ga.jspm.io/npm/chartist@2.2.1/dist/index.js`);
+console.log(`the vendored chart library: ${library.status}, ${library.headers.get("cache-control")}`);
+console.log(`requests off the app's origin: ${offsite.length}`);
 
 // The staple star is a component whose action writes to the database, so it
 // runs on the server: the click posts the star's state, and the answer is

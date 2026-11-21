@@ -7,3 +7,6 @@ browser.wasm
 # What `generate` writes for spec.sh, made afresh each run.
 spec/notebook/
 storage/
+
+# What `npm ci` installs in an app for `senro js`: the generator it pins.
+node_modules/
