@@ -2,6 +2,7 @@ import "../names"
 import "../pg"
 import "../web"
 import "std/derive"
+import "std/io"
 import "std/list"
 import "std/text"
 
@@ -1315,10 +1316,13 @@ fn making table columns
 # Each is recorded in `senro_migrations` under the app's name and its stamp,
 # or its place in `all` for a module kept as one file, beside the SQL it
 # ran, inside the transaction that ran it, so a migration runs once, and two
-# apps can share a database. One whose SQL has changed since it ran is
-# refused, and the app does not start: a change that has run is history, and
-# a new one is a new migration. The session comes back when every migration
-# has run, so `.>` carries it on.
+# apps can share a database. One whose SQL has changed since it ran is not
+# run again, since what it did is already in the database; senro says so on
+# standard error, with what ran and what the file now says, and goes on. The
+# edit matters to a database made afresh from the migrations, which would get
+# the new schema, so the comparison `app/run` makes next is what refuses to
+# serve when the edit changed one (#2509). The session comes back when every
+# migration has run, so `.>` carries it on.
 #
 # Each change does nothing when its work is already done, so a database made
 # before migrations were recorded takes the whole list safely the first time.
@@ -1391,7 +1395,8 @@ fn stepped db app m none
 fn stepped db app m was
   return effect db if was == m.sql
   changed = "{app}'s migration {m.version} has changed since it ran"
-  err "{changed}:\n  ran: {was}\n  now: {m.sql}"
+  told = "{changed}, and is not run again:\n  ran: {was}\n  now: {m.sql}"
+  io/write_err "senro: {told}\n" .> (_ -> effect db)
 
 record = """
   insert into senro_migrations (app, version, change)

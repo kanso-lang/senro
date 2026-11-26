@@ -484,9 +484,11 @@ handed the event's `detail` as text (kata/README.md, Components).
   above). A module that
   is one file, `migrations.kso`, and writes `pub all = [...]` itself is read as
   it is and its changes are recorded by their place in the list, which suits a
-  spec or an app of a few lines. A migration runs once; one whose SQL has
-  changed since it ran stops the app, naming it, so a new change is a new
-  migration. Each change does nothing when its work is
+  spec or an app of a few lines. A migration runs once. One whose SQL has
+  changed since it ran is not run again: senro writes a warning naming it,
+  with what ran and what the file now says, and goes on. An edit that
+  changed the schema is caught by the comparison below, which refuses to
+  serve. A new change is a new migration. Each change does nothing when its work is
   already done, so a database made before migrations were recorded takes the
   list safely the first time. Then `models/compared db schema` reads the live
   tables and answers the session when they agree with the schema, or an err
