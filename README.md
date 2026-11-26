@@ -654,9 +654,12 @@ handed the event's `detail` as text (kata/README.md, Components).
   key of 32 random hex digits, and the form holds the key where the file was,
   as Active Storage's disk service keeps a blob. The action stores the key in
   a column, and a view links it with `src=(blob_path e.photo)`, the file
-  served at `/senro/blobs/<key>`. An image or a PDF is shown in the page; any
-  other kind is sent as a download, so an HTML file someone uploaded never runs
-  as a page of the app. A file input left empty reads as "". The server opens a pool of database sessions when it
+  served at `/senro/blobs/<key>`. An image, a sound, a video or a PDF is shown
+  in the page; any other kind is sent as a download, so an HTML file someone
+  uploaded never runs as a page of the app. A request with a `Range` header
+  for one span of the file, as an `<audio>` or `<video>` element sends when it
+  seeks, is answered 206 with that span, and a span that starts past the end
+  is answered 416 (`spec/serve/uploaded`). A file input left empty reads as "". The server opens a pool of database sessions when it
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
   when it has answered, and a request that finds them all lent waits. An action
   that fails is answered with a 500, its reason goes to standard error, and the
