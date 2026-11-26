@@ -73,8 +73,15 @@ jobs:
         run: |
           npm install --prefix /tmp/pw playwright@1.56.1
           /tmp/pw/node_modules/.bin/playwright install --with-deps chromium firefox
+      # spec/buckets keeps files in moto's S3 server, which answers as an
+      # S3-compatible store such as Cloudflare R2 does.
+      - name: moto, an S3 server
+        run: |
+          python3 -m venv /tmp/moto
+          /tmp/moto/bin/pip install --quiet "moto[server]==5.2.6"
       - name: specs (checks, derived table, kata's views, runs, database, browsers, errors, benchmark)
         env:
+          SENRO_MOTO: /tmp/moto/bin/moto_server
           NODE_PATH: /tmp/pw/node_modules
           SENRO_BROWSERS: chromium firefox
           KANSO_RUNTIME_WASM: /tmp/kanso-runtime.wasm

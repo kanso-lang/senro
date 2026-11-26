@@ -668,7 +668,18 @@ handed the event's `detail` as text (kata/README.md, Components).
   uploaded never runs as a page of the app. A request with a `Range` header
   for one span of the file, as an `<audio>` or `<video>` element sends when it
   seeks, is answered 206 with that span, and a span that starts past the end
-  is answered 416 (`spec/serve/uploaded`). A file input left empty reads as "". The server opens a pool of database sessions when it
+  is answered 416 (`spec/serve/uploaded`). `SENRO_STORAGE=s3://<bucket>`
+  keeps the files in an S3-compatible store such as Cloudflare R2 instead:
+  `SENRO_S3_ENDPOINT` says where to ask it
+  (`https://<account>.r2.cloudflarestorage.com`), `SENRO_S3_REGION` its region
+  (`auto` when unset, as R2 takes it), and `AWS_ACCESS_KEY_ID` and
+  `AWS_SECRET_ACCESS_KEY` the key. An upload is a PUT to a presigned URL,
+  with the content type and disposition the store answers with, and
+  `/senro/blobs/<key>` answers with a redirect to a URL that reads the file
+  for five minutes, so the store sends the bytes and answers a `Range`
+  itself (`spec/buckets/kept`). The URLs are signed by `objects`, with AWS's
+  Signature Version 4; `spec/runs/presigned` pins the example AWS publishes.
+  A file input left empty reads as "". The server opens a pool of database sessions when it
   starts (`sessions` in `web.kso`); each request borrows one and gives it back
   when it has answered, and a request that finds them all lent waits. An action
   that fails is answered with a 500, its reason goes to standard error, and the

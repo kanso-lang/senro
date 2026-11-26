@@ -1,0 +1,163 @@
+import "../clock"
+import "std/list"
+import "std/net"
+import "std/sha256"
+import "std/text"
+import "std/time"
+
+# Files kept in an S3-compatible store, such as Cloudflare R2, rather than
+# on the server's disk. senro asks the store with presigned URLs, AWS's
+# Signature Version 4 carried in the query string: a URL that lets whoever
+# holds it make one request, of one method, on one object, until it
+# expires. A download is answered with a redirect to such a URL, so the
+# store sends the bytes and answers a `Range` itself, and an upload is a PUT
+# to one.
+#
+# A store: where to ask it, as `https://<account>.r2.cloudflarestorage.com`
+# or, for a store on the machine, `http://127.0.0.1:9000`; its region, which
+# R2 takes as `auto`; the bucket; and an access key's id and secret.
+type bucket_at
+  scheme
+  host
+  region
+  bucket
+  key_id
+  secret
+
+pub fn store endpoint region bucket key_id secret
+  parts = text/split endpoint "://"
+  bare = bucket_at "https" endpoint region bucket key_id secret
+  return bare if length parts < 2
+  bucket_at parts[1] parts[2] region bucket key_id secret
+
+# A URL that lets its holder make one `method` request on `key` for
+# `expires` seconds from `at`, written as AWS writes a time,
+# `20130524T000000Z`. The bucket is the URL's first segment, as R2 and most
+# S3-compatible stores take it.
+pub fn presigned s method key at expires
+  path = "/{s.bucket}/{encoded key 47}"
+  signed s.scheme s.key_id s.secret s.region s.host path method at expires
+
+# A URL for `key` that lets its holder read it for `seconds` from now.
+pub fn readable s key seconds
+  time/now .> (t -> effect (presigned s "GET" key (amz_date t) seconds))
+
+# `body` kept under `key`, with `headers` such as its content type, which the
+# store keeps and answers with. It answers `done`, or an err naming what the
+# store said.
+pub fn upload s key headers body
+  time/now .> (t -> uploaded s key headers body (amz_date t))
+
+fn uploaded s key headers body at
+  url = presigned s "PUT" key at 300
+  target = "/{blank_if_none (text/split url "{s.host}/")[2]}"
+  sized = list/concat headers ["content-length: {size_of body}"]
+  lines = list/concat ["PUT {target} HTTP/1.1" "host: {s.host}"] sized
+  head = "{text/join (list/concat lines ["connection: close"]) "\r\n"}\r\n\r\n"
+  dialed s
+    .> (c -> net/write c head .> (_ -> net/write c body) .> (_ -> effect c))
+    .> (c -> net/read c .> (raw -> answered c raw))
+
+fn answered c raw
+  status = blank_if_none (text/split raw "\r\n")[1]
+  net/close_conn c .> (_ -> stored status)
+
+fn stored status
+  return effect done if text/starts_with? status "HTTP/1.1 200"
+  err "the store answered {status}"
+
+fn dialed s
+  named = text/split s.host ":"
+  host = blank_if_none named[1]
+  return net/dial_tls host 443 if s.scheme == "https"
+  net/dial host (port_of named[2])
+
+fn port_of none
+  80
+
+fn port_of p
+  number_or_80 (text/to_int p)
+
+fn number_or_80 none
+  80
+
+fn number_or_80 n
+  n
+
+fn size_of body:string
+  length (text/bytes body)
+
+fn size_of body
+  length body
+
+# A moment in milliseconds as AWS writes one, `20130524T000000Z`.
+fn amz_date t
+  digits = clock/stamp t
+  day = blank_if_none (text/slice digits 1 8)
+  "{day}T{blank_if_none (text/slice digits 9 14)}Z"
+
+# The same URL for a host that names the bucket itself, as
+# `examplebucket.s3.amazonaws.com` does: `path` is the object's path on it.
+pub fn signed_url key_id secret region host path method at expires
+  signed "https" key_id secret region host path method at expires
+
+fn signed scheme key_id secret region host path method at expires
+  day = blank_if_none (text/slice at 1 8)
+  scope = "{day}/{region}/s3/aws4_request"
+  pairs = [
+    "X-Amz-Algorithm=AWS4-HMAC-SHA256"
+    "X-Amz-Credential={encoded "{key_id}/{scope}" 0}"
+    "X-Amz-Date={at}"
+    "X-Amz-Expires={expires}"
+    "X-Amz-SignedHeaders=host"
+  ]
+  query = text/join pairs "&"
+  asked = [method path query "host:{host}" "" "host" "UNSIGNED-PAYLOAD"]
+  hashed = sha256/hex (text/bytes (text/join asked "\n"))
+  told = "AWS4-HMAC-SHA256\n{at}\n{scope}\n{hashed}"
+  key = signing_key secret day region
+  signature = hexed (sha256/hmac key (text/bytes told))
+  "{scheme}://{host}{path}?{query}&X-Amz-Signature={signature}"
+
+# The key a day's requests are signed with: the secret, then the day, the
+# region, the service and the words that end every scope, each HMAC'd with
+# the one before.
+fn signing_key secret day region
+  dated = sha256/hmac (text/bytes "AWS4{secret}") (text/bytes day)
+  placed = sha256/hmac dated (text/bytes region)
+  served = sha256/hmac placed (text/bytes "s3")
+  sha256/hmac served (text/bytes "aws4_request")
+
+# A value as SigV4 encodes it: letters, digits and `-_.~` stay, and every
+# other byte is `%` and two uppercase hex digits. `kept` is a byte also left
+# as it is, 47 for the `/` in a path, or 0 for none.
+fn encoded value kept
+  bytes = list/to_list (text/bytes value)
+  text/join (list/to_list (list/map bytes (b -> escaped b kept))) ""
+
+fn escaped b kept
+  return text/utf8 [b] if unreserved? b or b == kept
+  "%{upper_hex b}"
+
+fn unreserved? b
+  letter = (b >= 65 and b <= 90) or (b >= 97 and b <= 122)
+  digit = b >= 48 and b <= 57
+  letter or digit or b == 45 or b == 46 or b == 95 or b == 126
+
+fn upper_hex b
+  "{digit_of (b / 16)}{digit_of (b % 16)}"
+
+fn digit_of n
+  blank_if_none (text/slice "0123456789ABCDEF" (n + 1) (n + 1))
+
+fn hexed bytes
+  text/join (list/to_list (list/map bytes (b -> lower_hex b))) ""
+
+fn lower_hex b
+  text/lowercase (upper_hex b)
+
+fn blank_if_none none
+  ""
+
+fn blank_if_none s
+  s

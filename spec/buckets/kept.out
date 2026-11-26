@@ -1,0 +1,3 @@
+notes: redirected to the store: true; HTTP/1.1 200 OK, content-type: application/octet-stream, content-disposition: attachment; filename="x.html", bytes: true
+song: redirected to the store: true; HTTP/1.1 200 OK, content-type: audio/mpeg, content-disposition: inline, bytes: true
+song, bytes=0-3: redirected to the store: true; HTTP/1.1 206 PARTIAL CONTENT, content-type: audio/mpeg, content-disposition: inline, content-range: bytes 0-3/12, bytes: true
