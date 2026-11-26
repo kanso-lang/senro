@@ -1,0 +1,7 @@
+{
+  "imports": {},
+  "preload": [],
+  "stylesheets": {
+    "chartist/dist/index.css": "https://ga.jspm.io/npm:chartist@2.2.1/dist/index.css"
+  }
+}

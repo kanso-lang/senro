@@ -13,5 +13,8 @@
     "/javascript/chart.js",
     "https://ga.jspm.io/npm:chartist@2.2.1/_/BUd082zi.js",
     "https://ga.jspm.io/npm:chartist@2.2.1/dist/index.js"
-  ]
+  ],
+  "stylesheets": {
+    "chartist/dist/index.css": "https://ga.jspm.io/npm:chartist@2.2.1/dist/index.css"
+  }
 }

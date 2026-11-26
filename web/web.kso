@@ -858,9 +858,10 @@ fn limited (hit action kind id _) l
   hit action kind id l
 
 # A GET no route answers is senro's page script at /senro.js, one of the
-# app's JavaScript modules under `javascript/` or `vendor/javascript/`, or
-# else it is looked for under `public/` in the directory the server started
-# in, the way a stylesheet or an image is served. A path that climbs out of
+# app's JavaScript modules under `javascript/` or `vendor/javascript/`, one
+# of its stylesheets under `stylesheets/`, or else it is looked for under
+# `public/` in the directory the server started in, the way an image is
+# served. A path that climbs out of
 # its directory, or a file that is not there, is a 404.
 fn routed none req _
   return effect http/not_found if req.method != "GET"
@@ -869,6 +870,7 @@ fn routed none req _
   return effect http/not_found if length (text/split req.path "..") > 1
   return served_module req if text/ends_with? req.path ".wasm"
   return own_script req if text/starts_with? req.path "/javascript/"
+  return own_sheet req if text/starts_with? req.path "/stylesheets/"
   return vendored req if text/starts_with? req.path "/vendor/javascript/"
   os/read_file "public{req.path}" .> (got -> served_file req.path got)
 
@@ -910,6 +912,54 @@ fn served_bytes had tag body kind
   fresh = ["etag: {tag}" "cache-control: no-cache"]
   return effect (http/respond 304 fresh "") if had == tag
   effect (http/page (push fresh "content-type: {kind}") body)
+
+# One of the app's own stylesheets. An `@import` of a package's stylesheet
+# by its name, `@import "bootstrap/dist/css/bootstrap.min.css";`, is
+# rewritten to the copy `senro js install` vendored, which the map's
+# `stylesheets` names, since a browser reads only a URL there. The ETag
+# names the map's time too, so a page after a new version asks again.
+fn own_sheet req
+  path = ".{req.path}"
+  had = blank_if_none req.headers["if-none-match"]
+  os/modified path
+    .> (at -> os/modified "importmap.json" .> (m -> sheet_at path had at m))
+
+fn sheet_at _ _ _:os/file_not_found _
+  effect http/not_found
+
+fn sheet_at path had at m
+  os/read_file path
+    .> (css -> os/read_file "importmap.json" .> (map -> sheet css map had at m))
+
+fn sheet css map had at m
+  body = imported css (sheets_of map)
+  tag = "\"{at}-{stamp m}-{length (text/bytes css)}\""
+  served_bytes had tag body "text/css; charset=utf-8"
+
+fn sheets_of _:os/file_not_found
+  {}
+
+fn sheets_of map
+  present_map (json/decode map)["stylesheets"]
+
+fn present_map none
+  {}
+
+fn present_map m
+  m
+
+fn imported css sheets
+  list/fold (keys sheets) css (acc spec -> named_import acc spec sheets[spec])
+
+fn named_import css _ none
+  css
+
+fn named_import css spec url
+  text/replace css "\"{spec}\"" "\"{vendored_at url}\""
+
+# Where the install keeps a jspm.io file, as the page script's map names it.
+fn vendored_at url
+  imports "{url}"
 
 # A module `senro js install` vendored from jspm.io. Its path names its
 # package's version, and a new version is a new path, so the browser may keep
@@ -959,6 +1009,10 @@ fn kind_of path
   return "text/javascript; charset=utf-8" if text/ends_with? path ".js"
   return "text/javascript; charset=utf-8" if text/ends_with? path ".mjs"
   return "application/json" if text/ends_with? path ".map"
+  return "font/woff2" if text/ends_with? path ".woff2"
+  return "font/woff" if text/ends_with? path ".woff"
+  return "font/ttf" if text/ends_with? path ".ttf"
+  return "image/png" if text/ends_with? path ".png"
   "text/plain; charset=utf-8"
 
 fn routed (hit action kind id _) req db

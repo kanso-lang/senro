@@ -308,7 +308,7 @@ senro js install
 
 ```
       traced  javascript/application.js
-    vendored  2 modules from ga.jspm.io
+    vendored  2 modules and 1 stylesheet from ga.jspm.io
        wrote  importmap.json
 ```
 
@@ -330,6 +330,23 @@ from the map and install again. When npm holds a second version of a package
 that a dependent asked for, the map can hold only one, so the install uses
 the top-level version everywhere and prints a `warn` line naming the package
 and both versions.
+
+A package's stylesheet is imported by name from one of the app's own, which
+live in `stylesheets/` and are served at `/stylesheets/`:
+
+```css
+/* stylesheets/application.css */
+@import "chartist/dist/index.css";
+```
+
+The install downloads each stylesheet so named, with its source map and the
+fonts and images it points at, and records where it came from under the
+map's `stylesheets`. senro rewrites the import to the vendored copy as it
+serves the app's stylesheet, since a browser reads only a URL there. A
+package's stylesheet takes the version npm installed, or else the version
+its JavaScript has in the map, so `chartist`'s stylesheet and its module
+match; one that neither names is refused with the `npm install` to run.
+The layout links `/stylesheets/application.css` as it links any stylesheet.
 
 `senro js check` traces and downloads again and writes nothing. It fails when
 an install would change `importmap.json`, or when a file under
@@ -726,8 +743,8 @@ handed the event's `detail` as text (kata/README.md, Components).
   on with one, the page it lands on reads it with `web/notice req`, and the
   server forgets it once that page is answered. A notice has a cookie of its
   own, so forgetting one never sets the session. It serves the app's
-  JavaScript from `javascript/` and `vendor/javascript/` (JavaScript,
-  above). It also serves
+  JavaScript from `javascript/` and `vendor/javascript/`, and its
+  stylesheets from `stylesheets/` (JavaScript, above). It also serves
   senro's page script at `/senro.js`. A layout that loads it gets pages that
   update in place: a link followed or a form sent on the app's own origin is
   fetched, and the page the server answers is morphed into the live one, so the
