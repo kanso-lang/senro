@@ -1,0 +1,44 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# The app's stylesheet comes back with its import of chartist's stylesheet
+# by name rewritten to the vendored copy, and its import of a stylesheet of
+# its own left as it was. The vendored copy is served where the rewrite
+# points, the other stylesheet as itself, and one that is not there is a 404.
+pub fn index _ _
+  asked "/stylesheets/application.css"
+    .> (one -> asked vendored .> (two -> more one two))
+
+vendored = "/vendor/javascript/ga.jspm.io/npm/chartist@2.2.1/dist/index.css"
+
+fn more one two
+  asked "/stylesheets/type.css"
+    .> (three -> asked missing .> (four -> told one two three four))
+
+missing = "/stylesheets/none.css"
+
+fn told one two three four
+  answers = [one two three four]
+  effect (http/text_page (text/join answers "\n--\n"))
+
+fn asked path
+  net/dial "127.0.0.1" 24423 .> (c -> sent c path)
+
+fn sent c path
+  net/write c "GET {path} HTTP/1.1\r\nhost: localhost\r\n\r\n"
+    .> (_ -> net/read c)
+    .> (raw -> closed c raw)
+
+fn closed c raw
+  net/close_conn c .> (_ -> effect (shown raw))
+
+# The status line, the content type, and the body.
+fn shown raw
+  parts = text/split raw "\r\n\r\n"
+  return "no answer" if length parts < 1
+  lines = text/split parts[1] "\r\n"
+  kind = list/select lines (l -> text/starts_with? l "content-type")
+  body = text/join (list/to_list (list/drop parts 1)) "\r\n\r\n"
+  "{lines[1]}\n{text/join (list/to_list kind) ""}\n{body}"

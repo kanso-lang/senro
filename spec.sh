@@ -775,7 +775,9 @@ note "== the pantry's JavaScript is what jspm traces"
 # its package-lock.json pins, downloads every module the trace reaches from
 # jspm.io, and fails when an install would change importmap.json or any file
 # under vendor/javascript/. A copy of the pantry with one vendored file
-# edited is refused as spec/javascript/edited.out says, and each app under
+# edited is refused as spec/javascript/edited.out says, a copy whose
+# stylesheet imports a package nothing installed as
+# spec/javascript/unknown_sheet.out says, and each app under
 # spec/javascript is refused as its golden says. The check needs jspm.io, so
 # SENRO_NO_NET=1 skips the pantry's part and says so.
 if [ "${SENRO_NO_NET:-}" = 1 ]; then
@@ -802,6 +804,22 @@ else
   else
     bad "an edited vendored module is refused"
     printf '%s\n' "$got" | diff spec/javascript/edited.out -
+  fi
+  # A stylesheet that imports a package nothing installed is refused, as
+  # spec/javascript/unknown_sheet.out says.
+  copy=$(mktemp -d)
+  cp -R examples/pantry/. "$copy"
+  printf '@import "nopackage/dist/x.css";\n' >> "$copy/stylesheets/application.css"
+  got=$(cd "$copy" && sh "$here/bin/senro" js check 2>&1; echo "status $?")
+  rm -rf "$copy"
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$got" > spec/javascript/unknown_sheet.out
+  fi
+  if printf '%s\n' "$got" | diff spec/javascript/unknown_sheet.out - >/dev/null; then
+    note "ok: a stylesheet of a package nothing installed is refused"
+  else
+    bad "a stylesheet of a package nothing installed is refused"
+    printf '%s\n' "$got" | diff spec/javascript/unknown_sheet.out -
   fi
 fi
 for d in spec/javascript/*/; do
