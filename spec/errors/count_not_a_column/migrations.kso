@@ -1,0 +1,11 @@
+import "../../../models"
+
+pub all = [comments]
+
+comments = models/create_table "comments" [post_id body author]
+
+post_id = models/column "post_id" "integer not null"
+
+body = models/column "body" "text not null"
+
+author = models/column "author" "text not null"

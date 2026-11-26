@@ -1,0 +1,17 @@
+import "../../../models"
+
+pub all = [tracks likes plays]
+
+tracks = models/create_table "tracks" [title]
+
+likes = models/create_table "likes" [track_id handle hidden]
+
+plays = models/create_table "plays" [track_id]
+
+title = models/column "title" "text not null"
+
+track_id = models/column "track_id" "integer not null"
+
+handle = models/column "handle" "text not null"
+
+hidden = models/column "hidden" "boolean not null default false"

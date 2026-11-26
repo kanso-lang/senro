@@ -1,0 +1,27 @@
+import "../../../models"
+import "../../../pg"
+import "./like"
+import "./play"
+
+# Each count, told on a line of its own.
+fn told label n
+  print "{label}: {n}"
+
+pub fn counted db
+  play/count_of db "track_id" 1
+    .> (n -> told "rain's plays" n)
+    .> (_ -> play/counts_by db "track_id")
+    .> (m -> told "plays by track" m)
+    .> (_ -> like/count_of db "track_id" 1)
+    .> (n -> told "rain's likes, to a visitor" n)
+    .> (_ -> like/count_of (pg/asked_by db "eve") "track_id" 1)
+    .> (n -> told "rain's likes, to eve" n)
+    .> (_ -> like/count_of (models/as_app db) "track_id" 1)
+    .> (n -> told "rain's likes, to the app" n)
+    .> (_ -> like/counts_by db "track_id")
+    .> (m -> told "likes by track, to a visitor" m)
+    .> (_ -> like/counts_by (pg/asked_by db "eve") "track_id")
+    .> (m -> told "likes by track, to eve" m)
+    .> (_ -> like/count_of db "track_id" 3)
+    .> (n -> told "hail's likes" n)
+    .> (_ -> effect db)

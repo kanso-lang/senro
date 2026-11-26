@@ -461,7 +461,8 @@ fn named_reads p m schema
 
 fn by_column? leaf
   one = leaf == "where" or leaf == "find_by" or leaf == "ordered"
-  one or leaf == "paged" or leaf == "increment"
+  counts = leaf == "count_of" or leaf == "counts_by"
+  one or counts or leaf == "paged" or leaf == "increment"
 
 # Where the call writes its column: after the session, or after the id.
 fn column_at "increment"
@@ -522,12 +523,13 @@ fn modeled? r schema
 # A module that holds one model answers for it by name, as a Rails model
 # answers its class methods. The reads are `notes/find db id`, `notes/find_by
 # db "title" t`, `notes/all db`, `notes/newest db`, `notes/ordered db
-# "title"`, `notes/where db "title" t` and `notes/paged db number per`; the
-# writes are `notes/create db fields`, `notes/update db id changes` and
-# `notes/destroy db id`. Each goes through the model for the viewer the
-# session names. A module that declares a function of one of those names
-# keeps its own, and a module with two models has none written, since a bare
-# `find` would not say which.
+# "title"`, `notes/where db "title" t` and `notes/paged db number per`, and
+# the counts `like/count_of db "track_id" id` and `like/counts_by db
+# "track_id"`; the writes are `notes/create db fields`, `notes/update db id
+# changes` and `notes/destroy db id`. Each goes through the model for the
+# viewer the session names. A module that declares a function of one of
+# those names keeps its own, and a module with two models has none written,
+# since a bare `find` would not say which.
 fn finders m kept
   return [] if length kept != 1
   model = "{kept[1].name}_model"
@@ -540,6 +542,8 @@ fn finders m kept
     (finder m model "where" "matching" "field value")
     (finder m model "paged" "paged" "number per")
     (finder m model "paged" "paged" "field value number per")
+    (finder m model "count_of" "count_of" "field value")
+    (finder m model "counts_by" "counts_by" "field")
     (finder m model "create" "create" "fields")
     (finder m model "update" "update" "id changes")
     (finder m model "destroy" "destroy" "id")
@@ -938,6 +942,80 @@ pub fn matching db model field value
 # none: `accounts/find_by db "email" e`, as Rails' `find_by` answers nil.
 pub fn find_by db model field value
   matching db model field value .> (ms -> effect ms[1])
+
+# How many records whose `field` holds `value` the session's viewer may see:
+# a track's likes are `like/count_of db "track_id" id`, as Rails'
+# `where(track_id:).count` reads. Postgres counts the rows when the model
+# declares no `visible?` or the app is asking. Otherwise senro reads them and
+# counts the ones the policy shows, so a count never says more than a read
+# would show.
+pub fn count_of db model field value
+  cols = column_list model["columns"]
+  odd = "`{field}` is not a column of `{table_of model["table"]}`"
+  return err odd if not list/any? cols (c -> c == field)
+  viewer = pg/asker db
+  sized = (rs -> effect (length rs))
+  asked = where viewer db model field value
+  return asked .> sized if policed? model["visible"] viewer
+  table = table_of model["table"]
+  sql = "select count(*) as n from {table} where {field} = $1"
+  pg/query db sql ["{value}"] .> (r -> effect (number_of r.rows[1]))
+
+fn number_of none
+  0
+
+fn number_of row
+  present_count row["n"]
+
+fn present_count none
+  0
+
+fn present_count n
+  n
+
+# The same count for each value the column holds: a map from each value to
+# its number of records, as Rails' `group(:track_id).count` answers, which an
+# album's page reads as `likes[track.id]`. A value no record holds is not in
+# the map, and neither is a null.
+pub fn counts_by db model field
+  cols = column_list model["columns"]
+  odd = "`{field}` is not a column of `{table_of model["table"]}`"
+  return err odd if not list/any? cols (c -> c == field)
+  table = table_of model["table"]
+  viewer = pg/asker db
+  return seen_counts db model viewer field if policed? model["visible"] viewer
+  grouping = "from {table} where {field} is not null group by {field}"
+  pg/query db "select {field} as key, count(*) as n {grouping}" []
+    .> (r -> effect (list/fold r.rows {} grouped))
+
+fn grouped acc row
+  put acc row["key"] row["n"]
+
+fn seen_counts db model viewer field
+  names = text/join (column_list model["columns"]) ", "
+  table = table_of model["table"]
+  sql = "select {names} from {table} where {field} is not null"
+  tally = (acc row -> tallied acc row[field])
+  pg/query db sql []
+    .> (r -> effect (list/fold (seen_rows viewer model r.rows) {} tally))
+
+fn seen_rows viewer model rows
+  shows = (row -> seen? model["visible"] viewer (row_read model["read"] row))
+  list/to_list (list/select rows shows)
+
+fn tallied acc none
+  acc
+
+fn tallied acc value
+  put acc value (present_count acc[value] + 1)
+
+# Whether a read must ask the model's `visible?` about each row: it has one,
+# and the app is not the one asking.
+fn policed? none _
+  false
+
+fn policed? _ viewer
+  not app? viewer
 
 # The writes, for the session's viewer: `created`, `updated` and `destroyed`
 # as an action calls them, with the policy asked about whoever the session

@@ -1,0 +1,12 @@
+import "../../../models"
+import "../../../pg"
+import "./comment"
+import "./migrations"
+
+derive models/tables
+
+# A count by a column the comments table does not have, asked of the model by
+# its module's name.
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> comment/count_of db "post" 1)
+  .> (n -> print n)

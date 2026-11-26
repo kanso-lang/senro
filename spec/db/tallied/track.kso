@@ -1,0 +1,3 @@
+# A track, which anyone may see.
+pub fn create? _ _
+  true

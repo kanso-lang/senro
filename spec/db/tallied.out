@@ -1,0 +1,9 @@
+rain's plays: 3
+plays by track: { 1:3 2:1 }
+rain's likes, to a visitor: 2
+rain's likes, to eve: 3
+rain's likes, to the app: 3
+likes by track, to a visitor: { 1:2 2:1 }
+likes by track, to eve: { 1:3 2:2 }
+hail's likes: 0
+`name; drop table likes` is not a column of `likes`

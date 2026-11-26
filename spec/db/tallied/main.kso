@@ -1,0 +1,35 @@
+import "../../../models"
+import "../../../pg"
+import "./counting"
+import "./like"
+import "./migrations"
+import "./play"
+import "./track"
+
+derive models/tables
+
+# Plays have no read policy, so Postgres counts them. Likes have one, and eve
+# hid hers, so a visitor's count leaves hers out, where eve's own count and
+# the app's include them. A track with nothing counted counts 0 and is not
+# in the map, and a field that is not a column is refused.
+fresh = """
+  drop schema if exists senro_spec cascade;
+  create schema senro_spec;
+  set search_path to senro_spec
+"""
+
+written = """
+  insert into tracks (title) values ('rain'), ('snow'), ('hail');
+  insert into likes (track_id, handle, hidden) values
+    (1, 'ada', false), (1, 'bob', false), (2, 'ada', false),
+    (1, 'eve', true), (2, 'eve', true);
+  insert into plays (track_id) values (1), (1), (1), (2)
+"""
+
+pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
+  .> (db -> pg/run db fresh .> (_ -> db))
+  .> (db -> models/migrated db "tallied" migrations/all)
+  .> (db -> pg/run db written .> (_ -> db))
+  .> counting/counted
+  .> (db -> models/count_of db like/like_model "name; drop table likes" 1)
+  .? (u -> print u.reason)
