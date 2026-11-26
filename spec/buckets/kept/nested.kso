@@ -1,0 +1,122 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# A form with an HTML page and a song is sent, and each file goes to the
+# bucket SENRO_STORAGE names. Asked for at /senro/blobs, each answers with a
+# redirect to a presigned URL in the store. Followed, the store answers with
+# the bytes and the kind and disposition senro chose, and with a span when a
+# player asks for one.
+pub fn index _ _
+  asked 24425 "POST /photo" upload_heads body
+    .> (r -> followed (text/split (body_of r) "\n"))
+    .> (seen -> effect (http/text_page (text/join seen "\n")))
+
+boundary = "----senro0123456789"
+
+upload_heads = [
+  "content-type: multipart/form-data; boundary={boundary}"
+  "content-length: {length body}"
+]
+
+script_page = text/bytes "<script>alert(1)</script>"
+
+song = text/to_bytes [73 68 51 3 0 0 0 0 0 10 255 251]
+
+body = text/to_bytes (list/to_list (list/fold pieces [] list/concat))
+
+pieces = [
+  text/bytes (file_head "notes" "x.html" "text/html")
+  script_page
+  text/bytes "\r\n"
+  text/bytes (file_head "song" "s.mp3" "audio/mpeg")
+  song
+  text/bytes "\r\n--{boundary}--\r\n"
+]
+
+fn file_head name filename kind
+  form = "content-disposition: form-data"
+  named = "{form}; name=\"{name}\"; filename=\"{filename}\""
+  text/join ["--{boundary}" named "content-type: {kind}" "" ""] "\r\n"
+
+fn followed stored
+  notes = blank stored[1]
+  tune = blank stored[2]
+  read_back "notes" notes script_page []
+    .> (a -> read_back "song" tune song [] .> (b -> effect (list/concat a b)))
+    .> (seen -> spanned tune .> (c -> effect (list/concat seen c)))
+
+fn spanned tune
+  head = list/to_list (list/take song 4)
+  read_back "song, bytes=0-3" tune head ["range: bytes=0-3"]
+
+# A key asked of the app, and the redirect it answers followed to the store.
+fn read_back name key want extra
+  asked 24425 "GET /senro/blobs/{key}" [] (text/to_bytes [])
+    .> (r -> to_store name key want extra (header_of r "location"))
+
+fn to_store name key want extra at
+  signed = "X-Amz-Algorithm=AWS4-HMAC-SHA256&"
+  pointed = text/starts_with? at "http://127.0.0.1:5056/tunes/{key}?{signed}"
+  path = blank (text/split at "127.0.0.1:5056")[2]
+  asked 5056 "GET {path}" extra (text/to_bytes [])
+    .> (r -> effect [(said name pointed r want)])
+
+fn said name pointed r want
+  heads = list/select (head_lines r) (l -> kept? l)
+  same = after_head r == want
+  told = text/join (list/to_list heads) ", "
+  "{name}: redirected to the store: {pointed}; {told}, bytes: {same}"
+
+fn kept? line
+  low = text/lowercase line
+  list/any? shown_heads (p -> text/starts_with? low p)
+
+shown_heads = ["http/" "content-type" "content-disposition" "content-range"]
+
+# One request to a port on this machine, and the whole answer.
+fn asked port line heads b
+  opening = ["{line} HTTP/1.1" "host: 127.0.0.1:{port}" "connection: close"]
+  lines = list/concat opening heads
+  head = "{text/join lines "\r\n"}\r\n\r\n"
+  net/dial "127.0.0.1" port
+    .> (c -> net/write c head .> (_ -> net/write c b) .> (_ -> effect c))
+    .> (c -> heard c (text/to_bytes []))
+
+fn heard c had
+  net/read_bytes c .> (more -> heard_more c had more)
+
+fn heard_more c had more
+  return net/close_conn c .> (_ -> effect had) if length more == 0
+  heard c (list/concat had more)
+
+fn head_lines raw
+  text/split (decoded (text/slice raw 1 (gap raw 1 - 1))) "\r\n"
+
+fn header_of raw name
+  named = (l -> text/starts_with? (text/lowercase l) "{name}:")
+  found = list/select (head_lines raw) named
+  blank (text/trim (blank (text/split (blank (list/to_list found)[1]) ": ")[2]))
+
+fn body_of raw
+  decoded (after_head raw)
+
+fn after_head raw
+  text/slice raw (gap raw 1 + 4) (length raw)
+
+fn gap raw i
+  return i if text/slice raw i (i + 3) == text/bytes "\r\n\r\n"
+  gap raw (i + 1)
+
+fn blank none
+  ""
+
+fn blank v
+  v
+
+fn decoded none
+  ""
+
+fn decoded bs
+  text/utf8 bs

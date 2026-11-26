@@ -1,3 +1,4 @@
+import "../objects"
 import "std/list"
 import "std/net"
 import "std/net/http"
@@ -305,20 +306,45 @@ fn field_name n
   n
 
 fn written key p filename
-  storage_dir
-    .> (dir -> os/make_dir dir .> (_ -> effect dir))
-    .> (dir -> os/write_file "{dir}/{key}" p.content .> (_ -> effect dir))
-    .> (dir -> os/write_file "{dir}/{key}.meta" "{p.kind}\n{filename}")
+  storage .> (place -> written_in place key p filename)
+
+fn written_in dir:string key p filename
+  os/make_dir dir
+    .> (_ -> os/write_file "{dir}/{key}" p.content)
+    .> (_ -> os/write_file "{dir}/{key}.meta" "{p.kind}\n{filename}")
     .> (_ -> effect key)
 
-# Where files are kept: SENRO_STORAGE, or storage/ beside the app.
-storage_dir = os/env "SENRO_STORAGE" .> (d -> effect (dir_or d))
+# In a store, the kind and the name travel as the headers the store answers
+# a download with.
+fn written_in store key p filename
+  heads = blob_headers (text_or_blank_of p.kind) filename
+  objects/upload store key heads p.content .> (_ -> effect key)
 
-fn dir_or none
-  "storage"
+# Where files are kept: the directory SENRO_STORAGE names, or storage/
+# beside the app. `s3://<bucket>` names a bucket in an S3-compatible store
+# such as Cloudflare R2: SENRO_S3_ENDPOINT says where to ask it,
+# SENRO_S3_REGION its region (`auto` when unset, as R2 takes it), and
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY the key to ask with.
+storage = os/env "SENRO_STORAGE" .> kept_in
 
-fn dir_or d
-  d
+fn kept_in none
+  effect "storage"
+
+fn kept_in d
+  return effect d if not text/starts_with? d "s3://"
+  bucket = text_or_blank_of (text/slice d 6 (length d))
+  os/env "SENRO_S3_ENDPOINT"
+    .> (e -> os/env "SENRO_S3_REGION" .> (r -> keyed bucket e r))
+
+fn keyed bucket e r
+  os/env "AWS_ACCESS_KEY_ID"
+    .> (i -> os/env "AWS_SECRET_ACCESS_KEY" .> (k -> bucketed bucket e r i k))
+
+fn bucketed bucket e r i k
+  region = if (r == none) "auto" (text_or_blank_of r)
+  at = text_or_blank_of e
+  id = text_or_blank_of i
+  effect (objects/store at region bucket id (text_or_blank_of k))
 
 # A map of fields as a browser posts a form, which `form` reads back.
 pub fn form_of fields
@@ -369,10 +395,16 @@ fn blob req
   key = text_or_blank_of (text/slice req.path 14 (length req.path))
   return effect http/not_found if not key? key
   asked = text_or_blank_of req.headers["range"]
-  storage_dir .> (dir -> blob_meta dir key asked)
+  storage .> (place -> blob_meta place key asked)
 
-fn blob_meta dir key asked
+# A file in a store is answered with a redirect to a URL that reads it for
+# five minutes, so the store sends the bytes and answers a Range itself.
+fn blob_meta dir:string key asked
   os/read_file "{dir}/{key}.meta" .> (m -> blob_read dir key m asked)
+
+fn blob_meta store key _
+  objects/readable store key 300
+    .> (url -> effect (http/respond 302 ["location: {url}"] ""))
 
 fn key? k
   length k == 32 and list/all? (text/chars k) (c -> hex_digit? c)

@@ -1,0 +1,10 @@
+import "../../../web"
+import "std/list"
+import "std/net/http"
+import "std/text"
+
+# The key each file of the form was stored under.
+pub fn create req _
+  f = web/input req
+  said = list/map ["notes" "song"] (n -> web/value f n)
+  effect (http/text_page (text/join (list/to_list said) "\n"))

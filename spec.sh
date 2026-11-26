@@ -10,7 +10,8 @@
 # browser module as the server rendered it; each app under spec/db, run
 # against a live Postgres, prints its golden on both engines; each app under
 # spec/serve, served and asked over HTTP, answers its golden, and one logs the
-# requests as its golden holds them; the guestbook and the pantry, used in a
+# requests as its golden holds them; each app under spec/buckets keeps its
+# files in an S3 store and answers its golden; the guestbook and the pantry, used in a
 # browser, update in place without a reload; the generators write
 # examples/notebook, which checks and serves its resource, and whose own
 # specs pass under `senro test`; a visit's writes are rolled back, and it
@@ -35,7 +36,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in names routes models web pg kata wire spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
+for d in names routes models web pg kata wire objects spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -637,6 +638,58 @@ else
     fi
     rm -f "$log"
     rm -rf "$outbox"
+  done
+fi
+
+note "== each app under spec/buckets keeps its files in an S3 store"
+# Each is served with the variables in its `env` file, which name a bucket
+# in moto's S3 server on 127.0.0.1:5056, started here with the bucket made
+# fresh, and asked for /nested. SENRO_MOTO names moto_server; without it, or
+# with SENRO_NO_DB=1, they are skipped and say so.
+if [ -z "${SENRO_MOTO:-}" ] || [ "${SENRO_NO_DB:-}" = 1 ]; then
+  note "SKIPPED: spec/buckets (no SENRO_MOTO, or SENRO_NO_DB=1)"
+else
+  for d in spec/buckets/*/; do
+    name=$(basename "$d")
+    want="spec/buckets/$name.out"
+    port=$(sed -n 's/^web\/serve \([0-9]*\) .*/\1/p' "$d/main.kso")
+    for engine in native interp; do
+      flag=""
+      [ "$engine" = interp ] && flag=--interp
+      "$SENRO_MOTO" -p 5056 > /dev/null 2>&1 &
+      moto=$!
+      tries=0
+      while ! curl -s -o /dev/null http://127.0.0.1:5056/ && [ $tries -lt 100 ]; do
+        sleep 0.1
+        tries=$((tries + 1))
+      done
+      curl -s -o /dev/null -X PUT http://127.0.0.1:5056/tunes
+      log=$(mktemp)
+      (cd "$d" && exec env $(cat env) "$KANSO" run . $flag) > "$log" 2>&1 &
+      server=$!
+      tries=0
+      while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+        sleep 0.1
+        tries=$((tries + 1))
+      done
+      got=$(curl -s -m 30 "http://127.0.0.1:$port/nested")
+      pkill -P "$server" 2>/dev/null
+      kill "$server" 2>/dev/null
+      wait "$server" 2>/dev/null
+      kill "$moto" 2>/dev/null
+      wait "$moto" 2>/dev/null
+      if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
+        printf '%s\n' "$got" > "$want"
+      fi
+      if printf '%s\n' "$got" | diff "$want" - >/dev/null; then
+        note "ok: $name ($engine)"
+      else
+        bad "$name ($engine)"
+        printf '%s\n' "$got" | diff "$want" -
+        cat "$log"
+      fi
+      rm -f "$log"
+    done
   done
 fi
 
