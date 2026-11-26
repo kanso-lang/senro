@@ -1,0 +1,4 @@
+/* The pantry's stylesheet: chartist's own rules for the shelf's chart, at
+   the version of chartist the import map holds. public/site.css follows it
+   and sets the pantry's colors. */
+@import "chartist/dist/index.css";

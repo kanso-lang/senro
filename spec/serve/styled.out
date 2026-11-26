@@ -1,0 +1,19 @@
+HTTP/1.1 200 OK
+content-type: text/css; charset=utf-8
+@import "/vendor/javascript/ga.jspm.io/npm/chartist@2.2.1/dist/index.css";
+@import "./type.css";
+
+--
+HTTP/1.1 200 OK
+content-type: text/css; charset=utf-8
+.ct-bar { fill: none; }
+
+--
+HTTP/1.1 200 OK
+content-type: text/css; charset=utf-8
+body { font-family: serif; }
+
+--
+HTTP/1.1 404 Not Found
+
+not found

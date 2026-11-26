@@ -1,0 +1,2 @@
+senro js: stylesheets/application.css imports nopackage/dist/x.css, and neither package-lock.json nor the import map has nopackage. Run: npm install nopackage
+status 1
