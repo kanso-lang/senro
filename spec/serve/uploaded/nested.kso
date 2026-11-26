@@ -4,9 +4,10 @@ import "std/net/http"
 import "std/text"
 import "std/time"
 
-# A form with a title and two files is sent the way a browser sends it, the
+# A form with a title and three files is sent the way a browser sends it, the
 # head first and the multipart body a moment later. The answer names the key
-# each file was stored under, and each key is asked for at /senro/blobs.
+# each file was stored under, and each key is asked for at /senro/blobs. The
+# song is asked for again in spans, as a player seeking in it asks.
 pub fn index _ _
   sent head body
     .> (r -> stored (lines_of r))
@@ -33,6 +34,9 @@ png = text/to_bytes [137 80 78 71 13 10 26 10 0 255 45 45]
 
 script_page = text/bytes "<script>alert(1)</script>"
 
+# Twelve bytes that open as an MP3 does, with an ID3 tag.
+song = text/to_bytes [73 68 51 3 0 0 0 0 0 10 255 251]
+
 body = text/to_bytes (list/to_list (list/fold pieces [] joined))
 
 fn joined a p
@@ -45,6 +49,9 @@ pieces = [
   text/bytes "\r\n"
   text/bytes (file_head "notes" "x.html" "text/html")
   script_page
+  text/bytes "\r\n"
+  text/bytes (file_head "song" "s.mp3" "audio/mpeg")
+  song
   text/bytes "\r\n--{boundary}--\r\n"
 ]
 
@@ -92,9 +99,47 @@ fn stored said
   title = nth said 1
   photo = nth said 2
   notes = nth said 3
+  tune = nth said 4
   keyed = "keys are 32 hex digits: {hex32? photo and hex32? notes}"
   asked_for photo
     .> (a -> asked_for notes .> (b -> effect (both "title: {title}" keyed a b)))
+    .> (seen -> asked_for tune .> (c -> effect (sung seen c)))
+    .> (seen -> spans tune .> (told -> effect (joined seen told)))
+
+fn sung seen c
+  push seen (shown "song" c song)
+
+# Each span a player might ask for: the head, from a place to the end, the
+# last two bytes, one past the end, and two spans at once, which is
+# answered with the whole file.
+asks = ["bytes=0-3" "bytes=8-" "bytes=-2" "bytes=12-" "bytes=0-1,4-5"]
+
+fn spans key
+  each = (acc a -> acc .> (got -> span_for key a got))
+  list/fold asks (effect []) each
+
+fn span_for key a got
+  spanned_for key a .> (r -> effect (push got r))
+
+fn spanned_for key a
+  lines = [
+    "GET /senro/blobs/{key} HTTP/1.1"
+    "host: localhost"
+    "range: {a}"
+    ""
+    ""
+  ]
+  sent (text/join lines "\r\n") (text/to_bytes [])
+    .> (raw -> effect (told_span a raw))
+
+fn ranged? line
+  text/starts_with? line "content-range"
+
+fn told_span a raw
+  heads = text/split (decoded (text/slice raw 1 (gap raw 1 - 1))) "\r\n"
+  ranges = list/to_list (list/select heads (l -> ranged? l))
+  told = if (length ranges == 0) "no content-range" ranges[1]
+  "{a}: {status raw}, {told}, bytes {after_head raw}"
 
 fn nth xs i
   blank xs[i]
@@ -135,7 +180,13 @@ fn shown name raw want
 fn kept? line
   list/any? shown_heads (p -> text/starts_with? line p)
 
-shown_heads = ["HTTP/" "content-type" "content-disposition" "x-content"]
+shown_heads = [
+  "HTTP/"
+  "content-type"
+  "content-disposition"
+  "x-content"
+  "accept-ranges"
+]
 
 # A body larger than the server takes is refused before it is read, and a
 # key that is not one is not looked for.
