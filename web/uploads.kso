@@ -4,6 +4,16 @@ import "std/net/http"
 import "std/os"
 import "std/text"
 
+# One span of a stored file, its first and last byte counted from 0, as a
+# Range header names them; and a span that starts past the end of a file of
+# `size` bytes.
+type span
+  first
+  last
+
+type beyond
+  size
+
 # A request the server answers itself, before any action sees it.
 pub type refused_with
   status
@@ -350,14 +360,19 @@ fn scanned hay needle i last
 fn starts? hay needle i
   hay[i] == needle[1] and text/slice hay i (i + length needle - 1) == needle
 
-# A stored file, by its key. An image or a PDF is shown in the page; any
-# other kind is a download, so an HTML file someone uploaded never runs as a
-# page of the app. A key that is not 32 hex digits is not looked for.
+# A stored file, by its key. An image, a sound, a video or a PDF is shown
+# in the page; any other kind is a download, so an HTML file someone uploaded
+# never runs as a page of the app. A key that is not 32 hex digits is not
+# looked for. A request with a Range header for one span of the file is
+# answered with that span, as a player asks for the part it seeks to.
 fn blob req
   key = text_or_blank_of (text/slice req.path 14 (length req.path))
   return effect http/not_found if not key? key
-  storage_dir
-    .> (dir -> os/read_file "{dir}/{key}.meta" .> (m -> blob_read dir key m))
+  asked = text_or_blank_of req.headers["range"]
+  storage_dir .> (dir -> blob_meta dir key asked)
+
+fn blob_meta dir key asked
+  os/read_file "{dir}/{key}.meta" .> (m -> blob_read dir key m asked)
 
 fn key? k
   length k == 32 and list/all? (text/chars k) (c -> hex_digit? c)
@@ -365,20 +380,89 @@ fn key? k
 fn hex_digit? c
   length (text/split "0123456789abcdef" c) == 2
 
-fn blob_read _ _ _:os/file_not_found
+fn blob_read _ _ _:os/file_not_found _
   effect http/not_found
 
-fn blob_read dir key meta
-  os/read_bytes "{dir}/{key}" .> (bs -> blob_answer meta bs)
+fn blob_read dir key meta asked
+  os/read_bytes "{dir}/{key}" .> (bs -> blob_answer meta bs asked)
 
-fn blob_answer _ _:os/file_not_found
+fn blob_answer _ _:os/file_not_found _
   effect http/not_found
 
-fn blob_answer meta bs
+fn blob_answer meta bs asked
   lines = text/split meta "\n"
   kind = text_or_blank_of lines[1]
   filename = text_or_blank_of lines[2]
-  effect (http/page (blob_headers kind filename) bs)
+  headers = push (blob_headers kind filename) "accept-ranges: bytes"
+  ranged (span_of asked (length bs)) headers bs
+
+# The whole file, one span of it, or a 416 for a span past its end. A header
+# that is not one span in bytes, two spans among them, is answered with the
+# whole file, which HTTP allows.
+fn ranged none headers bs
+  effect (http/page headers bs)
+
+fn ranged r:beyond _ _
+  effect (http/respond 416 ["content-range: bytes */{r.size}"] "")
+
+fn ranged r:span headers bs
+  piece = text/slice bs (r.first + 1) (r.last + 1)
+  whole = "content-range: bytes {r.first}-{r.last}/{length bs}"
+  sliced (push headers whole) piece
+
+fn sliced _ none
+  effect http/not_found
+
+fn sliced headers piece
+  effect (http/respond 206 headers piece)
+
+# `bytes=a-b`, `bytes=a-` or `bytes=-n`, against a file of `size` bytes.
+fn span_of asked size
+  halves = text/split asked "="
+  return none if length halves != 2 or halves[1] != "bytes"
+  wanted = text_or_blank_of halves[2]
+  return none if length (text/split wanted ",") > 1
+  ends = text/split wanted "-"
+  return none if length ends != 2
+  first = text_or_blank_of ends[1]
+  last = text_or_blank_of ends[2]
+  return suffixed (text/to_int last) size if first == ""
+  from_byte (text/to_int first) last size
+
+# The last `n` bytes.
+fn suffixed none _
+  none
+
+fn suffixed n size
+  return beyond size if n == 0 or size == 0
+  span (max_of 0 (size - n)) (size - 1)
+
+fn from_byte none _ _
+  none
+
+fn from_byte a last size
+  through_byte a last size
+
+fn through_byte a "" size
+  return beyond size if a >= size
+  span a (size - 1)
+
+fn through_byte a last size
+  upto a (text/to_int last) size
+
+fn upto _ none _
+  none
+
+fn upto a b size
+  return none if b < a
+  return beyond size if a >= size
+  span a (min_of b (size - 1))
+
+fn max_of a b
+  if (a > b) a b
+
+fn min_of a b
+  if (a < b) a b
 
 fn text_or_blank_of none
   ""
@@ -401,6 +485,16 @@ inline_kinds = [
   "image/gif"
   "image/webp"
   "image/avif"
+  "audio/mpeg"
+  "audio/mp4"
+  "audio/aac"
+  "audio/ogg"
+  "audio/opus"
+  "audio/flac"
+  "audio/wav"
+  "audio/webm"
+  "video/mp4"
+  "video/webm"
   "application/pdf"
 ]
 
