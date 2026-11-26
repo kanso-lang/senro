@@ -1,0 +1,6 @@
+# The `likes` table's model. Anyone may like a track and change a like.
+pub fn create? _ _
+  true
+
+pub fn update? _ _
+  true

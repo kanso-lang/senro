@@ -1,9 +1,16 @@
 import "../../../models"
 
-pub all = [accounts accounts_handle]
+pub all = [accounts accounts_handle likes likes_pair]
 
 accounts = models/create_table "accounts" [handle]
 
 accounts_handle = models/add_unique_index "accounts" "handle"
 
 handle = models/column "handle" "text not null"
+
+# A like is a handle's like of a track, held once for each pair.
+likes = models/create_table "likes" [handle track]
+
+likes_pair = models/add_unique_index "likes" ["handle" "track"]
+
+track = models/column "track" "text not null"

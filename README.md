@@ -503,9 +503,13 @@ handed the event's `detail` as text (kata/README.md, Components).
   nothing`, so of two requests racing for one value the one that loses
   answers `invalid` with "That is taken." on the field rather than an error.
   `models/updated` asks before it writes, and a change that races another
-  for the value meets the index. A column whose kind says `unique`, and a
-  unique index or constraint over one column in `schema.sql`, count the same
-  way. An app whose
+  for the value meets the index. Given a list of columns,
+  `models/add_unique_index "likes" ["user_id" "track_id"]` lets a pair of
+  values appear once, so a user likes a track once, and the problem goes on
+  the last column, as Rails' `scope` puts it on the attribute it validates.
+  A column whose kind says `unique`, and a unique index or constraint in
+  `schema.sql`, count the same way.
+  An app whose
   migrations need SQL the fold cannot read, such as a trigger, checks in
   `pg_dump --schema-only` output as `schema.sql` beside its entry, and the
   schema is read from its `CREATE TABLE` blocks instead of the migrations.

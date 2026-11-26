@@ -1,6 +1,7 @@
 import "../../../models"
 import "../../../pg"
 import "./account"
+import "./like"
 
 # What a write through the model answered: the problems of a record it
 # refused, or the record it wrote.
@@ -29,3 +30,30 @@ fn told label w:models/invalid
 
 fn told label w
   print "{label}: {w.handle}"
+
+# A like of `track` by `handle`.
+pub fn liked db label handle track
+  models/created "" db like/like_model { "handle":handle "track":track }
+    .> (w -> told_like label w)
+    .> (_ -> effect db)
+
+# The like `handle` holds of `track` is changed to be `to`'s.
+pub fn passed db label handle track to
+  pg/query db like_held [handle track]
+    .> (r -> moved db r.rows[1]["id"] to)
+    .> (w -> told_like label w)
+    .> (_ -> effect db)
+
+like_held = "select id from likes where handle = $1 and track = $2"
+
+fn moved _ none _
+  err "no like is held there"
+
+fn moved db id to
+  models/updated "" db like/like_model id { "handle":to }
+
+fn told_like label w:models/invalid
+  print "{label}: {w.problems}"
+
+fn told_like label w
+  print "{label}: {w.handle} likes {w.track}"
