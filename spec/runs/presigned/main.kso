@@ -16,7 +16,9 @@ example = objects/signed_url
 
 # The same request of an R2 bucket, which names the bucket in the path and
 # takes `auto` for its region, for a key with characters that are encoded.
-r2 = objects/store "https://acct.r2.cloudflarestorage.com" "auto" "tunes" "id" "secret"
+account = "https://acct.r2.cloudflarestorage.com"
+
+r2 = objects/store account "auto" "tunes" "id" "secret"
 
 print example
 print (objects/presigned r2 "PUT" "songs/a b+c.mp3" "20261126T120000Z" 300)
