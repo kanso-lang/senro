@@ -566,10 +566,19 @@ handed the event's `detail` as text (kata/README.md, Components).
   | `note/update db id changes` | the record as changed, or `models/invalid` |
   | `note/destroy db id` | the record as it was |
   | `note/increment db id "views"` | the record after one is added to the column |
+  | `like/count_of db "track_id" id` | how many records hold the value in the field |
+  | `like/counts_by db "track_id"` | a map from each value the field holds to its count |
 
   `increment` adds in the statement that answers the record, so of
   several requests that count at once each sees a count of its own
   (`spec/db/counted` runs eight).
+
+  `count_of` and `counts_by` count what a read would show. Postgres counts
+  the rows when the model declares no `visible?`, or the app is asking.
+  Otherwise senro reads the rows and counts the ones the policy shows, so a
+  count never says more than the list would (`spec/db/tallied`). An album's
+  page reads `counts_by` once and looks each track up as `likes[track.id]`;
+  a track nobody liked is not in the map.
 
   A read shows only what the viewer's read policy allows. A write asks the
   model's `create?`, `update?` or `destroy?` about the same viewer and

@@ -652,6 +652,12 @@ pub fn paged db number per
 pub fn paged db field value number per
   models/paged db account_model field value number per
 
+pub fn count_of db field value
+  models/count_of db account_model field value
+
+pub fn counts_by db field
+  models/counts_by db account_model field
+
 pub fn create db fields
   models/create db account_model fields
 
@@ -732,6 +738,12 @@ pub fn paged db number per
 
 pub fn paged db field value number per
   models/paged db signature_model field value number per
+
+pub fn count_of db field value
+  models/count_of db signature_model field value
+
+pub fn counts_by db field
+  models/counts_by db signature_model field
 
 pub fn create db fields
   models/create db signature_model fields
