@@ -3,4 +3,11 @@ a second ada: { "handle":"That is taken." }
 bob: bob
 bob as ada: { "handle":"That is taken." }
 bob as bob: bob
-[{ "accounts":"2" }]
+ada likes rain: ada likes rain
+ada likes rain again: { "track":"That is taken." }
+ada likes snow: ada likes snow
+bob likes rain: bob likes rain
+bob's rain to ada: { "track":"That is taken." }
+bob likes hail: bob likes hail
+bob's hail to ada: ada likes hail
+[{ "accounts":"2" "likes":"4" }]

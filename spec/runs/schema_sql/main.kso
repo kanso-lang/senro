@@ -16,6 +16,6 @@ print "{schema["tags"]}"
 
 print (list/to_list (list/map [tags_of_a_note note_of_a_tag] (_ -> "written")))
 
-# The dump's unique index and unique constraint each name a table's unique
-# column. The index over two columns names none.
+# The dump's unique indexes and unique constraint each name the columns
+# they cover, and the index over two columns names both.
 print "{note/note_model["unique"]} {tag/tag_model["unique"]}"
