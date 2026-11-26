@@ -4,9 +4,11 @@ import "../../../pg"
 # A table made before migrations were recorded takes its migrations as the
 # app starts: the one that made it does nothing, and the rest run. A later
 # start with a migration added runs only that one, and a start with nothing
-# new runs none, so the row kept from the start survives every one. A start
-# whose list has changed a migration that ran is refused, naming it. A second
-# app in the same database keeps a count of its own.
+# new runs none, so the row kept from the start survives every one. A second
+# app in the same database keeps a count of its own. A start whose list has
+# changed a migration that ran warns, naming it, and does not run it again.
+# An edit that leaves the schema as it was then passes the comparison an app
+# makes next; one that changes it is refused there, naming the column.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
@@ -26,6 +28,14 @@ bodied = models/add_column "notes" body
 renamed = models/rename_column "notes" "title" "heading"
 
 edited = models/add_column "notes" (models/column "body" "varchar(80)")
+
+respelled = models/add_column "notes" (models/column "body" "TEXT")
+
+# The schema each list of migrations folds to, as `derive models/tables`
+# writes it for an app.
+kept = { "notes":["id serial" "heading text" "body text"] }
+
+typed = { "notes":["id serial" "heading text" "body varchar(80)"] }
 
 shelved = models/create_table "shelf" [title]
 
@@ -51,6 +61,10 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> pg/query db columns [] .> (r -> print r.rows) .> (_ -> db))
   .> (db -> pg/query db versions [] .> (r -> print r.rows) .> (_ -> db))
   .> (db -> pg/query db heading [] .> (r -> print r.rows) .> (_ -> db))
+  .> (db -> models/migrated db "notebook" [notes respelled renamed])
+  .> (db -> models/compared db kept)
+  .> (db -> print "an edit that keeps the schema: it serves" .> (_ -> db))
   .> (db -> models/migrated db "notebook" [notes edited renamed])
-  .> (_ -> print "a changed migration ran")
-  .? (u -> print u.reason)
+  .> (db -> models/compared db typed)
+  .> (_ -> print "an edit that changes the schema: it serves")
+  .? (u -> print "refused: {u.reason}")

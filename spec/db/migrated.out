@@ -1,6 +1,12 @@
 [{ "names":"id heading body" }]
 [{ "ran":"notebook: 1 2 3" } { "ran":"shelf: 1" }]
 [{ "names":"kept" }]
-notebook's migration 2 has changed since it ran:
+senro: notebook's migration 2 has changed since it ran, and is not run again:
+  ran: alter table notes add column if not exists body text
+  now: alter table notes add column if not exists body TEXT
+an edit that keeps the schema: it serves
+senro: notebook's migration 2 has changed since it ran, and is not run again:
   ran: alter table notes add column if not exists body text
   now: alter table notes add column if not exists body varchar(80)
+refused: the database differs from the schema this app was compiled with:
+  `notes.body` is text in the database and character varying(80) in the migrations
