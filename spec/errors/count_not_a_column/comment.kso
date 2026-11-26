@@ -1,0 +1,9 @@
+# A comment on a post. Eve's comments show only to her.
+pub type comment
+  id
+  post_id
+  body
+  author
+
+pub fn visible? viewer c
+  c.author != "eve" or viewer == "eve"

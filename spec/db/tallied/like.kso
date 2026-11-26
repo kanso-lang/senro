@@ -1,0 +1,3 @@
+# A like, which everyone may see unless its holder hid it.
+pub fn visible? viewer l
+  not l.hidden or l.handle == viewer
