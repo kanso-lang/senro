@@ -1,6 +1,7 @@
 import "../../../models"
 import "../../../pg"
 import "./account"
+import "./like"
 import "./migrations"
 import "./signing"
 
@@ -9,14 +10,20 @@ derive models/tables
 # A handle is unique: the migrations give `accounts.handle` a unique index.
 # A second account with a taken handle, and a change to one, come back as
 # problems on the field instead of rows, and an account keeps its own handle
-# when it is changed to it.
+# when it is changed to it. A like is unique over its handle and its track
+# together: ada likes a track once, bob may like it too, and a like passed
+# to ada when she holds one already is refused, with the problem on the
+# track.
 fresh = """
   drop schema if exists senro_spec cascade;
   create schema senro_spec;
   set search_path to senro_spec
 """
 
-counted = "select count(*)::text as accounts from accounts"
+counted = """
+  select (select count(*) from accounts)::text as accounts,
+    (select count(*) from likes)::text as likes
+"""
 
 pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> pg/run db fresh .> (_ -> db))
@@ -26,4 +33,11 @@ pg/connect "127.0.0.1" 54329 "postgres" "postgres" ""
   .> (db -> signing/made db "bob" "bob")
   .> (db -> signing/renamed db "bob as ada" "bob" "ada")
   .> (db -> signing/renamed db "bob as bob" "bob" "bob")
+  .> (db -> signing/liked db "ada likes rain" "ada" "rain")
+  .> (db -> signing/liked db "ada likes rain again" "ada" "rain")
+  .> (db -> signing/liked db "ada likes snow" "ada" "snow")
+  .> (db -> signing/liked db "bob likes rain" "bob" "rain")
+  .> (db -> signing/passed db "bob's rain to ada" "bob" "rain" "ada")
+  .> (db -> signing/liked db "bob likes hail" "bob" "hail")
+  .> (db -> signing/passed db "bob's hail to ada" "bob" "hail" "ada")
   .> (db -> pg/query db counted [] .> (r -> print r.rows))
