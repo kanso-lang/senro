@@ -9,4 +9,9 @@ signing in with the passkey: / nothing
 a page that asks for a sign-in: /notes
 signing in again: / nothing
 its count rose: true
+the account page: Your account; names the visitor: true; passkeys: 1
+adding a passkey: Passkey added.; passkeys: 2
+removing one: Passkey removed.; passkeys: 1
+a new password: Your new password, shown
+still signed in after it: /account
 a key the app never kept: That passkey is not one this app knows.

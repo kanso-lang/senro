@@ -7,7 +7,8 @@
 // the app does not know is refused. WebAuthn takes a host name and not an
 // address, so the page is visited at localhost. Prints what the visitor
 // sees, for spec.sh to compare with spec/generate/passkey.out. Each door
-// also offers a password to a visitor who asks for one. Run as:
+// also offers a password to a visitor who asks for one, and the account
+// page adds a passkey, removes one and shows a new password. Run as:
 //
 //   node spec/generate/passkey.mjs <port> <outbox>
 import { createRequire } from "node:module";
@@ -109,6 +110,26 @@ await page.context().clearCookies();
 console.log(`signing in again: ${await signedIn()}`);
 const after = (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials[0].signCount;
 console.log(`its count rose: ${after > counted}`);
+
+// The account's page lists its passkeys. One is added from this device and
+// one removed, and a new password is shown once without ending the sign-in.
+const listed = () => page.evaluate(() =>
+  document.querySelectorAll("form[action^='/credentials/']").length);
+await page.goto(at("/account"));
+const named = (await text(page, "p.text-secondary")) === `Signed in as ${email}`;
+console.log(`the account page: ${await text(page, "h1")}; names the visitor: ${named}; passkeys: ${await listed()}`);
+await page.click("button[data-passkey=create]");
+await page.waitForSelector("p.notice");
+console.log(`adding a passkey: ${await text(page, "p.notice")}; passkeys: ${await listed()}`);
+await page.click("form[action^='/credentials/'] button");
+await page.waitForFunction(() => document.querySelector("p.notice")?.textContent.includes("removed"));
+console.log(`removing one: ${await text(page, "p.notice")}; passkeys: ${await listed()}`);
+await page.click("form[action='/account'] button");
+await page.waitForSelector("code.password");
+const chosen = await text(page, "code.password");
+console.log(`a new password: ${await text(page, "h1")}, ${chosen.length > 12 ? "shown" : "missing"}`);
+await page.goto(at("/account"));
+console.log(`still signed in after it: ${new URL(page.url()).pathname}`);
 
 // Another visitor's authenticator holds a key for this site that the app
 // never kept, as a key made against another copy of the app would be.

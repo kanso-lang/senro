@@ -12,9 +12,11 @@ import "std/text"
 # written as an app two directories below senro would hold them, and each
 # import of senro is pointed at the app's own path back to it.
 pub copied = [
+  "account.kso"
   "account_mailer.kso"
   "confirmations.kso"
   "credential.kso"
+  "credentials.kso"
   "registration.kso"
   "resets.kso"
   "session.kso"
@@ -22,6 +24,7 @@ pub copied = [
   "unlocks.kso"
   "user.kso"
   "views/account_made.kata"
+  "views/account_shown.kata"
   "views/confirm_offered.kata"
   "views/door.kata"
   "views/password_shown.kata"
@@ -30,11 +33,13 @@ pub copied = [
   "views/unlock_offered.kata"
 ]
 
-# The modules of those the entry imports: the five resources, and the
-# model, which a derivation reads only when the entry names it.
+# The modules of those the entry imports: the resources, and the models,
+# which a derivation reads only when the entry names them.
 imported = [
+  "account"
   "confirmations"
   "credential"
+  "credentials"
   "registration"
   "resets"
   "session"
