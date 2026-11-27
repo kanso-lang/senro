@@ -1,29 +1,60 @@
-takes heading path email problems notice signing_in
+takes path email problems notice signing_in challenge by_password
 div.row.justify-content-center
   div.col-md-7.col-lg-5
-    h1.mb-4 = heading
+    if signing_in
+      h1.mb-4 Sign in
+    if not signing_in
+      h1.mb-4 Make an account
     if notice != ""
       p.notice = notice
     div.card
       div.card-body.p-4
-        form method="post" action=path
-          div.mb-3
-            label.form-label for="email" Email
-            input.form-control id="email" type="email" name="email" required="required" value=email
-            if problems["email"] != none
-              p.problem = problems["email"]
-          if signing_in
-            div.mb-4
-              label.form-label for="password" Password
-              input.form-control id="password" type="password" name="password" required="required"
-              if problems["password"] != none
-                p.problem = problems["password"]
-          button.btn.btn-primary.w-100 = heading
+        if by_password
+          form method="post" action="{path}?with=password"
+            div.mb-3
+              label.form-label for="email" Email
+              input.form-control id="email" type="email" name="email" required="required" value=email
+              if problems["email"] != none
+                p.problem = problems["email"]
+            if signing_in
+              div.mb-4
+                label.form-label for="password" Password
+                input.form-control id="password" type="password" name="password" required="required"
+                if problems["password"] != none
+                  p.problem = problems["password"]
+            if signing_in
+              button.btn.btn-primary.w-100 Sign in
+            if not signing_in
+              button.btn.btn-primary.w-100 Make an account
+        if not by_password
+          form method="post" action=path data-challenge=challenge
+            if not signing_in
+              div.mb-4
+                label.form-label for="email" Email
+                input.form-control id="email" type="email" name="email" required="required" value=email
+                if problems["email"] != none
+                  p.problem = problems["email"]
+              button.btn.btn-primary.w-100 data-passkey="create" Make it with a passkey
+            if signing_in
+              button.btn.btn-primary.w-100 data-passkey="get" Sign in with a passkey
+            if problems["passkey"] != none
+              p.problem = problems["passkey"]
+            p.problem data-passkey-said="said"
+    p.mt-4.text-center
+      if by_password and signing_in
+        a href=(path_to "session/new") Use a passkey instead
+      if by_password and not signing_in
+        a href=(path_to "registration/new") Use a passkey instead
+      if not by_password and signing_in
+        a href="{path_to "session/new"}?with=password" Use a password instead
+      if not by_password and not signing_in
+        a href="{path_to "registration/new"}?with=password" Use a password instead
     if signing_in
-      p.mt-4.text-center
+      p.text-center
         a href=(path_to "registration/new") Make an account
-        span.text-secondary.mx-2 ·
-        a href=(path_to "resets/new") Forgot your password?
+        if by_password
+          span.text-secondary.mx-2 ·
+          a href=(path_to "resets/new") Forgot your password?
     if not signing_in
-      p.mt-4.text-center
+      p.text-center
         a href=(path_to "session/new") Sign in instead
