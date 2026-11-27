@@ -1,4 +1,4 @@
-making an account: 303
+making an account: 200
 confirming its address: 303
 three wrong passwords: 422 422 422
 the right one, while it is locked: 403

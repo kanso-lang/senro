@@ -14,7 +14,6 @@ at="http://127.0.0.1:$1"
 outbox=$2
 name="gil$(date +%s%N)"
 email="$name@guestbook.test"
-right="gils password"
 tried() {
   curl -s -o /dev/null -w "%{http_code}" -d "name=$name" \
     --data-urlencode "password=$1" "$at/session"
@@ -34,9 +33,10 @@ mailed() {
 }
 later() { "$KANSO" run spec/lapsed/later -- "$name"; }
 
-made=$(curl -s -o /dev/null -w "%{http_code}" -d "name=$name&email=$email" \
-  --data-urlencode "password=$right" "$at/registration")
-echo "making an account: $made"
+# The page that makes the account shows the password the guestbook chose.
+page=$(curl -s -w "\n%{http_code}" -d "name=$name&email=$email" "$at/registration")
+echo "making an account: $(printf '%s\n' "$page" | tail -n 1)"
+right=$(printf '%s\n' "$page" | sed -n 's|.*<code class="password">\([^<]*\)</code>.*|\1|p')
 link=$(grep -o "http://[^ ]*/edit" $(mailed "Confirm" 1) | tr -d '\r')
 confirmed=$(curl -s -o /dev/null -w "%{http_code}" -d "_method=PATCH" "${link%/edit}")
 echo "confirming its address: $confirmed"

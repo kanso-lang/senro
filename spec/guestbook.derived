@@ -95,13 +95,17 @@ type layout_page
   title
   body
 # in views, by app/conventions
+type password_shown_page
+  heading
+  password
+  told
+# in views, by app/conventions
 type reset_asked_page
   notice
   problems
 # in views, by app/conventions
 type reset_chosen_page
   path
-  problems
 # in views, by app/conventions
 type signed_page
   signatures
@@ -164,10 +168,6 @@ fn account_11 problems
   # from account.kata:12
   "<p class=\"problem\">{escape problems["current"]}</p>"
 
-fn account_14 problems
-  # from account.kata:15
-  "<p class=\"problem\">{escape problems["password"]}</p>"
-
 # from account.kata:1
 pub fn account path problems seen
   joined [
@@ -179,12 +179,8 @@ pub fn account path problems seen
     "name=\"_method\" value=\"PATCH\"><input type=\"password\" "
     "name=\"current\" placeholder=\"current password\" required=\"required\">"
     # from account.kata:11
-    "{if (problems["current"] != none) (account_11 problems) ""}<input "
-    "type=\"password\" name=\"password\" placeholder=\"new password\" "
-    "required=\"required\">"
-    # from account.kata:14
-    "{if (problems["password"] != none) (account_14 problems) ""}<button>"
-    "Change it</button></form>"
+    "{if (problems["current"] != none) (account_11 problems) ""}<button>Make "
+    "me a new password</button></form>"
   ]
 # in views, by app/conventions
 # from confirm_offered.kata:1
@@ -215,14 +211,19 @@ fn door_10 email problems
     "{if (problems["email"] != none) (door_12 problems) ""}"
   ]
 
-fn door_15 problems
-  # from door.kata:16
+fn door_16 problems
+  # from door.kata:17
   "<p class=\"problem\">{escape problems["password"]}</p>"
 
-door_17 = joined [
-  "<label class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
-  "value=\"yes\">Keep me signed in</label>"
-]
+fn door_14 problems
+  joined [
+    "<input type=\"password\" name=\"password\" placeholder=\"password\" "
+    "required=\"required\">"
+    # from door.kata:16
+    "{if (problems["password"] != none) (door_16 problems) ""}<label "
+    "class=\"remember\"><input type=\"checkbox\" name=\"remember\" "
+    "value=\"yes\">Keep me signed in</label>"
+  ]
 
 door_22 = joined [
   "<p class=\"forgot\"><a href=\"/resets/new\">Forgot your password?</a>"
@@ -242,12 +243,9 @@ pub fn door heading path button name email problems asks remembers
     # from door.kata:8
     "{if (problems["name"] != none) (door_8 problems) ""}"
     # from door.kata:10
-    "{if asks (door_10 email problems) ""}<input type=\"password\" "
-    "name=\"password\" placeholder=\"password\" required=\"required\">"
-    # from door.kata:15
-    "{if (problems["password"] != none) (door_15 problems) ""}"
-    # from door.kata:17
-    "{if remembers door_17 ""}<button>"
+    "{if asks (door_10 email problems) ""}"
+    # from door.kata:14
+    "{if remembers (door_14 problems) ""}<button>"
     # from door.kata:21
     "{escape button}</button></form>"
     # from door.kata:22
@@ -264,6 +262,18 @@ pub fn layout title body
     "href=\"/site.css\"><script src=\"/senro.js\" defer=\"defer\"></script>"
     # from layout.kata:12
     "</head><body><main>{kata_raw body}</main></body></html>"
+  ]
+# in views, by app/conventions
+# from password_shown.kata:1
+pub fn password_shown heading password told
+  joined [
+    # from password_shown.kata:3
+    "<header><h1>{escape heading}</h1><p class=\"lede\"><a href=\"/\">Back "
+    # from password_shown.kata:6
+    "to the book</a></p></header><p class=\"notice\">{escape told}</p><p>"
+    # from password_shown.kata:8
+    "<code class=\"password\">{escape password}</code></p><p><a "
+    "href=\"/session/new\">Sign in</a></p>"
   ]
 # in views, by app/conventions
 fn reset_asked_6 notice
@@ -288,21 +298,14 @@ pub fn reset_asked notice problems
     "Send me a link</button></form>"
   ]
 # in views, by app/conventions
-fn reset_chosen_7 problems
-  # from reset_chosen.kata:8
-  "<p class=\"problem\">{escape problems["password"]}</p>"
-
 # from reset_chosen.kata:1
-pub fn reset_chosen path problems
+pub fn reset_chosen path
   joined [
-    "<header><h1>Choose a new password</h1></header><form method=\"post\" "
-    # from reset_chosen.kata:4
+    "<header><h1>A new password</h1><p class=\"lede\">The guestbook chooses "
+    "it, and shows it to you once.</p></header><form method=\"post\" "
+    # from reset_chosen.kata:5
     "action=\"{escape path}\"><input type=\"hidden\" name=\"_method\" "
-    "value=\"PATCH\"><input type=\"password\" name=\"password\" "
-    "placeholder=\"new password\" required=\"required\">"
-    # from reset_chosen.kata:7
-    "{if (problems["password"] != none) (reset_chosen_7 problems) ""}<button>"
-    "Save it</button></form>"
+    "value=\"PATCH\"><button>Make me a new password</button></form>"
   ]
 # in views, by app/conventions
 signed_5 = joined [
@@ -383,7 +386,7 @@ pub fn unlock_offered path
     "value=\"PATCH\"><button>Unlock it</button></form>"
   ]
 # in views, by app/conventions
-kata_marks = [77 140 82 130]
+kata_marks = [65 16 215 195]
 # in views, by app/conventions
 fn account_pack acc h
   a1 = wire/add (wire/add_count acc 1) h.path
@@ -436,8 +439,20 @@ pub fn layout_view title body
   kata_held = layout_page title body
   wire/paged kata_held layout_pack layout_drawn
 # in views, by app/conventions
+fn password_shown_pack acc h
+  a1 = wire/add (wire/add_count acc 5) h.heading
+  a2 = wire/add a1 h.password
+  wire/add a2 h.told
+
+fn password_shown_drawn h
+  password_shown h.heading h.password h.told
+
+pub fn password_shown_view heading password told
+  kata_held = password_shown_page heading password told
+  wire/paged kata_held password_shown_pack password_shown_drawn
+# in views, by app/conventions
 fn reset_asked_pack acc h
-  a1 = wire/add (wire/add_count acc 5) h.notice
+  a1 = wire/add (wire/add_count acc 6) h.notice
   wire/add a1 h.problems
 
 fn reset_asked_drawn h
@@ -448,14 +463,13 @@ pub fn reset_asked_view notice problems
   wire/paged kata_held reset_asked_pack reset_asked_drawn
 # in views, by app/conventions
 fn reset_chosen_pack acc h
-  a1 = wire/add (wire/add_count acc 6) h.path
-  wire/add a1 h.problems
+  wire/add (wire/add_count acc 7) h.path
 
 fn reset_chosen_drawn h
-  reset_chosen h.path h.problems
+  reset_chosen h.path
 
-pub fn reset_chosen_view path problems
-  kata_held = reset_chosen_page path problems
+pub fn reset_chosen_view path
+  kata_held = reset_chosen_page path
   wire/paged kata_held reset_chosen_pack reset_chosen_drawn
 # in views, by app/conventions
 fn signed_pack_signatures_each acc x
@@ -479,7 +493,7 @@ fn signed_pack_form acc x
   wire/add a1 x.problems
 
 fn signed_pack acc h
-  a1 = signed_pack_signatures (wire/add_count acc 7) h.signatures
+  a1 = signed_pack_signatures (wire/add_count acc 8) h.signatures
   a2 = signed_pack_form a1 h.form
   a3 = wire/add a2 h.notice
   a4 = wire/add a3 h.removals
@@ -493,7 +507,7 @@ pub fn signed_view signatures form notice removals viewer
   wire/paged kata_held signed_pack signed_drawn
 # in views, by app/conventions
 fn unlock_offered_pack acc h
-  wire/add (wire/add_count acc 8) h.path
+  wire/add (wire/add_count acc 9) h.path
 
 fn unlock_offered_drawn h
   unlock_offered h.path

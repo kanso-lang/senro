@@ -10,8 +10,8 @@ import "std/time"
 # The guestbook's mail, as a Rails mailer holds it: what each letter says,
 # and the signed link it carries, which starts with `mail/url_for`. Each
 # letter is queued on `db` and sent by the worker beside the server. First, a
-# link to choose a new password, bound to the digest the account keeps, so
-# it works once.
+# link to a new password, bound to the digest the account keeps, so it works
+# once.
 pub fn reset req db id email kept
   time/now
     .> (t -> mail/url_for (reset_path req id kept t))
@@ -26,7 +26,7 @@ fn reset_letter email link
   lines = [
     "Someone asked to reset the password of your guestbook account."
     ""
-    "Choose a new one here, within fifteen minutes:"
+    "Get a new one here, within fifteen minutes:"
     ""
     link
     ""
