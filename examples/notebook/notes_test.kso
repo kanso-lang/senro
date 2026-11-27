@@ -9,6 +9,7 @@ import "std/spec"
 test_notes = describe "notes" [
   around (visit/within routes connected)
   it "are listed" listed
+  it "are begun from a form for a new one" offered
   it "are made from the form and shown" made
   it "are changed from the form" changed
   it "are not made from a field that breaks its rule" refused
@@ -17,6 +18,9 @@ test_notes = describe "notes" [
 
 fn listed v
   visit/get v "/notes" .> (v -> effect (expect v.status . to (equal 200)))
+
+fn offered v
+  visit/get v "/notes/new" .> (v -> effect (expect v.status . to (equal 200)))
 
 fn made v
   visit/post v "/notes" given/note

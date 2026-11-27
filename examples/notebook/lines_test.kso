@@ -9,6 +9,7 @@ import "std/spec"
 test_lines = describe "lines" [
   around (visit/within routes connected)
   it "are listed" listed
+  it "are begun from a form for a new one" offered
   it "are made from the form and shown" made
   it "are changed from the form" changed
   it "are gone once removed" removed
@@ -17,6 +18,11 @@ test_lines = describe "lines" [
 fn listed v
   lines_path v
     .> (at -> visit/get v at)
+    .> (v -> effect (expect v.status . to (equal 200)))
+
+fn offered v
+  lines_path v
+    .> (at -> visit/get v "{at}/new")
     .> (v -> effect (expect v.status . to (equal 200)))
 
 fn made v

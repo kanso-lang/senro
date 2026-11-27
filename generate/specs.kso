@@ -89,6 +89,7 @@ pub fn pages senro singular fields grand
   ]
   examples = [
     (example "listed" true (lists s))
+    (example "offered" true (offers s))
     (example "made" true (makes s))
     (example "changed" (length s.texts > 0) (changes s))
     (example "refused" (length s.numbers > 0) (refuses s))
@@ -134,6 +135,7 @@ fn whole senro s about its examples maps grand
 fn page_lines s
   lines = [
     "  it \"are listed\" listed"
+    "  it \"are begun from a form for a new one\" offered"
     "  it \"are made from the form and shown\" made"
     (if (length s.texts > 0) "  it \"are changed from the form\" changed" "")
     (if (length s.numbers > 0) "  it \"{breaking}\" refused" "")
@@ -163,6 +165,17 @@ fn example name true body
 
 fn lists s
   chain (asking s "visit/get v" "") [ok]
+
+# The form for a new row answers, and is not taken for a row whose id is
+# "new".
+fn offers s
+  chain (new_asked s s.parent) [ok]
+
+fn new_asked s none
+  ["visit/get v \"/{s.plural}/new\""]
+
+fn new_asked s _
+  ["{s.plural}_path v" "(at -> visit/get v \"\{at}/new\")"]
 
 fn makes s
   seen = if (length s.texts > 0) (holds "milk") ok
