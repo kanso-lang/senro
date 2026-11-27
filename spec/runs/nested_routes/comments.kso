@@ -3,3 +3,6 @@ pub fn index _ _ post_id:int
 
 pub fn show _ _ post_id:int id:int
   "comment {id} on post {post_id}"
+
+pub fn new _ _ post_id:int
+  "a new comment on post {post_id}"

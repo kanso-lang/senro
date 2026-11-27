@@ -106,7 +106,13 @@ a {
   --bs-btn-active-border-color: var(--accent-hover);
   --bs-btn-focus-shadow-rgb: var(--accent-rgb);
   font-weight: 600;
-  padding: 0.65rem 1.25rem;
+}
+
+/* Every button is as tall as the primary one, so a row of them lines up:
+   Bootstrap's own variables, which .btn-sm and .btn-lg still override. */
+.btn {
+  --bs-btn-padding-y: 0.65rem;
+  --bs-btn-padding-x: 1.25rem;
 }
 
 .lede {

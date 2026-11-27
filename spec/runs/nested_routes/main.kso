@@ -1,4 +1,5 @@
 import "../../../routes"
+import "../../../web"
 import "./comments"
 import "./posts"
 import "./tags"
@@ -11,3 +12,7 @@ print (list/sort (keys routes))
   .> (_ -> print (routes/path_to "comments/show" 3 4))
   .> (_ -> print (routes/path_to "posts/show" 3))
   .> (_ -> print (routes/path_to "tags/index" 3))
+  # In /posts/3/comments/new, `new` is a word of the path, not the id of a
+  # comment, and /posts/3/comments/4 is still comment 4.
+  .> (_ -> print "{(web/page_at routes "/posts/3/comments/new")["name"]}")
+  .> (_ -> print "{(web/page_at routes "/posts/3/comments/4")["name"]}")
