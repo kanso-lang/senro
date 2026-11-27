@@ -872,7 +872,7 @@ fn routed none req _
   return own_script req if text/starts_with? req.path "/javascript/"
   return own_sheet req if text/starts_with? req.path "/stylesheets/"
   return vendored req if text/starts_with? req.path "/vendor/javascript/"
-  os/read_file "public{req.path}" .> (got -> served_file req.path got)
+  os/read_bytes "public{req.path}" .> (got -> served_file req.path got)
 
 # A wasm module is bytes, read as bytes: the app's components compiled for the
 # browser, and the runtime they run on. Each goes out with an ETag made of the
@@ -996,11 +996,13 @@ fn imports _:os/file_not_found
 fn imports m
   text/replace m "https://ga.jspm.io/npm:" "/vendor/javascript/ga.jspm.io/npm/"
 
-fn served_file path body:string
-  effect (http/page ["content-type: {kind_of path}"] body)
-
-fn served_file _ _
+# A file under `public/` is read as bytes, since a font or an image is not
+# text, and goes out as the kind its extension names.
+fn served_file _ _:os/file_not_found
   effect http/not_found
+
+fn served_file path body
+  effect (http/page ["content-type: {kind_of path}"] body)
 
 fn kind_of path
   return "text/css; charset=utf-8" if text/ends_with? path ".css"
@@ -1013,6 +1015,9 @@ fn kind_of path
   return "font/woff" if text/ends_with? path ".woff"
   return "font/ttf" if text/ends_with? path ".ttf"
   return "image/png" if text/ends_with? path ".png"
+  return "image/jpeg" if text/ends_with? path ".jpg"
+  return "image/webp" if text/ends_with? path ".webp"
+  return "image/x-icon" if text/ends_with? path ".ico"
   "text/plain; charset=utf-8"
 
 fn routed (hit action kind id _) req db
