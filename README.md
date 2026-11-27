@@ -714,7 +714,9 @@ handed the event's `detail` as text (kata/README.md, Components).
   reads it as a form: `web/value (web/query req) "page"` is "2". `web/input
   req` is what the request's body sent, read the same way whichever it was:
   a posted form, or the members of a JSON object when the request says
-  `application/json`, each value as text. A request is
+  `application/json`, each value as text. `web/request_header req name`
+  reads a request's header by its lower-case name, "" when it has none. A
+  request is
   read as bytes until its body is as long
   as its `Content-Length` says, since a browser often sends the head and the
   body in separate packets. A body over 10 MiB is refused with a 413 before it
