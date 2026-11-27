@@ -1,0 +1,77 @@
+import "../../../passkeys"
+import "std/list"
+import "std/text"
+
+# Each line of cases.txt checked as passkeys checks what a browser sends: a
+# `create` line as a registration, and a `get` line as a sign-in with the
+# credential the first line registers, holding the count the line gives.
+want = passkeys/expecting challenge "https://example.test" "example.test"
+
+challenge = "c2Vucm8tc3BlYy1jaGFsbGVuZ2UtMzItYnl0ZXMhIQ"
+
+pub fn all lines
+  rows = list/to_list (list/select lines (l -> l != ""))
+  made = registered (text/split (field rows 1) "|")
+  list/to_list (list/map rows (r -> said (text/split r "|") made))
+
+fn registered fields
+  passkeys/registered want (hex (field fields 3)) (hex (field fields 4))
+
+fn said fields made
+  "{field fields 1}: {outcome (field fields 2) fields made}"
+
+fn outcome "create" fields _
+  told (registered fields)
+
+fn outcome _ fields made
+  checked (stored_as made (count_of (text/to_int (field fields 6)))) fields
+
+fn checked none _
+  "no credential to sign in with"
+
+fn checked stored fields
+  client = hex (field fields 3)
+  sig = hex (field fields 5)
+  told (passkeys/asserted want stored client (hex (field fields 4)) sig)
+
+fn stored_as none _
+  none
+
+fn stored_as c:passkeys/credential n:int
+  passkeys/kept c.id c.x c.y n
+
+fn count_of none
+  0
+
+fn count_of n
+  n
+
+fn stored_as _ _
+  none
+
+fn told c:passkeys/credential
+  "made {c.id}, {length c.x}+{length c.y} key bytes, count {c.counter}"
+
+fn told r:passkeys/refusal
+  "refused: {r.reason}"
+
+fn told n:int
+  "signed in, count {n}"
+
+fn told _
+  "nothing"
+
+# The field at `at`, or "" past the end.
+fn field xs at
+  return "" if at < 1 or at > length xs
+  xs[at]
+
+fn hex h
+  hex_from (text/bytes h) 1 []
+
+fn hex_from cs at acc
+  return acc if at < 1 or at + 1 > length cs
+  hex_from cs (at + 2) (push acc (hexit cs[at] * 16 + hexit cs[at + 1]))
+
+fn hexit c
+  if (c < 58) (c - 48) (c - 87)

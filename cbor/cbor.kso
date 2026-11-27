@@ -1,0 +1,162 @@
+import "std/bits"
+import "std/text"
+
+# CBOR, RFC 8949, read: as much of it as WebAuthn writes. An authenticator
+# hands the server its attestation and its public key in CBOR, and nothing
+# else in senro reads it, so this reads and never writes.
+#
+# An unsigned or negative integer is an int, a text string a string, an
+# array a list and a map a map, keyed by whatever the map's keys are. A byte
+# string is `octets`, so it is never mistaken for an array of small
+# integers. false and true are booleans and null is none. Integers past
+# sixty-three bits, tags, floats, other simple values and indefinite
+# lengths are not in WebAuthn's CBOR and are refused.
+type octets
+  data
+
+# A value read and the place the next one starts.
+type read
+  value
+  at
+
+# The one value `bytes` holds, or none when they are not exactly one value
+# this module reads.
+pub fn decoded bytes
+  whole (item bytes 1) (length bytes)
+
+fn whole none _
+  none
+
+fn whole r total
+  return none if r.at != total + 1
+  r.value
+
+# The value that starts at `at`, or none.
+pub fn item bs at
+  return none if at < 1 or at > length bs
+  head = bs[at]
+  headed (bits/shr head 5) (argument bs at (head & 31)) bs
+
+fn headed _ none _
+  none
+
+fn headed major arg bs
+  argued major arg bs
+
+# The head's argument: the number its low five bits hold, or the one the
+# next one, two, four or eight bytes hold, big-endian; with where the
+# content starts.
+fn argument bs at info
+  return read info (at + 1) if info < 24
+  return big bs (at + 1) 1 if info == 24
+  return big bs (at + 1) 2 if info == 25
+  return big bs (at + 1) 4 if info == 26
+  return big bs (at + 1) 8 if info == 27
+  none
+
+fn big bs from count
+  return none if from + count - 1 > length bs
+  n = number_at bs from count 0
+  return none if n < 0
+  read n (from + count)
+
+fn number_at bs at count acc
+  return acc if count == 0 or at < 1 or at > length bs
+  return -1 if acc > 36028797018963967
+  number_at bs (at + 1) (count - 1) (acc * 256 + bs[at])
+
+fn argued 0 arg _
+  arg
+
+fn argued 1 arg _
+  read (-1 - arg.value) arg.at
+
+fn argued 2 arg bs
+  bytes_read (span bs arg.at arg.value) (arg.at + arg.value)
+
+fn argued 3 arg bs
+  texted (span bs arg.at arg.value) (arg.at + arg.value)
+
+fn argued 4 arg bs
+  return none if arg.value > length bs - arg.at + 1
+  listed bs arg.at arg.value []
+
+fn argued 5 arg bs
+  return none if arg.value > length bs - arg.at + 1
+  mapped bs arg.at arg.value {}
+
+fn argued 7 arg _
+  simple arg.value arg.at
+
+fn argued _ _ _
+  none
+
+fn simple 20 at
+  read false at
+
+fn simple 21 at
+  read true at
+
+fn simple 22 at
+  read none at
+
+fn simple _ _
+  none
+
+fn bytes_read none _
+  none
+
+fn bytes_read b next
+  read (octets b) next
+
+fn texted none _
+  none
+
+fn texted b next
+  said (text/utf8 b) next
+
+fn said s:string next
+  read s next
+
+fn said _ _
+  none
+
+# `count` bytes from `from`, or none when the input ends first.
+fn span bs from count
+  return none if count < 0 or from + count - 1 > length bs
+  taken bs from count []
+
+fn taken bs at count acc
+  return acc if count == 0 or at < 1 or at > length bs
+  taken bs (at + 1) (count - 1) (push acc bs[at])
+
+fn listed _ at 0 acc
+  read acc at
+
+fn listed bs at count acc
+  next_listed (item bs at) bs count acc
+
+fn next_listed none _ _ _
+  none
+
+fn next_listed r bs count acc
+  listed bs r.at (count - 1) (push acc r.value)
+
+fn mapped _ at 0 acc
+  read acc at
+
+fn mapped bs at count acc
+  keyed (item bs at) bs count acc
+
+fn keyed none _ _ _
+  none
+
+fn keyed k bs count acc
+  valued k.value (item bs k.at) bs count acc
+
+fn valued _ none _ _ _
+  none
+
+fn valued key v bs count acc
+  return none if acc[key] != none
+  mapped bs v.at (count - 1) (put acc key v.value)

@@ -811,6 +811,27 @@ handed the event's `detail` as text (kata/README.md, Components).
   A password reset link carries a `tokens` token with the purpose "reset",
   bound to the digest the account keeps, so a new password retires it, and
   good for `passwords/reset_minutes`, fifteen.
+- `passkeys`: the server's half of WebAuthn. `passkeys/challenge` makes the
+  thirty-two random bytes a ceremony answers, base64url; the app keeps it in
+  the visitor's session. `passkeys/registered want client attestation`
+  checks what the browser sent after an authenticator made a credential and
+  answers a `passkeys/credential`: its id, its public key's two coordinates
+  and its signature count. `passkeys/asserted want credential client data
+  signature` checks a sign-in and answers the new count. Each answers a
+  `passkeys/refusal` with the reason when something is wrong. `want` is
+  `passkeys/expecting challenge origin rp_id`. The checks are WebAuthn's:
+  the client data's type, challenge and origin, the hash of the relying
+  party's id, a user present and verified, an ES256 key on P-256, the
+  signature (kanso's `std/p256`) over the authenticator data and the client
+  data's hash, and a count that rises when the authenticator counts.
+  Attestation is neither asked for nor checked. `spec/runs/passkeys` holds
+  a registration and a sign-in made with a real key by
+  `spec/runs/passkeys/cases.py`, and each with one thing wrong.
+- `cbor`: CBOR (RFC 8949) read, as much as WebAuthn writes: integers, byte
+  strings as `cbor/octets`, text, arrays, maps, booleans and null.
+  `cbor/decoded bytes` answers the one value the bytes hold, or none. Tags,
+  floats, indefinite lengths, a key twice in one map and bytes left over
+  are refused.
 - `tokens`: signed tokens for links an app mails out, as Rails 8's
   `generates_token_for` makes them. `tokens/made purpose req id bound t
   minutes` names a record, an expiry, and an HMAC over both, the purpose and

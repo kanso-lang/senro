@@ -1,0 +1,21 @@
+a passkey is made: made AQIDBAUGBwgJCgsMDQ4PEA, 32+32 key bytes, count 0
+for a sign-in: refused: the client data is for another ceremony
+another challenge: refused: the challenge is not the one asked
+another origin: refused: the origin is not this app's
+another site's id: refused: the credential is for another site
+nobody present: refused: the authenticator saw no one there
+no user verified: refused: the authenticator did not verify its user
+no credential: refused: the authenticator made no credential
+an RSA key: refused: the credential's key is not ES256 on P-256
+not CBOR: refused: the attestation is not CBOR
+not JSON: refused: the client data is not JSON
+a sign-in: signed in, count 5
+the data changed after: refused: the signature is not the credential's
+another key signed: refused: the signature is not the credential's
+the count went back: refused: the counter went backwards
+the same count again: refused: the counter went backwards
+a key that does not count: signed in, count 0
+the client data changed after: refused: the signature is not the credential's
+another challenge: refused: the challenge is not the one asked
+no user verified: refused: the authenticator did not verify its user
+a signature that is not DER: refused: the signature is not the credential's

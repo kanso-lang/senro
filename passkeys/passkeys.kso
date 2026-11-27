@@ -1,0 +1,218 @@
+import "../cbor"
+import "std/base64"
+import "std/json"
+import "std/list"
+import "std/os"
+import "std/p256"
+import "std/sha256"
+import "std/text"
+
+# The server's half of a passkey, WebAuthn level 2: checking what a browser
+# sends back after it asked an authenticator to make a credential, or to
+# sign in with one. The page's half, which asks the authenticator, is in
+# senro's page script.
+#
+# A ceremony answers one challenge, made by `challenge` and kept in the
+# visitor's session until the answer comes back. The answer is checked
+# against `expected`: that challenge, the origin the page was served from,
+# and the relying party's id, the origin's host. Nothing here reads a
+# database or the clock. Each function takes what the browser sent and
+# answers a credential, a new signature count, or a `refusal` that says
+# why.
+#
+# Only ES256 keys are taken, the algorithm the page script asks for and
+# the one every platform authenticator offers. Attestation is neither asked
+# for nor checked: the app trusts a key from the moment the account makes
+# it, as it trusts a password. Every ceremony asks the authenticator to
+# verify its user, with a fingerprint, a face or a PIN, so a passkey alone
+# stands in for a password and a second factor.
+pub type expected
+  challenge
+  origin
+  rp_id
+
+# A key an authenticator made: its credential id, base64url as WebAuthn's
+# JavaScript spells it, the public key's coordinates as bytes, and the
+# count of signatures it reported.
+pub type credential
+  id
+  x
+  y
+  counter
+
+pub type refusal
+  reason
+
+# The head of the authenticator data: the hash of the relying party's id,
+# the flags byte and the signature count.
+type head
+  hash
+  flags
+  counter
+
+# What a ceremony's answer must match: the challenge the session kept, the
+# origin the page was served from, and the relying party's id.
+pub fn expecting asked origin rp_id
+  expected asked origin rp_id
+
+# A credential as the app kept it: its id, its key's coordinates, and the
+# count its last sign-in reported.
+pub fn kept id x y counter
+  credential id x y counter
+
+# Thirty-two random bytes, base64url, for one ceremony.
+pub challenge = os/random_bytes 32
+  .> (b -> effect (url_spelled (list/to_list b)))
+
+# The credential a registration made, given the bytes the browser sent: the
+# client data JSON and the attestation object.
+pub fn registered want client attestation
+  problem = client_problem want "webauthn.create" (client_json client)
+  return refusal problem if problem != ""
+  attested want (cbor/decoded attestation)
+
+# The authenticator's new signature count, when the sign-in's signature is
+# the credential's and what it signed is what this server expects.
+pub fn asserted want cred client data signature
+  problem = client_problem want "webauthn.get" (client_json client)
+  return refusal problem if problem != ""
+  signed_in want cred client data signature
+
+# base64url without padding, the spelling WebAuthn's JavaScript uses for
+# every binary field.
+pub fn url_spelled bytes
+  plain = base64/encode bytes
+  swapped = text/replace (text/replace plain "+" "-") "/" "_"
+  text/replace swapped "=" ""
+
+# The bytes a base64url text spells, or none.
+pub fn url_read s
+  std = text/replace (text/replace s "-" "+") "_" "/"
+  padding = (4 - length (text/bytes std) % 4) % 4
+  base64/decode "{std}{text/slice "==" 1 padding}"
+
+fn client_json bytes
+  json_of (text/utf8 bytes)
+
+fn json_of s:string
+  json/decode s
+
+fn json_of _
+  none
+
+fn client_problem _ _ none
+  "the client data is not JSON"
+
+fn client_problem want kind c:map[some some]
+  return "the client data is for another ceremony" if c["type"] != kind
+  asked = want.challenge
+  return "the challenge is not the one asked" if c["challenge"] != asked
+  return "the origin is not this app's" if c["origin"] != want.origin
+  ""
+
+fn client_problem _ _ _
+  "the client data is not an object"
+
+fn attested _ none
+  refusal "the attestation is not CBOR"
+
+fn attested want att:map[some some]
+  data = octets_of att["authData"]
+  made want data (head_of data)
+
+fn attested _ _
+  refusal "the attestation is not a map"
+
+fn made _ _ none
+  refusal short
+
+fn made want data h
+  problem = head_problem want h
+  return refusal problem if problem != ""
+  return refusal "the authenticator made no credential" if not flag? h 64
+  size = byte_at data 54 * 256 + byte_at data 55
+  id = taken data 56 size []
+  key = cbor/item data (56 + size)
+  keyed (url_spelled id) key h.counter
+
+fn keyed _ none _
+  refusal "the credential's key is not CBOR"
+
+fn keyed id r counter
+  cose id r.value counter
+
+# A COSE key: type 2 (EC2), algorithm -7 (ES256), curve 1 (P-256), and the
+# two coordinates.
+fn cose id k:map[some some] counter
+  es256 = k[1] == 2 and k[3] == -7 and k[-1] == 1
+  return refusal "the credential's key is not ES256 on P-256" if not es256
+  x = octets_of k[-2]
+  y = octets_of k[-3]
+  return refusal "the credential's key is short" if length x != 32
+  return refusal "the credential's key is short" if length y != 32
+  credential id x y counter
+
+fn cose _ _ _
+  refusal "the credential's key is not a map"
+
+fn signed_in want cred client data signature
+  checked_head want cred client data signature (head_of data)
+
+fn checked_head _ _ _ _ _ none
+  refusal short
+
+fn checked_head want cred client data signature h
+  problem = head_problem want h
+  return refusal problem if problem != ""
+  message = list/to_list (list/concat data (sha256/digest client))
+  right = p256/verified? cred.x cred.y message signature
+  return refusal "the signature is not the credential's" if not right
+  return refusal "the counter went backwards" if backwards? h.counter cred
+  h.counter
+
+# An authenticator that counts its signatures reports a higher count each
+# time, so a count that did not rise is a cloned key. One that reports zero
+# every time does not count.
+fn backwards? now cred
+  counting = now != 0 or cred.counter != 0
+  counting and now <= cred.counter
+
+fn head_of data
+  return none if length data < 37
+  hash = taken data 1 32 []
+  head hash (byte_at data 33) (number_at data 34 4 0)
+
+short = "the authenticator data is short"
+
+fn head_problem want h
+  return "the credential is for another site" if h.hash != rp_hash want
+  return "the authenticator saw no one there" if not flag? h 1
+  return "the authenticator did not verify its user" if not flag? h 4
+  ""
+
+fn rp_hash want
+  sha256/digest (text/bytes want.rp_id)
+
+fn flag? h bit
+  h.flags / bit % 2 == 1
+
+fn octets_of none
+  []
+
+fn octets_of v:cbor/octets
+  v.data
+
+fn octets_of _
+  []
+
+fn byte_at xs at
+  return 0 if at < 1 or at > length xs
+  xs[at]
+
+fn number_at xs at count acc
+  return acc if count == 0
+  number_at xs (at + 1) (count - 1) (acc * 256 + byte_at xs at)
+
+fn taken xs at count acc
+  return acc if count == 0 or at < 1 or at > length xs
+  taken xs (at + 1) (count - 1) (push acc xs[at])
