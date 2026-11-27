@@ -182,7 +182,7 @@ the note without choosing a file keeps the one it has.
 `authentication` adds accounts, as Rails 8's authentication generator does,
 with a sign-up page as Devise's registerable adds. It writes a `users` table
 of addresses, each held by one account, and password digests, `user`
-(its model), `registration` (/registration/new), `session` (signing in at
+(its model), a `credentials` table of passkeys, `registration` (/registration/new), `session` (signing in at
 /session/new and out with DELETE /session), `resets` (a lost password),
 `confirmations` and `unlocks`, with their views. `account_mailer` sends
 the signed links the last three follow: a reset link is good for fifteen
@@ -199,8 +199,23 @@ development. senro reads it by its name, and no call takes it. A deployed
 app sets `SENRO_SECRET`, which the server signs with in its place, so the
 real secret stays out of the repository.
 
-Nobody chooses a password. Signing up asks for an address, and the app
-chooses the password and shows it once, on the page that answers:
+A passkey comes first (kanso#2515). The sign-up page asks for an address
+and makes the account with a passkey: senro's page script asks the
+device's authenticator for a new key, `passkeys/registered` checks what it
+answers, and the account is made with the key kept in `credentials`
+(`credential`, its model). The sign-in page signs in with a passkey in one
+press, since the key lives on the authenticator and names its account.
+Each page makes a challenge with `passkeys/challenge` and keeps it in the
+session for the answer to match. WebAuthn takes the app's origin from
+`SENRO_URL` or, without it, the request's host, and it takes a host name
+and not an address, so an app tried on its own machine is visited at
+localhost. A passkey account still confirms its address before it signs
+in, and a wrong password does not lock it out of its passkey.
+
+A password is the fallback, behind "Use a password instead"
+(`?with=password`), and nobody chooses one. Signing up that way asks for an
+address, and the app chooses the password and shows it once, on the page
+that answers:
 `passwords/chosen` gives three words from the EFF's large list, one
 capitalized, joined by two symbols, with a two-digit number after one of
 them, about 54 bits. A reset link opens a page with one button, so a mail
