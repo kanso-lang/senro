@@ -46,6 +46,7 @@
   create spec/notebook/resets.kso
   create spec/notebook/session.kso
   create spec/notebook/session_test.kso
+  create spec/notebook/unconfirmed_job.kso
   create spec/notebook/unlocks.kso
   create spec/notebook/user.kso
   create spec/notebook/views/account_made.kata

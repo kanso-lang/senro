@@ -238,7 +238,9 @@ person never sees, `website`; a program that fills every field fills it,
 and is answered as if its account were made, with nothing made and nothing
 mailed. With Cloudflare Turnstile's keys set, both forms also show its
 widget, and an answer Cloudflare does not take for a person's is asked
-again (`bots`).
+again (`bots`). An account nobody confirms is removed a day after it was
+made, with its passkeys (`unconfirmed_job`), so an address someone else
+signed up with is free again for the person who holds it.
 
 The files are copied from `generate/authentication`, which
 holds them as an app two directories below senro would.

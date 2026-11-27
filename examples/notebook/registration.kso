@@ -1,4 +1,5 @@
 import "../../bots"
+import "../../jobs"
 import "../../models"
 import "../../passkeys"
 import "../../passwords"
@@ -10,6 +11,7 @@ import "./user"
 import "./views"
 import "std/io"
 import "std/text"
+import "std/time"
 
 # Anyone may make an account, as Devise's registerable lets them, and the
 # registration is a singular resource: /registration/new and /registration.
@@ -122,8 +124,19 @@ fn made _ _ _ _
   effect web/denied
 
 fn confirming req db made
+  removed_later db made .> (_ -> mailed_link req db made)
+
+fn mailed_link req db made
   account_mailer/confirmation req db "{made.id}" made.email
     .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
+
+# An account nobody confirms is removed a day later (`unconfirmed_job`).
+fn removed_later db made
+  args = { "id":"{made.id}" }
+  time/now .> (t -> jobs/perform_at db "unconfirmed" args (t + a_day))
+
+# A day, in the milliseconds `time/now` counts.
+a_day = 24 * 60 * 60 * 1000
 
 fn shown req password
   heading = "Your account is made"

@@ -21,6 +21,7 @@ pub copied = [
   "resets.kso"
   "session.kso"
   "session_test.kso"
+  "unconfirmed_job.kso"
   "unlocks.kso"
   "user.kso"
   "views/account_made.kata"
@@ -43,6 +44,7 @@ imported = [
   "registration"
   "resets"
   "session"
+  "unconfirmed_job"
   "unlocks"
   "user"
 ]
