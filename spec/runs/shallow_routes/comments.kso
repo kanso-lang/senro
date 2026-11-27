@@ -1,0 +1,23 @@
+# A comment's list and form nest under its post, and a comment itself is
+# found by its id alone: shallow, as Rails' `shallow: true` routes are.
+# `show` comes first, so the parent is read from whichever action names it.
+pub fn show _ _ id:int
+  "comment {id}"
+
+pub fn edit _ _ id:int
+  "editing comment {id}"
+
+pub fn update _ _ id:int
+  "comment {id} changed"
+
+pub fn destroy _ _ id:int
+  "comment {id} gone"
+
+pub fn index _ _ post_id:int
+  "the comments on post {post_id}"
+
+pub fn new _ _ post_id:int
+  "a new comment on post {post_id}"
+
+pub fn create _ _ post_id:int
+  "a comment made on post {post_id}"
