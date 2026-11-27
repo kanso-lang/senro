@@ -68,10 +68,9 @@ fn shown req name password
   page = views/password_shown_view heading password sent
   views/answer req 200 "Your password · Guestbook" page
 
-sent = """
-  Save this password in your password manager: it is shown once. Confirm
-  your address with the link we sent, then sign in.
-"""
+sent = "{saved} Confirm your address with the link we sent, then sign in."
+
+saved = "Save this password in your password manager: it is shown once."
 
 # The sign-up form shows the name and address as typed and the problem with
 # each field, if any.
