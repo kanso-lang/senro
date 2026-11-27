@@ -833,6 +833,23 @@ else
     bad "a stylesheet of a package nothing installed is refused"
     printf '%s\n' "$got" | diff spec/javascript/unknown_sheet.out -
   fi
+  # A font jspm.io does not serve is copied from node_modules, and a copy of
+  # the pantry whose node_modules lacks the font package is refused as
+  # spec/javascript/font_not_installed.out says.
+  copy=$(mktemp -d)
+  cp -R examples/pantry/. "$copy"
+  rm -rf "$copy/node_modules/@fontsource-variable"
+  got=$(cd "$copy" && sh "$here/bin/senro" js check 2>&1; echo "status $?")
+  rm -rf "$copy"
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$got" > spec/javascript/font_not_installed.out
+  fi
+  if printf '%s\n' "$got" | diff spec/javascript/font_not_installed.out - >/dev/null; then
+    note "ok: a font jspm.io lacks and npm did not install is refused"
+  else
+    bad "a font jspm.io lacks and npm did not install is refused"
+    printf '%s\n' "$got" | diff spec/javascript/font_not_installed.out -
+  fi
 fi
 for d in spec/javascript/*/; do
   name=$(basename "$d")

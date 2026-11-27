@@ -13,7 +13,8 @@
 // package's stylesheet by its name, `@import "bootstrap/dist/css/bootstrap.min.css";`.
 // Install downloads each such file from ga.jspm.io, with the source map,
 // fonts and images it names, into `vendor/javascript/`, and the map's
-// `stylesheets` holds the URL it came from. senro rewrites the import to the
+// `stylesheets` holds the URL it came from. A font jspm.io does not serve is
+// copied from the package npm installed. senro rewrites the import to the
 // vendored copy as it serves the stylesheet.
 //
 // Check traces and downloads again and writes nothing. It fails when an
@@ -227,8 +228,7 @@ const fetched = async (urls) => {
     // a file names (Bootstrap's stylesheet names one it lacks), so one that
     // is not there is left out rather than stopping the install.
     if (!r.ok && optional) return;
-    if (!r.ok) refused(`${url} answered ${r.status}`);
-    const body = Buffer.from(await r.arrayBuffer());
+    const body = r.ok ? Buffer.from(await r.arrayBuffer()) : unserved(url, r.status);
     got.set(vendored(url), body);
     if (url.endsWith(".map")) return;
     const text = body.toString("utf8");
@@ -241,6 +241,26 @@ const fetched = async (urls) => {
   for (const url of urls) await fetchOne(url);
   return got;
 };
+
+// jspm.io serves a package's JavaScript and stylesheets but not every file
+// beside them, and a font a stylesheet names (`@fontsource/inter` keeps its
+// fonts under files/) answers 404 there. Such a file is copied from the
+// package npm installed, when it is the version the URL names.
+const unserved = (url, status) => {
+  const m = url.match(PACKAGE);
+  const inside = m && url.slice(m[0].length);
+  const dir = m && join(root, "node_modules", m[1]);
+  const at = dir && join(dir, inside);
+  if (!m || url.endsWith(".css") || url.endsWith(".js")) refused(`${url} answered ${status}`);
+  const version = existsSync(join(dir, "package.json")) && json(relative(root, join(dir, "package.json"))).version;
+  if (version !== m[2] || !existsSync(at)) {
+    refused(`${url} answered ${status}, and node_modules has no ${m[1]}@${m[2]} to copy it from. Run: npm install`);
+  }
+  copied.add(vendored(url));
+  return readFileSync(at);
+};
+
+const copied = new Set();
 
 // What a vendored stylesheet names beside it: the stylesheets it imports and
 // the fonts and images its url()s point at, without a query or a fragment,
@@ -291,8 +311,15 @@ const install = async () => {
   report("traced", ENTRY);
   const sheets = cdn.filter((u) => u.endsWith(".css")).length;
   const counted = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
-  const kinds = [counted(cdn.length - sheets, "module"), ...(sheets > 0 ? [counted(sheets, "stylesheet")] : [])];
+  const modules = cdn.length - sheets;
+  const kinds = [
+    ...(modules > 0 || sheets === 0 ? [counted(modules, "module")] : []),
+    ...(sheets > 0 ? [counted(sheets, "stylesheet")] : []),
+  ];
   report("vendored", `${kinds.join(" and ")} from ga.jspm.io`);
+  if (copied.size > 0) {
+    report("copied", `${counted(copied.size, "file")} jspm.io lacks from node_modules`);
+  }
   report("wrote", MAP);
   warned(packages, cdn);
 };
