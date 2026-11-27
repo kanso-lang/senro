@@ -150,8 +150,10 @@ fn new_app true app
   refused "{app} is there already"
 
 # Run as `senro new`, the command says where senro is (SENRO_HOME) and where
-# it was run from, and the app imports senro by the path between the two.
-# Run from senro's own directory, the path is the way back up from the app.
+# it was run from. An app made inside senro's own tree, as its examples are,
+# imports senro by the path between the two; run from senro's own
+# directory, that is the way back up from the app. Any other app imports
+# senro by its name, `kanso-lang/senro`, which `kanso install` fetches.
 fn new_app false app
   os/env "SENRO_HOME"
     .> (home -> os/env "PWD" .> (here -> laid app (senro_from home here app)))
@@ -161,7 +163,16 @@ fn senro_from none _ app
 
 fn senro_from home here app
   return up_from app if said here == ""
-  between (parts_of (under (said here) app)) (parts_of home)
+  at = parts_of (under (said here) app)
+  own = parts_of home
+  return by_name if not within? at own
+  between at own
+
+by_name = "kanso-lang/senro"
+
+# Whether the path `at` lies under `root`, both given as their parts.
+fn within? at root
+  length at >= length root and shared at root 0 == length root
 
 fn under here app
   return app if text/starts_with? app "/"
@@ -186,6 +197,10 @@ fn shared from to n
 
 fn laid app senro
   name = last_of app
+  told = if (senro == by_name) "  run  kanso install {app}\n" ""
+  made_app app senro name .> (_ -> io/write told)
+
+fn made_app app senro name
   os/make_dir app
     .> (_ -> os/make_dir "{app}/views")
     .> (_ -> written "{app}/main.kso" (app/entry senro name))
@@ -256,7 +271,25 @@ fn app_name app _
   last_of app
 
 fn written path content
-  os/write_file path content .> (_ -> io/write "  create {path}\n")
+  tidy = tidied path content
+  os/write_file path tidy .> (_ -> io/write "  create {path}\n")
+
+# A kanso file's opening imports in the order the formatter asks for. Each
+# generator writes senro's imports before the app's own, which is that
+# order for a path up to senro, `../senro/web`, and not for its name,
+# `kanso-lang/senro/web`, which sorts after `./notes`.
+fn tidied path content
+  return content if not text/ends_with? path ".kso"
+  lines = text/split content "\n"
+  count = opening_imports lines 0
+  head = list/to_list (list/sort (list/to_list (list/take lines count)))
+  rest = list/to_list (list/drop lines count)
+  text/join (list/concat head rest) "\n"
+
+fn opening_imports lines n
+  return n if n >= length lines
+  return n if not text/starts_with? (said lines[n + 1]) "import \""
+  opening_imports lines (n + 1)
 
 fn given f:scaffold/unreadable _ _
   refused "cannot read `{f.word}`: {f.why}"
@@ -516,7 +549,8 @@ fn made_dir false path
   os/make_dir path
 
 fn changed path content
-  os/write_file path content .> (_ -> io/write "  change {path}\n")
+  tidy = tidied path content
+  os/write_file path tidy .> (_ -> io/write "  change {path}\n")
 
 fn said none
   ""
