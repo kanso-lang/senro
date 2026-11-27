@@ -1,6 +1,9 @@
 takes path
-header
-  h1 Unlock your account
-form method="post" action=path
-  input type="hidden" name="_method" value="PATCH"
-  button Unlock it
+div.row.justify-content-center
+  div.col-md-7.col-lg-5
+    h1.mb-4 Unlock your account
+    div.card
+      div.card-body.p-4
+        form method="post" action=path
+          input type="hidden" name="_method" value="PATCH"
+          button.btn.btn-primary.w-100 Unlock it

@@ -1,23 +1,24 @@
 takes path method fields problems
-header
-  h1 Note
-  p.lede
-    a href=(path_to "notes/index") All notes
-form method="post" action=path enctype="multipart/form-data"
-  input type="hidden" name="_method" value=method
-  label
-    | title
-    input name="title" value=fields["title"]
-  if problems["title"] != none
-    p.problem = problems["title"]
-  label
-    | pages
-    input name="pages" value=fields["pages"]
-  if problems["pages"] != none
-    p.problem = problems["pages"]
-  label
-    | cover
-    input type="file" name="cover"
-  if fields["cover"] != ""
-    p.kept Leave it empty to keep the file it has.
-  button Save
+div.row
+  div.col-lg-7
+    p.mb-2
+      a.text-secondary href=(path_to "notes/index") All notes
+    h1.mb-4 Note
+    form method="post" action=path enctype="multipart/form-data"
+      input type="hidden" name="_method" value=method
+      div.mb-3
+        label.form-label for="title" title
+        input.form-control id="title" name="title" value=fields["title"]
+        if problems["title"] != none
+          p.problem = problems["title"]
+      div.mb-3
+        label.form-label for="pages" pages
+        input.form-control id="pages" name="pages" value=fields["pages"]
+        if problems["pages"] != none
+          p.problem = problems["pages"]
+      div.mb-3
+        label.form-label for="cover" cover
+        input.form-control id="cover" type="file" name="cover"
+        if fields["cover"] != ""
+          p.form-text Leave it empty to keep the file it has.
+      button.btn.btn-primary Save

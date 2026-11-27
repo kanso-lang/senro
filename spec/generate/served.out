@@ -6,32 +6,32 @@ its confirmation page: 200
 confirming: 303 to /session/new Your address is confirmed. Sign in with it.
 the link again: 303 to /session/new That link has expired or was used. Sign in to have it sent again.
 signing in: 303 to /
-the list:  Notes Notes New note 
+the list:  Notes notebook Notes New note 
 pages of twelve: 422 Give a whole number.
 making one: sent to /notes/N
-it shows:  Note Note N All notes title First pages 12 cover Edit Delete 
+it shows:  Note notebook All notes Note N title First pages 12 cover Edit Delete 
 it as json: {"cover":"","created_at":"T","id":N,"pages":12,"title":"First","updated_at":"T"}
 its form: value="PATCH" value="First" value="12" 
 changing it: 303 to /notes/N
-the list then:  Notes Notes New note Renamed 
+the list then:  Notes notebook Notes New note Renamed 
 the list as json: [{"cover":"","created_at":"T","id":N,"pages":13,"title":"Renamed","updated_at":"T"}]
-its second page:  Notes Notes New note Previous page 
+its second page:  Notes notebook Notes New note Previous page 
 removing it: 303 to /notes
 asked for again: 404
-a note with a cover:  Note Note N All notes title Covered pages 3 cover open Edit Delete 
+a note with a cover:  Note notebook All notes Note N title Covered pages 3 cover open Edit Delete 
 its cover: 200 image/png, as sent
 its form: Leave it empty to keep the file it has.
 changed without a file: 303
 its cover then: the same
-its pages:  Pages Pages New page Back to the note 
+its pages:  Pages notebook Back to the note Pages New page 
 making a page: sent to /notes/N/pages/N
-the page:  Page Page N All pages body hello Edit Delete 
+the page:  Page notebook All pages Page N body hello Edit Delete 
 under another note: 404 
 changed there: 404 
 removed there: 404 
 under no note: 404  404 
 changing it: 303 /notes/N/pages/N
-the pages then:  Pages Pages New page Back to the note changed 
+the pages then:  Pages notebook Back to the note Pages New page changed 
 removing its note: 303 /notes
 the page then: 404 
 a reading made with json: {"created_at":"T","id":N,"minutes":45,"title":"Dune","updated_at":"T"} 201

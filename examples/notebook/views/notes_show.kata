@@ -1,19 +1,18 @@
 takes row
-header
-  h1 Note {row.id}
-  p.lede
-    a href=(path_to "notes/index") All notes
-dl
-  dt title
-  dd = row.title
-  dt pages
-  dd = row.pages
-  dt cover
-  dd
+p.mb-2
+  a.text-secondary href=(path_to "notes/index") All notes
+h1.mb-4 Note {row.id}
+dl.row.mb-4
+  dt.col-sm-3.text-secondary title
+  dd.col-sm-9 = row.title
+  dt.col-sm-3.text-secondary pages
+  dd.col-sm-9 = row.pages
+  dt.col-sm-3.text-secondary cover
+  dd.col-sm-9
     if row.cover != ""
       a href=(blob_path row.cover) open
-p
-  a href=(path_to "notes/edit" row.id) Edit
-form method="post" action=(path_to "notes/destroy" row.id)
-  input type="hidden" name="_method" value="DELETE"
-  button Delete
+div.d-flex.gap-2
+  a.btn.btn-outline-secondary href=(path_to "notes/edit" row.id) Edit
+  form method="post" action=(path_to "notes/destroy" row.id)
+    input type="hidden" name="_method" value="DELETE"
+    button.btn.btn-link.text-secondary Delete

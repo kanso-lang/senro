@@ -4,7 +4,30 @@
   create blog/migrations/.keep
   create blog/views/layout.kata
   create blog/views/home.kata
+  create blog/.gitignore
+  create blog/package.json
+  create blog/javascript/application.js
+  create blog/stylesheets/application.css
+  create blog/stylesheets/theme.css
   run  kanso install blog
+  run  cd blog && npm install && senro js install
+  create ./account_mailer.kso
+  create ./confirmations.kso
+  create ./registration.kso
+  create ./resets.kso
+  create ./session.kso
+  create ./session_test.kso
+  create ./unlocks.kso
+  create ./user.kso
+  create ./views/confirm_offered.kata
+  create ./views/door.kata
+  create ./views/password_shown.kata
+  create ./views/reset_asked.kata
+  create ./views/reset_chosen.kata
+  create ./views/unlock_offered.kata
+  create ./migrations/<stamp>_create_users.kso
+  change ./main.kso
+main.kso: ok
 main.kso: ok
   create ./pages.kso
   create ./views/pages_index.kata
