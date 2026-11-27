@@ -1,11 +1,15 @@
 takes title body
 doctype html
-html
+html lang="en"
   head
     meta charset="utf-8"
     meta name="viewport" content="width=device-width, initial-scale=1"
     title = title
+    link rel="stylesheet" href="/stylesheets/application.css"
     script src="/senro.js" defer="defer"
   body
-    main
+    nav.navbar.mb-5
+      div.container
+        a.navbar-brand href="/" notebook
+    main.container.pb-5
       == body

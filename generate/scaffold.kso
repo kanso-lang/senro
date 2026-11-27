@@ -632,14 +632,12 @@ fn index_of singular fields none
   first = (said_field (list/first fields)).name
   lines = [
     "takes rows number more"
-    "header"
-    "  h1 {capitalized plural}"
-    "  p.lede"
-    "    a href=(path_to \"{plural}/new\") New {singular}"
-    "ul.{plural}"
+    "div.d-flex.align-items-end.justify-content-between.mb-4"
+    "  h1.mb-0 {capitalized plural}"
+    "  a.btn.btn-primary href=(path_to \"{plural}/new\") New {singular}"
+    "div.list-group"
     "  each rows r ->"
-    "    li"
-    "      a href=(path_to \"{plural}/show\" r.id) = r.{first}"
+    (row_link plural "" first)
   ]
   lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
@@ -649,20 +647,25 @@ fn index_of singular fields parent
   k = parent.name
   name = parent_name parent
   first = (said_field (list/first (own fields))).name
+  back = "path_to \"{names/plural name}/show\" {k}"
   lines = [
     "takes {k} rows number more"
-    "header"
-    "  h1 {capitalized plural}"
-    "  p.lede"
-    "    a href=(path_to \"{plural}/new\" {k}) New {singular}"
-    "    a href=(path_to \"{names/plural name}/show\" {k}) Back to the {name}"
-    "ul.{plural}"
+    "p.mb-2"
+    "  a.text-secondary href=({back}) Back to the {name}"
+    "div.d-flex.align-items-end.justify-content-between.mb-4"
+    "  h1.mb-0 {capitalized plural}"
+    "  a.btn.btn-primary href=(path_to \"{plural}/new\" {k}) New {singular}"
+    "div.list-group"
     "  each rows r ->"
-    "    li"
-    "      a href=(path_to \"{plural}/show\" {k} r.id) = r.{first}"
+    (row_link plural " {k}" first)
   ]
   lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
+
+# A row's link in a list: to the row, named by its first field.
+fn row_link plural under first
+  item = "    a.list-group-item.list-group-item-action.py-3"
+  "{item} href=(path_to \"{plural}/show\"{under} r.id) = r.{first}"
 
 fn said_field none
   field "id" "" false
@@ -686,28 +689,29 @@ fn shown_under singular fields under
   each = spread (own fields) shown_lines
   head = [
     "takes row"
-    "header"
-    "  h1 {capitalized singular} \{row.id}"
-    "  p.lede"
-    "    a href=(path_to \"{plural}/index\"{under}) All {plural}"
-    "dl"
+    "p.mb-2"
+    "  a.text-secondary href=(path_to \"{plural}/index\"{under}) All {plural}"
+    "h1.mb-4 {capitalized singular} \{row.id}"
+    "dl.row.mb-4"
   ]
   lines = list/concat head each
+  edit = "path_to \"{plural}/edit\"{under} row.id"
   tail = [
-    "p"
-    "  a href=(path_to \"{plural}/edit\"{under} row.id) Edit"
-    "form method=\"post\" action=(path_to \"{plural}/destroy\"{under} row.id)"
-    "  input type=\"hidden\" name=\"_method\" value=\"DELETE\""
-    "  button Delete"
+    "div.d-flex.gap-2"
+    "  a.btn.btn-outline-secondary href=({edit}) Edit"
+    "  form method=\"post\" action=(path_to \"{plural}/destroy\"{under} row.id)"
+    "    input type=\"hidden\" name=\"_method\" value=\"DELETE\""
+    "    button.btn.btn-link.text-secondary Delete"
   ]
   "{text/join (list/concat lines tail) "\n"}\n"
 
 # A field as the page shows it: its value, or a link to the file it keeps.
 fn shown_lines f
-  return ["  dt {f.name}" "  dd = row.{f.name}"] if f.kind != "attachment"
+  term = "  dt.col-sm-3.text-secondary {f.name}"
+  return [term "  dd.col-sm-9 = row.{f.name}"] if f.kind != "attachment"
   [
-    "  dt {f.name}"
-    "  dd"
+    term
+    "  dd.col-sm-9"
     "    if row.{f.name} != \"\""
     "      a href=(blob_path row.{f.name}) open"
   ]
@@ -717,55 +721,59 @@ pub fn form_view singular fields
   each = spread (own fields) field_lines
   head = [
     "takes path method fields problems"
-    "header"
-    "  h1 {capitalized singular}"
-    "  p.lede"
+    "div.row"
+    "  div.col-lg-7"
+    "    p.mb-2"
     (back_link plural (parent_of fields))
+    "    h1.mb-4 {capitalized singular}"
     (form_line (attachments fields))
-    "  input type=\"hidden\" name=\"_method\" value=method"
+    "      input type=\"hidden\" name=\"_method\" value=method"
   ]
-  lines = list/concat (list/concat head each) ["  button Save"]
+  save = ["      button.btn.btn-primary Save"]
+  lines = list/concat (list/concat head each) save
   "{text/join lines "\n"}\n"
 
 # A nested form's way back is the path it is sent to: the list it adds to,
 # or the row it changes.
 fn back_link plural none
-  "    a href=(path_to \"{plural}/index\") All {plural}"
+  "      a.text-secondary href=(path_to \"{plural}/index\") All {plural}"
 
 fn back_link _ _
-  "    a href=path Back"
+  "      a.text-secondary href=path Back"
 
 # A form with a file in it is sent as multipart/form-data, which carries
 # the file.
 fn form_line files
-  plain = "form method=\"post\" action=path"
+  plain = "    form method=\"post\" action=path"
   return plain if length files == 0
   "{plain} enctype=\"multipart/form-data\""
 
 fn field_lines f
   return file_lines f if f.kind == "attachment"
+  n = f.name
   [
-    "  label"
-    "    | {f.name}"
-    "    input name=\"{f.name}\" value=fields[\"{f.name}\"]"
-    "  if problems[\"{f.name}\"] != none"
-    "    p.problem = problems[\"{f.name}\"]"
+    "      div.mb-3"
+    "        label.form-label for=\"{n}\" {n}"
+    "        input.form-control id=\"{n}\" name=\"{n}\" value=fields[\"{n}\"]"
+    "        if problems[\"{n}\"] != none"
+    "          p.problem = problems[\"{n}\"]"
   ]
 
 # A file input shows no value, so the form says when the row keeps a file.
 fn file_lines f
+  n = f.name
   [
-    "  label"
-    "    | {f.name}"
-    "    input type=\"file\" name=\"{f.name}\""
-    "  if fields[\"{f.name}\"] != \"\""
-    "    p.kept Leave it empty to keep the file it has."
+    "      div.mb-3"
+    "        label.form-label for=\"{n}\" {n}"
+    "        input.form-control id=\"{n}\" type=\"file\" name=\"{n}\""
+    "        if fields[\"{n}\"] != \"\""
+    "          p.form-text Leave it empty to keep the file it has."
   ]
 
 # The links to the pages either side of the one shown, each only when that
 # page has rows. A link that is only a query keeps the page's own path.
 page_links = [
-  "nav.pages"
+  "nav.pages.mt-4.d-flex.gap-3"
   "  if number > 1"
   "    a href=\"?page=\{number - 1}\" Previous page"
   "  if more"

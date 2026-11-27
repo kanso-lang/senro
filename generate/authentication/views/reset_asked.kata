@@ -1,12 +1,17 @@
 takes notice problems
-header
-  h1 Forgot your password?
-  p.lede
-    a href=(path_to "session/new") Back to signing in
-if notice != ""
-  p.notice = notice
-form method="post" action=(path_to "resets/create")
-  input type="email" name="email" placeholder="the address your account has" required="required"
-  if problems["email"] != none
-    p.problem = problems["email"]
-  button Send me a link
+div.row.justify-content-center
+  div.col-md-7.col-lg-5
+    h1.mb-4 Forgot your password?
+    if notice != ""
+      p.notice = notice
+    div.card
+      div.card-body.p-4
+        form method="post" action=(path_to "resets/create")
+          div.mb-4
+            label.form-label for="email" The address your account has
+            input.form-control id="email" type="email" name="email" required="required"
+            if problems["email"] != none
+              p.problem = problems["email"]
+          button.btn.btn-primary.w-100 Send me a link
+    p.mt-4.text-center
+      a href=(path_to "session/new") Back to signing in

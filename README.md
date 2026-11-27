@@ -47,6 +47,7 @@ senro's command writes an app and its parts, as `rails` does. Put senro's
 senro new notebook
 cd notebook
 kanso install .
+npm install && senro js install
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
 senro generate resource reading title:text minutes:int
@@ -60,6 +61,16 @@ senro routes
 senro migrate
 senro server
 ```
+
+A new app is styled before anyone styles it. Its layout and every view a
+generator writes use Bootstrap 5.3's markup: a navbar and a container,
+`form-control` and `btn` on forms, a list group on an index.
+`stylesheets/application.css` imports Bootstrap and two typefaces, Inter
+and Space Grotesk, from the packages `package.json` names, and
+`stylesheets/theme.css` sets Bootstrap's variables to the palette of
+kanso-lang's site, with a dark half that follows the system. `npm install`
+and `senro js install` vendor the packages; the theme is the app's own to
+change.
 
 An app made outside senro's own repository imports senro by its name,
 `kanso-lang/senro/web`, and `kanso install` fetches the release it pins

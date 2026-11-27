@@ -1,22 +1,29 @@
 takes heading path email problems notice signing_in
-header
-  h1 = heading
-if notice != ""
-  p.notice = notice
-form method="post" action=path
-  input type="email" name="email" placeholder="email" required="required" value=email
-  if problems["email"] != none
-    p.problem = problems["email"]
-  if signing_in
-    input type="password" name="password" placeholder="password" required="required"
-    if problems["password"] != none
-      p.problem = problems["password"]
-  button = heading
-if signing_in
-  p
-    a href=(path_to "registration/new") Make an account
-  p
-    a href=(path_to "resets/new") Forgot your password?
-if not signing_in
-  p
-    a href=(path_to "session/new") Sign in instead
+div.row.justify-content-center
+  div.col-md-7.col-lg-5
+    h1.mb-4 = heading
+    if notice != ""
+      p.notice = notice
+    div.card
+      div.card-body.p-4
+        form method="post" action=path
+          div.mb-3
+            label.form-label for="email" Email
+            input.form-control id="email" type="email" name="email" required="required" value=email
+            if problems["email"] != none
+              p.problem = problems["email"]
+          if signing_in
+            div.mb-4
+              label.form-label for="password" Password
+              input.form-control id="password" type="password" name="password" required="required"
+              if problems["password"] != none
+                p.problem = problems["password"]
+          button.btn.btn-primary.w-100 = heading
+    if signing_in
+      p.mt-4.text-center
+        a href=(path_to "registration/new") Make an account
+        span.text-secondary.mx-2 ·
+        a href=(path_to "resets/new") Forgot your password?
+    if not signing_in
+      p.mt-4.text-center
+        a href=(path_to "session/new") Sign in instead

@@ -356,13 +356,14 @@ else
   diff -r examples/notebook "$gen"
 fi
 # The `senro` command, as an app's author runs it: `senro new` from a
-# directory outside senro, then from the app's directory a controller, a
-# model, a migration of each kind its name can ask for, a mailer, a job,
-# the list of generators with one the app ships, that generator, the app's
-# routes, and each thing the command refuses, ending with a job asked of an
-# entry that no longer finds jobs. The app must check as `new` leaves it
-# and with everything written. An app made outside senro imports senro by
-# its name, so the checks read a hako cache whose `kanso-lang/senro` is this
+# directory outside senro, and authentication in a second such app, whose
+# files come from senro's own tree; then from the first app's directory a
+# controller, a model, a migration of each kind its name can ask for, a
+# mailer, a job, the list of generators with one the app ships, that
+# generator, the app's routes, and each thing the command refuses, ending
+# with a job asked of an entry that no longer finds jobs. Each app must
+# check as it is left. An app made outside senro imports senro by its name,
+# so the checks read a hako cache whose `kanso-lang/senro` is this
 # checkout, and they check the senro under test rather than a release.
 case "$KANSO" in
   */*) kanso_at=$(cd "$(dirname "$KANSO")" && pwd)/$(basename "$KANSO") ;;
@@ -379,6 +380,12 @@ ran=$(
   export KANSO_HAKO="$hako"
   {
     "$senro" new blog
+    "$senro" new kept > /dev/null
+    (
+      cd kept
+      "$senro" generate authentication | sed 's/[0-9]\{14\}_/<stamp>_/'
+      "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
+    )
     cd blog
     "$KANSO" check . | sed 's|^.*main.kso|main.kso|'
     "$senro" generate controller pages index show create

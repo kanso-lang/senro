@@ -1,0 +1,7 @@
+/* The app's stylesheet: Bootstrap, two typefaces, and the theme that sets
+   Bootstrap's variables. `senro js install` vendors each package's file, and
+   senro serves it from there. */
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/space-grotesk/index.css";
+@import "./theme.css";
