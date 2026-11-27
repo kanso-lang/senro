@@ -1,9 +1,7 @@
-takes path problems
+takes path
 header
-  h1 Choose a new password
+  h1 A new password
+  p.lede The guestbook chooses it, and shows it to you once.
 form method="post" action=path
   input type="hidden" name="_method" value="PATCH"
-  input type="password" name="password" placeholder="new password" required="required"
-  if problems["password"] != none
-    p.problem = problems["password"]
-  button Save it
+  button Make me a new password
