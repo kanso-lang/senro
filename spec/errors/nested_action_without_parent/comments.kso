@@ -1,5 +1,10 @@
 pub fn index _ _ post_id:int
   "the comments on post {post_id}"
 
+# A comment found by its id alone is shallow, which is allowed; a new one
+# belongs to a post, so its form needs the post.
 pub fn show _ _ id:int
   "comment {id}"
+
+pub fn new _ _
+  "a new comment"

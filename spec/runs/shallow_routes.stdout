@@ -1,0 +1,7 @@
+["DELETE /comments/:id" "GET /comments/:id" "GET /comments/:id/edit" "GET /posts/:id" "GET /posts/:post_id/comments" "GET /posts/:post_id/comments/:id" "GET /posts/:post_id/comments/new" "PATCH /comments/:id" "POST /posts/:post_id/comments"]
+/posts/3/comments
+/comments/4
+/comments/4/edit
+comments/show
+comments/new
+/comments/4

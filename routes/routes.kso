@@ -57,8 +57,10 @@ pub type old_path
 # /posts/:post_id/comments/:id. The table carries what the parent's id
 # takes beside what `:id` takes. Nesting goes one level deep, the depth
 # Rails' guides advise, since a comment's path needs its post and nothing
-# above it. An action of a nested module that takes no parent id, or takes
-# it after `id`, is refused.
+# above it. A member action that takes its own `id` and no parent id is
+# shallow: `comments/show req db id` answers GET /comments/:id. Any other
+# action of a nested module that takes no parent id, or takes it after `id`,
+# is refused.
 #
 # An app that must keep an old URL declares `legacy_route_aliases` in one of
 # its modules, a list of calls to `moved`, each naming an old path and the
@@ -67,8 +69,9 @@ pub type old_path
 # alias its method. Each alias answers with a permanent redirect to its
 # action's route, so every resource keeps one URL. An alias must name a route
 # that is not nested, write its path whole, take `:id` as its second segment
-# exactly when its route does, and answer no request a route or another alias
-# answers.
+# (or its fourth, after a parent's id, for a route that was nested and has
+# gone shallow) exactly when its route does, and answer no request a route or
+# another alias answers.
 #
 # A module that lets one client call an action only so often declares
 # `rate_limits`, a map from the action's name to a count per a window, as
@@ -494,25 +497,37 @@ fn limit_refused acc origin said
 fn routes_of m
   one = singular? m
   nest = nest_of m
-  each = (acc f -> routed acc m f nest (place_of m f one nest))
+  each = (acc f -> routed_in acc m f one (nest_for f nest))
   list/fold m.functions [] each
 
 fn place_of m f one nest
   return none if one and f.name == "index"
   under nest (placed_in (path_of m.name f.name) one)
 
-# The parent a module's actions nest under: the parameter besides `id`, named
-# `<parent>_id`, that its first action takes, or "" when it takes none.
+fn routed_in acc m f one nest
+  routed acc m f nest (place_of m f one nest)
+
+# The parent a module's actions nest under: the first parameter besides
+# `id`, named `<parent>_id`, that any of its actions takes, or "" when none
+# takes one.
 fn nest_of m
   acting = list/select m.functions (f -> path_of m.name f.name != none)
-  parent_of (list/first (list/to_list acting))
+  given = list/fold acting [] (acc f -> list/concat acc (parents_of f))
+  name_or_blank (list/first (list/to_list given))
 
-fn parent_of none
-  ""
+fn parents_of f
+  list/to_list (list/select f.params (p -> parent? p.name))
 
-fn parent_of f
-  parents = list/select f.params (p -> parent? p.name)
-  name_or_blank (list/first (list/to_list parents))
+# A member action of a nested module that takes its own `id` and no
+# parent's is shallow, as Rails' `shallow: true` makes it: `comments/show
+# req db id` answers GET /comments/:id, since a comment's id finds it
+# without its post.
+fn nest_for f nest
+  if (shallow? f nest) "" nest
+
+fn shallow? f nest
+  bare = not list/any? f.params (p -> p.name == nest)
+  nest != "" and member? f.name and takes_id? f and bare
 
 fn parent? name
   name != "id" and text/ends_with? name "_id"
@@ -656,7 +671,9 @@ fn unnested _ ""
   []
 
 fn unnested m nest
-  acting = list/select m.functions (f -> path_of m.name f.name != none)
+  routed_here = (f -> path_of m.name f.name != none)
+  placed = list/select m.functions routed_here
+  acting = list/reject placed (f -> shallow? f nest)
   odd = list/select acting (f -> not nested_first? f nest)
   list/to_list (list/map odd (f -> unnested_said m f nest))
 
@@ -666,7 +683,7 @@ fn nested_first? f nest
 
 fn unnested_said m f nest
   first = "`{m.name}` nests under `{names/parent_plural nest}`"
-  rule = "so each of its actions takes `{nest}` after the request and database"
+  rule = "so `{f.name}` takes `{nest}` after the request and database"
   derive/refuse "{m.name}/{f.name}" "{first}, {rule}"
 
 # One entry of a module's `legacy_route_aliases`: an old path, and the action
@@ -719,7 +736,8 @@ fn qualified module name
   "{module}/{name}"
 
 fn shaped acc c origin path r true true
-  misplaced = "`{path}` must take `:id` as its second segment"
+  where = "its second segment, or its fourth after a parent's id"
+  misplaced = "`{path}` must take `:id` as {where}"
   return refused_at acc c misplaced if not second_id? path
   kept acc path origin r
 
@@ -735,9 +753,14 @@ fn shaped acc c _ path r true false
 fn has_id? path
   list/any? (text/split path "/") (s -> s == ":id")
 
+# An old path takes `:id` where a route does: second, as `/entry/:id`, or
+# fourth under a parent's id, as a nested route that has since gone shallow
+# did: `/posts/:post_id/comments/:id`.
 fn second_id? path
-  segments = text/split path "/"
-  segments[3] == ":id"
+  s = text/split path "/"
+  beneath_one = parent? (text/replace (blank_if_none s[3]) ":" "")
+  nested = length s == 5 and s[5] == ":id" and beneath_one
+  s[3] == ":id" or nested
 
 fn kept acc path origin r
   alias = route r.method path origin r.action r.id "" r.path

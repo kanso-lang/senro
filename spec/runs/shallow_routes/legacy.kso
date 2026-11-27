@@ -1,0 +1,7 @@
+import "../../../routes"
+import "./comments"
+
+# The comment's page was nested once, and its old address still reaches it.
+pub legacy_route_aliases = [
+  (routes/moved "/posts/:post_id/comments/:id" comments/show)
+]

@@ -826,6 +826,9 @@ fn nested_found none _
 
 fn nested_found e parts
   row = e.value
+  # An alias from a path that was nested hands nobody the parent's id: it
+  # redirects with its own.
+  return found row (blank_if_none parts[5]) if row["to"] != none
   parent = parent_id row["within"] (blank_if_none parts[3])
   return none if parent == none
   kind = id_kind row["id"]

@@ -475,10 +475,15 @@ handed the event's `detail` as text (kata/README.md, Components).
   /posts/:post_id/comments/:id. Nesting goes one level deep, and an action
   of a nested module that takes no `post_id`, or takes it after `id`, is
   refused. `routes/path_to "comments/show" 3 4` names a nested route with
-  the parent's id first. An app
+  the parent's id first. A member action that takes its own `id` and no
+  `post_id` is shallow, as Rails' `shallow: true` makes it: `comments/show
+  req db id` answers GET /comments/:id, while the list and the form stay
+  under the post (`spec/runs/shallow_routes`). An app
   that must keep old URLs declares `pub legacy_route_aliases` in one of its
   modules, a list of calls naming each old path and the action now answering
-  it, as in `[(routes/moved "/signbook" entries/index)]`. The action is code,
+  it, as in `[(routes/moved "/signbook" entries/index)]`. A route that has
+  gone shallow keeps its nested address with an alias from it, as
+  `(routes/moved "/posts/:post_id/comments/:id" comments/show)`. The action is code,
   so the compiler checks its name, and its route gives the alias its method.
   Each alias answers with a 308 redirect to its action's route, and an alias
   that names no action, disagrees with it about `:id`, or overlaps another

@@ -1,0 +1,18 @@
+import "../../../routes"
+import "../../../web"
+import "./comments"
+import "./legacy"
+import "./posts"
+import "std/list"
+
+derive routes/rest
+
+old = web/matched routes "GET" "/posts/3/comments/4"
+
+print (list/sort (keys routes))
+  .> (_ -> print (routes/path_to "comments/index" 3))
+  .> (_ -> print (routes/path_to "comments/show" 4))
+  .> (_ -> print (routes/path_to "comments/edit" 4))
+  .> (_ -> print "{(web/page_at routes "/comments/4")["name"]}")
+  .> (_ -> print "{(web/page_at routes "/posts/3/comments/new")["name"]}")
+  .> (_ -> print (web/moved_to old))
