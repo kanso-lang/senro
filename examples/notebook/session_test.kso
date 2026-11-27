@@ -1,4 +1,9 @@
+import "../../jobs"
+import "../../models"
 import "../../visit"
+import "./credential"
+import "./unconfirmed_job"
+import "./user"
 import "std/expect"
 import "std/list"
 import "std/spec"
@@ -6,7 +11,7 @@ import "std/text"
 
 # A visit just after making an account: the address, and the password the
 # page showed.
-type made
+type newcomer
   visit
   email
   password
@@ -22,17 +27,72 @@ test_signing_in = describe "signing in" [
   around (visit/within signed connected)
   it "is asked of a stranger" turned_back
   it "waits for the address to be confirmed" held_back
+  it "is not begun by a program that fills every field" trapped
+  it "is begun again at an address nobody confirmed for a day" lapsed
+  it "is begun again there when that account held a passkey" lapsed_keyed
   context "with an account" [
     before joined
     it "opens the app" opened
     it "is over once the visitor signs out" over
     it "takes the address and password again" returned
     it "refuses a wrong password" refused
+    it "is kept once its first day is out" kept
   ]
 ]
 
 fn turned_back v
   visit/get v "/" .> (v -> effect (expect (visit/location v) . to (equal door)))
+
+# The sign-up form's hidden field, filled as a program fills every field:
+# no account is made, so nothing is mailed.
+fn trapped v
+  visit/post v "/registration" { "email":address "website":"spam.example" }
+    .> (v -> visit/mailed v)
+    .> (letters -> effect (expect (length letters) . to (equal 0)))
+
+# An account nobody confirms is removed by the job its sign-up queued for a
+# day later, and the address can make an account again.
+fn lapsed v
+  signed_up v address
+    .> (m -> day_out m.visit)
+    .> (v -> visit/post v "/registration" { "email":address })
+    .> (v -> effect (expect v.status . to (equal 200)))
+
+# Its passkeys go with it.
+fn lapsed_keyed v
+  signed_up v address
+    .> (m -> user/find_by m.visit.db "email" address .> (u -> keyed m.visit u))
+    .> (v -> day_out v)
+    .> (v -> visit/post v "/registration" { "email":address })
+    .> (v -> effect (expect v.status . to (equal 200)))
+
+fn keyed v u
+  key = { "counter":"0" "key_id":"k" "user_id":"{u.id}" "x":"x" "y":"y" }
+  credential/create (models/as_app v.db) key
+    .> (_ -> credential/count_of v.db "user_id" u.id)
+    .> (n -> held_one v n)
+
+fn held_one v 1
+  effect v
+
+fn held_one _ n
+  err "the account holds {n} passkeys"
+
+# A confirmed account outlasts that job: its address is still held.
+fn kept v
+  day_out v
+    .> (v -> visit/post v "/registration" { "email":address })
+    .> (v -> effect (expect v.status . to (equal 422)))
+
+# The jobs the visit queued, each run as the worker runs it once its day is
+# out.
+fn day_out v
+  jobs/queued_on v.db jobs/default_queue .> (queued -> ran v queued)
+
+fn ran v queued
+  return effect v if length queued == 0
+  rest = list/to_list (list/drop queued 1)
+  unconfirmed_job/perform v.db queued[1] .> (_ -> ran v rest)
 
 fn held_back v
   signed_up v address
@@ -44,7 +104,7 @@ fn joined v
 
 fn signed_up v email
   visit/post v "/registration" { "email":email }
-    .> (v -> effect (made v email (shown_password v.body)))
+    .> (v -> effect (newcomer v email (shown_password v.body)))
 
 fn signed_in m
   visit/mailed m.visit
@@ -91,8 +151,8 @@ fn returned v
     .> (v -> effect (expect v.status . to (equal 200)))
 
 fn out_and_in v m
-  visit/remove v "/session"
-    .> (v -> visit/post v "/session" (account_of (made v m.email m.password)))
+  again = { "email":m.email "password":m.password }
+  visit/remove v "/session" .> (v -> visit/post v "/session" again)
 
 fn refused v
   visit/remove v "/session"

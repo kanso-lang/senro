@@ -43,6 +43,9 @@ ol.entries
 ```
 
 - A first line `takes a b c` names the template's parameters, in order.
+  A template that takes so many that the function written for it would
+  pass 80 columns gets them by place, and binds each name to its place
+  (`spec/runs/long_takes`).
 - Nesting is by indentation, and tags are closed for you. Void elements
   (`meta`, `img`, `br` and the rest) get no closing tag.
 - `tag.class#id` is shorthand, and a bare `.class` or `#id` means a `div`. A

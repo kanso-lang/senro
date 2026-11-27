@@ -1,0 +1,32 @@
+import "../../models"
+import "./user"
+import "std/text"
+
+# An account whose address nobody has confirmed a day after it was made is
+# removed, and its passkeys with it, since the foreign key on `credentials`
+# cascades. The address is then free again for the person who holds it.
+# `registration` queues this job, a day out, for each account it makes
+# (`jobs/perform_at`). `id` names the account, so an account made again at
+# the same address is not the one removed.
+pub fn perform db args
+  id = or_zero (text/to_int (or_blank args["id"]))
+  user/find db id .> (u -> removed db u)
+
+fn removed _ none
+  effect ""
+
+fn removed db u
+  return effect "" if u.confirmed != ""
+  user/destroy (models/as_app db) u.id
+
+fn or_blank none
+  ""
+
+fn or_blank s
+  s
+
+fn or_zero none
+  0
+
+fn or_zero n
+  n

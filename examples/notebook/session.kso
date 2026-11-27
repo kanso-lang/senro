@@ -210,6 +210,6 @@ fn opened req email problems code
 fn offered req email problems code c pw
   notice = web/notice req
   to = routes/path_to "session/create"
-  page = views/door_view to email problems notice true c pw
+  page = views/door_view to email problems notice true c pw ""
   s = put (web/session req) "passkey" c
   web/kept req (views/answer req code "Sign in" page) s

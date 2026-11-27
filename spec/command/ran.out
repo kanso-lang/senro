@@ -20,6 +20,7 @@
   create ./resets.kso
   create ./session.kso
   create ./session_test.kso
+  create ./unconfirmed_job.kso
   create ./unlocks.kso
   create ./user.kso
   create ./views/account_made.kata

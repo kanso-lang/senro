@@ -229,6 +229,8 @@ script = """
       document.title = next.title;
       sent = form || null;
       morph(document.body, next.body);
+      widgets();
+      redrawn(form);
       sent = null;
       const asked = document.querySelector("[autofocus]");
       if (asked && asked !== document.activeElement) asked.focus();
@@ -566,6 +568,39 @@ script = """
       }
     };
     bindings(document.body);
+
+    // Cloudflare Turnstile. An element marked .cf-turnstile, with the site
+    // key in data-sitekey and data-owned-by="turnstile", gets the widget,
+    // which puts a token in its form as cf-turnstile-response. Cloudflare's
+    // script is loaded the first time a page has one. Each widget is drawn
+    // once, and the morph keeps what it drew. A token answers one check, so
+    // the widgets in a form that was sent are drawn afresh once its answer
+    // is shown.
+    const drawn = new WeakMap();
+    let checking = null;
+    const widgets = () => \{
+      const all = [...document.querySelectorAll(".cf-turnstile")];
+      if (all.length === 0) return;
+      if (!checking) checking = new Promise((loaded) => \{
+        window.senroTurnstile = loaded;
+        const s = document.createElement("script");
+        s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js" +
+          "?render=explicit&onload=senroTurnstile";
+        s.async = true;
+        document.head.append(s);
+      });
+      checking.then(() => all
+        .filter((el) => el.isConnected && !drawn.has(el))
+        .forEach((el) => drawn.set(el,
+          turnstile.render(el, \{ sitekey: el.dataset.sitekey }))));
+    };
+    const redrawn = (form) => \{
+      if (!form || !window.turnstile) return;
+      form.querySelectorAll(".cf-turnstile").forEach((el) => \{
+        if (drawn.has(el)) turnstile.reset(drawn.get(el));
+      });
+    };
+    widgets();
 
     // When a request anywhere changes what the app stores, the server says so
     // on this stream, and the page fetches itself again.

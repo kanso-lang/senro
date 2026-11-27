@@ -1,3 +1,4 @@
+import "../../bots"
 import "../../models"
 import "../../passwords"
 import "../../routes"
@@ -21,15 +22,25 @@ pub without_sign_in = ["create" "edit" "new" "update"]
 # hour, and the form cannot be used to fill someone's inbox.
 pub rate_limits = { "create":"10 per hour" }
 
+# And every client together asks at most a hundred times a day.
+pub everyone_limits = { "create":"100 per day" }
+
 pub fn new req _
-  effect (asked req 200)
+  asked req 200 {}
 
 # The answer is the same whether or not the address has an account, and
 # whether or not the mail could be queued, so the form says nothing about
 # which addresses are registered. A failure to queue goes to standard error,
-# and the worker logs a failure to send.
+# and the worker logs a failure to send. A request Turnstile does not take
+# for a person's (`bots`) sends nothing and is asked again.
 pub fn create req db
   f = web/input req
+  bots/verified req f .> (person -> requested req db f person)
+
+fn requested req _ _ false
+  asked req 422 { "bot":not_a_person }
+
+fn requested req db f true
   email = text/lowercase (text/trim (web/value f "email"))
   user/find_by db "email" email
     .> (u -> sent req db u)
@@ -100,9 +111,14 @@ fn id_text none
 fn id_text n
   "{n}"
 
-fn asked req code
-  page = views/reset_asked_view (web/notice req) {}
+fn asked req code problems
+  bots/site_key .> (k -> effect (asked_with req code problems k))
+
+fn asked_with req code problems key
+  page = views/reset_asked_view (web/notice req) problems key
   views/answer req code "Forgot your password" page
+
+not_a_person = "We could not tell that a person sent this. Try again."
 
 fn chosen req token code
   page = views/reset_chosen_view (routes/path_to "resets/update" token)

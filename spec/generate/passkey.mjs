@@ -59,7 +59,8 @@ const email = `passkey-${Date.now()}@example.test`;
 const { page, cdp, authenticatorId } = await visitor();
 
 const asks = (p) => p.evaluate(() =>
-  [...document.querySelectorAll("form input:not([type=hidden])")].map((i) => i.name).join(", "));
+  [...document.querySelectorAll("form input:not([type=hidden])")]
+    .filter((i) => !i.closest("[aria-hidden=true]")).map((i) => i.name).join(", "));
 
 // Each door offers a password, chosen by the app, to a visitor who follows
 // "Use a password instead".

@@ -1,0 +1,22 @@
+import "../../../web"
+import "std/net/http"
+
+# A stand-in for Cloudflare's siteverify, which bots asks because
+# TURNSTILE_VERIFY names it (env). It answers as Cloudflare does: a success
+# when the app sent its own secret and the token a person's widget made,
+# here "person", and a failure for anything else.
+pub without_sign_in = ["create"]
+
+pub fn create req _
+  f = web/input req
+  person = web/value f "secret" == "the-secret"
+  answered (person and web/value f "response" == "person")
+
+fn answered true
+  effect (json "\{\"success\": true, \"error-codes\": []}")
+
+fn answered false
+  effect (json "\{\"success\": false, \"error-codes\": [\"invalid\"]}")
+
+fn json body
+  http/page ["content-type: application/json"] body

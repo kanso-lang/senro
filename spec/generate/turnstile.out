@@ -1,0 +1,7 @@
+the sign-up form draws the widget with the site key: the-site-key; tokens: 1
+with a refused token: Make an account; We could not tell that a person sent this. Try again.
+the widget is drawn afresh: true, its token: person; tokens: 1
+sent again: Your account is made
+the reset form carries a token: 1
+the sign-in form carries one: 0
+siteverify was asked about: robot, person

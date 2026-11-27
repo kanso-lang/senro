@@ -36,7 +36,7 @@ note() { echo "$1"; }
 bad() { echo "FAIL: $1"; fail=1; }
 
 note "== every module and example checks"
-for d in names routes models web pg kata wire objects cbor passkeys spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
+for d in bots names routes models web pg kata wire objects cbor passkeys spec/held spec/wire/checked data mail jobs passwords tokens clock accounts generate senro.kso examples/guestbook examples/notebook examples/pantry examples/pg spec/lapsed/later spec/live/sessions bench/pages/data.kso bench/pages/html.kso bench/pages/browser.kso; do
   if out=$("$KANSO" check "$d" 2>&1); then
     note "ok: $d"
   else
@@ -516,6 +516,37 @@ else
     rm -f "$log"
     rm -rf "$outbox"
   done
+  # The app with Turnstile's keys set, natively: the sign-up form draws the
+  # widget, a refused token is asked again, and the sign-in form has none
+  # (spec/generate/turnstile.mjs, which stands in for Cloudflare).
+  log=$(mktemp)
+  outbox=$(mktemp -d)
+  (cd "$gen" && PGHOST=127.0.0.1 PGPORT=54329 SENRO_MAIL="dir:$outbox" \
+    TURNSTILE_SITE_KEY=the-site-key TURNSTILE_SECRET_KEY=the-secret \
+    TURNSTILE_VERIFY=127.0.0.1:24427/siteverify \
+    exec "$KANSO" run .) > "$log" 2>&1 &
+  server=$!
+  tries=0
+  while ! grep -q "senro on port" "$log" && [ $tries -lt 600 ]; do
+    sleep 0.1
+    tries=$((tries + 1))
+  done
+  checked=$(node spec/generate/turnstile.mjs 3000 24427 2>&1)
+  pkill -P "$server" 2>/dev/null
+  kill "$server" 2>/dev/null
+  wait "$server" 2>/dev/null
+  if [ "${SPEC_WRITE:-}" = 1 ]; then
+    printf '%s\n' "$checked" > spec/generate/turnstile.out
+  fi
+  if printf '%s\n' "$checked" | diff spec/generate/turnstile.out - >/dev/null; then
+    note "ok: the generated app asks Turnstile"
+  else
+    bad "the generated app asks Turnstile"
+    printf '%s\n' "$checked" | diff spec/generate/turnstile.out -
+    cat "$log"
+  fi
+  rm -f "$log"
+  rm -rf "$outbox"
   # The specs the generators wrote pass against the app they wrote them
   # for: `senro test` makes the test database when the server has none,
   # migrates it, and runs each example in a transaction it rolls back. The

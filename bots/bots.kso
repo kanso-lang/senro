@@ -1,0 +1,95 @@
+import "../web"
+import "std/list"
+import "std/net"
+import "std/os"
+import "std/text"
+
+# A form a program may fill by the thousand, such as a sign-up that mails a
+# letter, asks Cloudflare Turnstile whether a person sent it. The page shows
+# Turnstile's widget, which most people never notice, and the widget puts a
+# token in the form as `cf-turnstile-response`. The action asks Cloudflare
+# about the token with the app's secret key and goes on only when the answer
+# is a success.
+#
+# The keys come from the environment: TURNSTILE_SITE_KEY, public, for the
+# widget, and TURNSTILE_SECRET_KEY, for the question. Without a secret key
+# every form passes and no widget is shown, as in development and in an
+# app's specs. TURNSTILE_VERIFY names another server to ask, as
+# `host:port/path`, for senro's own spec (spec/serve/bot_checked).
+# `site_key` is the key the page's widget takes, or "" when there is none.
+pub site_key = os/env "TURNSTILE_SITE_KEY" .> (k -> effect (blank k))
+
+# Whether a person sent the form `f`, as an effect of true or false.
+pub fn verified req f
+  os/env "TURNSTILE_SECRET_KEY" .> (secret -> checked req f (blank secret))
+
+fn checked _ _ ""
+  effect true
+
+fn checked req f secret
+  token = web/value f "cf-turnstile-response"
+  return effect false if token == ""
+  sent = "secret={coded secret}&response={coded token}&remoteip={web/peer req}"
+  os/env "TURNSTILE_VERIFY" .> (to -> asked (blank to) sent)
+
+# Cloudflare's answer is JSON whose `success` says whether a person sent the
+# form. The answer is read as text, since only that field matters.
+fn asked "" body
+  over_tls "challenges.cloudflare.com" siteverify body
+
+# Another server, named `host:port/path`, is asked in the clear.
+fn asked to body
+  at = text/split to "/"
+  parts = text/split (blank at[1]) ":"
+  port = text/to_int (blank parts[2])
+  path = "/{text/join (list/to_list (list/drop at 1)) "/"}"
+  in_clear (blank parts[1]) (or_80 port) path body
+
+siteverify = "/turnstile/v0/siteverify"
+
+fn over_tls host path body
+  net/dial_tls host 443 .> (c -> posted c host path body)
+
+fn in_clear host port path body
+  net/dial host port .> (c -> posted c host path body)
+
+fn posted c host path body
+  lines = [
+    "POST {path} HTTP/1.1"
+    "host: {host}"
+    "content-type: application/x-www-form-urlencoded"
+    "content-length: {length (text/bytes body)}"
+    "connection: close"
+  ]
+  head = "{text/join lines "\r\n"}\r\n\r\n"
+  net/write c "{head}{body}"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect (succeeded? raw)))
+
+fn succeeded? raw
+  squeezed = text/replace raw " " ""
+  length (text/split squeezed "\"success\":true") > 1
+
+# A value in a form body: only the characters a token or a key can hold are
+# kept as they are.
+fn coded s
+  text/join (list/to_list (list/map (text/chars s) kept)) ""
+
+fn kept c
+  return c if text/starts_with? safe c
+  return c if length (text/split safe c) > 1
+  ""
+
+safe = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+
+fn or_80 none
+  80
+
+fn or_80 n
+  n
+
+fn blank none
+  ""
+
+fn blank s
+  s

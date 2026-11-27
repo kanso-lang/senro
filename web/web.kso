@@ -381,15 +381,33 @@ fn allowed _ none _
 fn allowed _ (hit _ _ _ none) _
   effect true
 
+# A call passes its action's limit for its own client, and then the limit
+# for every client together (`everyone_limits`), when the action has one.
 fn allowed calls (hit _ _ _ l) req
-  at = "{l["key"]} {peer req}"
-  checked calls at l["count"] l req
+  mine = "{l["key"]} {peer req}"
+  limit_check calls mine l["count"] (or_zero l["within"]) req
+    .> (fine -> together calls l req fine)
 
-fn checked _ _ none _ _
+fn together _ _ _ false
+  effect false
+
+fn together calls l req true
+  all = "{l["key"]} everyone"
+  limit_check calls all l["all_count"] (or_zero l["all_within"]) req
+
+# A window is read with its count, so one that is not there has no count
+# either, and the check lets the call in before reading it.
+fn or_zero none
+  0
+
+fn or_zero n
+  n
+
+fn limit_check _ _ none _ _
   effect true
 
-fn checked calls at count l req
-  windowed calls at count l["within"] req
+fn limit_check calls at count within req
+  windowed calls at count within req
 
 fn windowed _ _ _ none _
   effect true
