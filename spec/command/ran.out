@@ -13,12 +13,14 @@
   run  cd blog && npm install && senro js install
   create ./account_mailer.kso
   create ./confirmations.kso
+  create ./credential.kso
   create ./registration.kso
   create ./resets.kso
   create ./session.kso
   create ./session_test.kso
   create ./unlocks.kso
   create ./user.kso
+  create ./views/account_made.kata
   create ./views/confirm_offered.kata
   create ./views/door.kata
   create ./views/password_shown.kata
@@ -26,6 +28,7 @@
   create ./views/reset_chosen.kata
   create ./views/unlock_offered.kata
   create ./migrations/<stamp>_create_users.kso
+  create ./migrations/<stamp>_create_credentials.kso
   change ./main.kso
 main.kso: ok
 main.kso: ok

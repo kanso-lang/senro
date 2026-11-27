@@ -1,8 +1,10 @@
 import "../../models"
+import "../../passkeys"
 import "../../passwords"
 import "../../routes"
 import "../../web"
 import "./account_mailer"
+import "./credential"
 import "./user"
 import "./views"
 import "std/io"
@@ -12,25 +14,72 @@ import "std/text"
 # registration is a singular resource: /registration/new and /registration.
 pub without_sign_in = ["create" "new"]
 
+# The form offers a passkey first (kanso#2515). `?with=password` offers a
+# password instead, which the app chooses, for a visitor whose device has
+# no authenticator.
 pub fn new req _
-  effect (opened req "" {} 200)
+  opened req "" {} 200
 
-# An account needs an address nobody holds. Nobody chooses a password: the
-# app chooses one, three words with a number and symbols, and shows it once
-# (kanso#2515). The address is looked up before the password is stretched,
-# so a sign-up that cannot succeed costs no hashing.
+# An account needs an address nobody holds. With a passkey, the browser has
+# already asked the authenticator, and the account is made with the key it
+# answered, when the answer checks. Otherwise the app chooses a password,
+# three words with a number and symbols, and shows it once. The address is
+# looked up first, so a sign-up that cannot succeed costs no hashing.
 pub fn create req db
   f = web/input req
   email = text/lowercase (text/trim (web/value f "email"))
-  user/find_by db "email" email .> (held -> joined req db email (held != none))
+  user/find_by db "email" email
+    .> (held -> joined req db email (held != none) f)
 
-fn joined req db email taken
+fn joined req db email taken f
   found = models/problems [
     (models/email_address "email" email)
     (models/rule "email" taken "That address has an account.")
   ]
-  return effect (opened req email found 422) if models/problems? found
+  return opened req email found 422 if models/problems? found
+  return keyed req db email f if web/value f "passkey_id" != ""
   passwords/chosen .> (p -> kept req db email p)
+
+# The authenticator's answer, checked against the challenge the form was
+# served with, which the session kept.
+fn keyed req db email f
+  asked = said (web/session req)["passkey"]
+  client = field_bytes f "passkey_client"
+  data = field_bytes f "passkey_data"
+  passkeys/expected_for req asked
+    .> (want -> effect (passkeys/registered want client data))
+    .> (c -> with_key req db email c)
+
+fn with_key req _ email r:passkeys/refusal
+  told = { "passkey":"That passkey could not be used: {r.reason}." }
+  opened req email told 422
+
+fn with_key req db email c
+  user/create db (fields_of email "") .> (w -> key_kept req db w c)
+
+fn key_kept req db made:user/user c
+  key = {
+    "counter":"{c.counter}"
+    "key_id":c.id
+    "user_id":"{made.id}"
+    "x":(passkeys/url_spelled c.x)
+    "y":(passkeys/url_spelled c.y)
+  }
+  credential/create (models/as_app db) key
+    .> (_ -> confirming req db made)
+    .> (_ -> effect (made_with_key req))
+
+fn key_kept _ _ _ _
+  effect web/denied
+
+fn made_with_key req
+  heading = "Your account is made"
+  page = views/account_made_view heading confirm_then_passkey
+  views/answer req 200 heading page
+
+confirm_then_passkey = "{mailed} Follow it, then sign in with your passkey."
+
+mailed = "We have mailed you a link to confirm your address."
 
 fn kept req db email password
   passwords/digested password
@@ -44,12 +93,14 @@ fn fields_of email digest
 # it has followed it, as Devise's confirmable asks. The page that answers
 # shows the password the app chose, the only time it is shown.
 fn made req db made:user/user password
-  account_mailer/confirmation req db "{made.id}" made.email
-    .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
-    .> (_ -> effect (shown req password))
+  confirming req db made .> (_ -> effect (shown req password))
 
 fn made _ _ _ _
   effect web/denied
+
+fn confirming req db made
+  account_mailer/confirmation req db "{made.id}" made.email
+    .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
 
 fn shown req password
   heading = "Your account is made"
@@ -61,10 +112,33 @@ sent = """
   mailed you a link to confirm your address; follow it, then sign in.
 """
 
+# The bytes a form field holds in base64url, as the page script sends an
+# authenticator's answer, or none.
+fn field_bytes f name
+  or_empty (passkeys/url_read (web/value f name))
+
+fn or_empty none
+  []
+
+fn or_empty bytes
+  bytes
+
+fn said none
+  ""
+
+fn said s
+  s
+
 # The sign-up form shows the address as typed and the problem with each
-# field, if any. A password is never sent back.
+# field, if any. A password is never sent back. Each showing makes a new
+# challenge for a passkey, kept in the session for the answer to match.
 fn opened req email problems code
-  heading = "Make an account"
+  by_password = web/value (web/query req) "with" == "password"
+  passkeys/challenge
+    .> (c -> effect (offered req email problems code c by_password))
+
+fn offered req email problems code c pw
   to = routes/path_to "registration/create"
-  page = views/door_view heading to email problems "" false
-  views/answer req code heading page
+  page = views/door_view to email problems "" false c pw
+  s = put (web/session req) "passkey" c
+  web/kept req (views/answer req code "Make an account" page) s

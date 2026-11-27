@@ -1,9 +1,11 @@
 import "../../accounts"
 import "../../models"
+import "../../passkeys"
 import "../../passwords"
 import "../../routes"
 import "../../web"
 import "./account_mailer"
+import "./credential"
 import "./user"
 import "./views"
 import "std/io"
@@ -58,15 +60,19 @@ fn digest_in u
   u.digest
 
 # Signing in and out. The session is the signed cookie `web` keeps, and
-# signing in writes the account's address into it as the viewer.
+# signing in writes the account's address into it as the viewer. The form
+# offers a passkey first, and `?with=password` an address and a password.
 pub fn new req _
-  effect (opened req "" {} 200)
+  opened req "" {} 200
 
-# An address with no account is checked against the stand-in at the same
-# cost, so a refusal takes as long whether or not the account exists, and
-# says the same thing.
+# With a passkey, the browser has asked the authenticator to sign the
+# challenge the form was served with, and the credential it names checks
+# the signature. Otherwise an address with no account is checked against
+# the stand-in at the same cost, so a refusal takes as long whether or not
+# the account exists, and says the same thing.
 pub fn create req db
   f = web/input req
+  return keyed req db f if web/value f "passkey_id" != ""
   email = text/lowercase (text/trim (web/value f "email"))
   password = web/value f "password"
   user/find_by db "email" email
@@ -96,20 +102,81 @@ fn answered req db email a v
   return signed req a if v.outcome == "signed"
   return unconfirmed req db email a if v.outcome == "inactive"
   return shut req email if v.outcome == "locked"
-  return effect (refused req email) if v.stamp == ""
+  return refused req email if v.stamp == ""
   account_mailer/unlock req db a.id a.email v.stamp
     .? (u -> io/write_err "no unlock mail: {u.reason}\n")
-    .> (_ -> effect (refused req email))
+    .> (_ -> refused req email)
 
 fn shut req email
   told = "This account is locked. Follow the link we mailed to unlock it."
-  effect (opened req email { "password":told } 403)
+  opened req email { "password":told } 403
 
 fn unconfirmed req db email a
   first = "Confirm your address first. We have sent the link again."
   account_mailer/confirmation req db a.id a.email
     .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
-    .> (_ -> effect (opened req email { "password":first } 403))
+    .> (_ -> opened req email (put {} (field_of req) first) 403)
+
+# Where a problem with a sign-in shows: under the password, or, on the
+# passkey form, under its button.
+fn field_of req
+  if (web/value (web/input req) "passkey_id" == "") "password" "passkey"
+
+# A passkey sign-in: the credential the authenticator names, its signature
+# checked over what it signed, and its count moved on. A passkey proves
+# what a password and a second factor would, so it is not counted against
+# the lock that wrong passwords run up; its account must still be
+# confirmed.
+fn keyed req db f
+  credential/find_by db "key_id" (web/value f "passkey_id")
+    .> (row -> stored req db f row)
+
+fn stored req _ _ none
+  unknown = "That passkey is not one this app knows."
+  opened req "" { "passkey":unknown } 422
+
+fn stored req db f row
+  asked = said (web/session req)["passkey"]
+  x = or_empty (passkeys/url_read row.x)
+  y = or_empty (passkeys/url_read row.y)
+  key = passkeys/kept row.key_id x y row.counter
+  client = field_bytes f "passkey_client"
+  data = field_bytes f "passkey_data"
+  signature = field_bytes f "passkey_signature"
+  passkeys/expected_for req asked
+    .> (want -> effect (passkeys/asserted want key client data signature))
+    .> (n -> counted req db row n)
+
+fn counted req _ _ r:passkeys/refusal
+  told = { "passkey":"That passkey could not be used: {r.reason}." }
+  opened req "" told 422
+
+fn counted req db row n
+  credential/update (models/as_app db) row.id { "counter":"{n}" }
+    .> (_ -> user/find db row.user_id)
+    .> (u -> keyed_in req db u)
+
+fn keyed_in req _ none
+  opened req "" { "passkey":"That passkey's account is gone." } 422
+
+fn keyed_in req db u
+  return signed req u if u.confirmed != ""
+  unconfirmed req db u.email (holder "{u.id}" u.email u.digest "" "" "" false)
+
+fn field_bytes f name
+  or_empty (passkeys/url_read (web/value f name))
+
+fn or_empty none
+  []
+
+fn or_empty bytes
+  bytes
+
+fn said none
+  ""
+
+fn said s
+  s
 
 fn signed req a
   s = web/session req
@@ -123,7 +190,7 @@ fn refused req email
 
 pub fn over_limit req
   wait = { "password":"Too many tries. Try again in a few minutes." }
-  effect (opened req "" wait 429)
+  opened req "" wait 429
 
 # Signing out keeps the rest of the session and forgets the sign-in.
 pub fn destroy req _
@@ -132,9 +199,17 @@ pub fn destroy req _
   effect (web/kept req r s)
 
 # The sign-in form shows the address as typed, the problem if any, and the
-# notice the request carries.
+# notice the request carries. Each showing makes a new challenge for a
+# passkey, kept in the session for the answer to match. A problem with a
+# password shows the password form again.
 fn opened req email problems code
+  asked_for = web/value (web/query req) "with" == "password"
+  pw = asked_for or problems["password"] != none
+  passkeys/challenge .> (c -> effect (offered req email problems code c pw))
+
+fn offered req email problems code c pw
   notice = web/notice req
   to = routes/path_to "session/create"
-  page = views/door_view "Sign in" to email problems notice true
-  views/answer req code "Sign in" page
+  page = views/door_view to email problems notice true c pw
+  s = put (web/session req) "passkey" c
+  web/kept req (views/answer req code "Sign in" page) s

@@ -182,7 +182,7 @@ the note without choosing a file keeps the one it has.
 `authentication` adds accounts, as Rails 8's authentication generator does,
 with a sign-up page as Devise's registerable adds. It writes a `users` table
 of addresses, each held by one account, and password digests, `user`
-(its model), `registration` (/registration/new), `session` (signing in at
+(its model), a `credentials` table of passkeys, `registration` (/registration/new), `session` (signing in at
 /session/new and out with DELETE /session), `resets` (a lost password),
 `confirmations` and `unlocks`, with their views. `account_mailer` sends
 the signed links the last three follow: a reset link is good for fifteen
@@ -199,8 +199,23 @@ development. senro reads it by its name, and no call takes it. A deployed
 app sets `SENRO_SECRET`, which the server signs with in its place, so the
 real secret stays out of the repository.
 
-Nobody chooses a password. Signing up asks for an address, and the app
-chooses the password and shows it once, on the page that answers:
+A passkey comes first (kanso#2515). The sign-up page asks for an address
+and makes the account with a passkey: senro's page script asks the
+device's authenticator for a new key, `passkeys/registered` checks what it
+answers, and the account is made with the key kept in `credentials`
+(`credential`, its model). The sign-in page signs in with a passkey in one
+press, since the key lives on the authenticator and names its account.
+Each page makes a challenge with `passkeys/challenge` and keeps it in the
+session for the answer to match. WebAuthn takes the app's origin from
+`SENRO_URL` or, without it, the request's host, and it takes a host name
+and not an address, so an app tried on its own machine is visited at
+localhost. A passkey account still confirms its address before it signs
+in, and a wrong password does not lock it out of its passkey.
+
+A password is the fallback, behind "Use a password instead"
+(`?with=password`), and nobody chooses one. Signing up that way asks for an
+address, and the app chooses the password and shows it once, on the page
+that answers:
 `passwords/chosen` gives three words from the EFF's large list, one
 capitalized, joined by two symbols, with a two-digit number after one of
 them, about 54 bits. A reset link opens a page with one button, so a mail
@@ -699,7 +714,9 @@ handed the event's `detail` as text (kata/README.md, Components).
   reads it as a form: `web/value (web/query req) "page"` is "2". `web/input
   req` is what the request's body sent, read the same way whichever it was:
   a posted form, or the members of a JSON object when the request says
-  `application/json`, each value as text. A request is
+  `application/json`, each value as text. `web/request_header req name`
+  reads a request's header by its lower-case name, "" when it has none. A
+  request is
   read as bytes until its body is as long
   as its `Content-Length` says, since a browser often sends the head and the
   body in separate packets. A body over 10 MiB is refused with a 413 before it
@@ -822,6 +839,27 @@ handed the event's `detail` as text (kata/README.md, Components).
   A password reset link carries a `tokens` token with the purpose "reset",
   bound to the digest the account keeps, so a new password retires it, and
   good for `passwords/reset_minutes`, fifteen.
+- `passkeys`: the server's half of WebAuthn. `passkeys/challenge` makes the
+  thirty-two random bytes a ceremony answers, base64url; the app keeps it in
+  the visitor's session. `passkeys/registered want client attestation`
+  checks what the browser sent after an authenticator made a credential and
+  answers a `passkeys/credential`: its id, its public key's two coordinates
+  and its signature count. `passkeys/asserted want credential client data
+  signature` checks a sign-in and answers the new count. Each answers a
+  `passkeys/refusal` with the reason when something is wrong. `want` is
+  `passkeys/expecting challenge origin rp_id`. The checks are WebAuthn's:
+  the client data's type, challenge and origin, the hash of the relying
+  party's id, a user present and verified, an ES256 key on P-256, the
+  signature (kanso's `std/p256`) over the authenticator data and the client
+  data's hash, and a count that rises when the authenticator counts.
+  Attestation is neither asked for nor checked. `spec/runs/passkeys` holds
+  a registration and a sign-in made with a real key by
+  `spec/runs/passkeys/cases.py`, and each with one thing wrong.
+- `cbor`: CBOR (RFC 8949) read, as much as WebAuthn writes: integers, byte
+  strings as `cbor/octets`, text, arrays, maps, booleans and null.
+  `cbor/decoded bytes` answers the one value the bytes hold, or none. Tags,
+  floats, indefinite lengths, a key twice in one map and bytes left over
+  are refused.
 - `tokens`: signed tokens for links an app mails out, as Rails 8's
   `generates_token_for` makes them. `tokens/made purpose req id bound t
   minutes` names a record, an expiry, and an HMAC over both, the purpose and

@@ -1723,6 +1723,10 @@ pub fn query req
 pub fn value f name
   given f[name]
 
+# A request's header by its name in lower case, or "" when it has none.
+pub fn request_header req name
+  given req.headers[name]
+
 fn given none
   ""
 

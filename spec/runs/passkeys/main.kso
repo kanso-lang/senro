@@ -1,0 +1,6 @@
+import "./judged"
+import "std/os"
+import "std/text"
+
+os/read_file "cases.txt"
+  .> (t -> print (text/join (judged/all (text/split t "\n")) "\n"))

@@ -1,0 +1,34 @@
+import "../../../cbor"
+import "std/list"
+import "std/text"
+
+# A value as RFC 8949's diagnostic notation writes it, near enough to
+# compare by eye: h'..' for a byte string, quotes for text.
+pub fn shown none
+  "none"
+
+pub fn shown v:int
+  "{v}"
+
+pub fn shown v:bool
+  "{v}"
+
+pub fn shown v:string
+  "\"{v}\""
+
+pub fn shown v:cbor/octets
+  "h'{text/join (list/to_list (list/map v.data hexed)) ""}'"
+
+pub fn shown v:[]some
+  "[{text/join (list/to_list (list/map v shown)) ", "}]"
+
+pub fn shown v:map[some some]
+  pairs = list/to_list (list/map (keys v) (k -> "{shown k}: {shown v[k]}"))
+  "\{{text/join pairs ", "}}"
+
+digits = "0123456789abcdef"
+
+fn hexed b
+  hi = b / 16
+  lo = b - hi * 16
+  "{text/slice digits (hi + 1) (hi + 1)}{text/slice digits (lo + 1) (lo + 1)}"

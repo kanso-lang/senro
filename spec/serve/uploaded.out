@@ -3,10 +3,10 @@ keys are 32 hex digits: true
 photo: HTTP/1.1 200 OK, content-type: image/png, content-disposition: inline, x-content-type-options: nosniff, accept-ranges: bytes, same bytes: true
 notes: HTTP/1.1 200 OK, content-type: application/octet-stream, content-disposition: attachment; filename="x.html", x-content-type-options: nosniff, accept-ranges: bytes, same bytes: true
 song: HTTP/1.1 200 OK, content-type: audio/mpeg, content-disposition: inline, x-content-type-options: nosniff, accept-ranges: bytes, same bytes: true
-bytes=0-3: HTTP/1.1 206 , content-range: bytes 0-3/12, bytes [73 68 51 3]
-bytes=8-: HTTP/1.1 206 , content-range: bytes 8-11/12, bytes [0 10 255 251]
-bytes=-2: HTTP/1.1 206 , content-range: bytes 10-11/12, bytes [255 251]
-bytes=12-: HTTP/1.1 416 , content-range: bytes */12, bytes []
+bytes=0-3: HTTP/1.1 206 Partial Content, content-range: bytes 0-3/12, bytes [73 68 51 3]
+bytes=8-: HTTP/1.1 206 Partial Content, content-range: bytes 8-11/12, bytes [0 10 255 251]
+bytes=-2: HTTP/1.1 206 Partial Content, content-range: bytes 10-11/12, bytes [255 251]
+bytes=12-: HTTP/1.1 416 Range Not Satisfiable, content-range: bytes */12, bytes []
 bytes=0-1,4-5: HTTP/1.1 200 OK, no content-range, bytes [73 68 51 3 0 0 0 0 0 10 255 251]
 HTTP/1.1 413 Content Too Large
 HTTP/1.1 404 Not Found

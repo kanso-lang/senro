@@ -344,12 +344,68 @@ script = """
       visit(url.href, \{}, true);
     });
 
+    // A passkey. A button marked data-passkey="create" or "get" asks the
+    // authenticator first, for the challenge its form's data-challenge
+    // holds, which the server also kept in the session. A new key belongs
+    // to this site, takes ES256, and lives on the authenticator, so signing
+    // in later needs no address; either ceremony asks the authenticator to
+    // verify its user. What the authenticator answers goes with the form's
+    // other fields, base64url, as passkey_id, passkey_client, passkey_data
+    // and, for a sign-in, passkey_signature. A ceremony that is cancelled or
+    // fails sends nothing, and the form's [data-passkey-said] says so.
+    const url64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .split("+").join("-").split("/").join("_").split("=").join("");
+    const bytes64 = (s) => Uint8Array.from(
+      atob(s.split("-").join("+").split("_").join("/")), (c) => c.charCodeAt(0));
+    const passkey = async (kind, form) => \{
+      const challenge = bytes64(form.dataset.challenge || "");
+      const verify = "required";
+      if (kind === "create") \{
+        const name = (form.querySelector("[name=email]") || \{}).value || "you";
+        const made = await navigator.credentials.create(\{ publicKey: \{
+          challenge,
+          rp: \{ id: location.hostname, name: document.title },
+          user: \{ id: crypto.getRandomValues(new Uint8Array(16)), name,
+            displayName: name },
+          pubKeyCredParams: [\{ type: "public-key", alg: -7 }],
+          authenticatorSelection: \{ residentKey: "required",
+            userVerification: verify },
+          attestation: "none",
+        } });
+        return \{ passkey_id: made.id,
+          passkey_client: url64(made.response.clientDataJSON),
+          passkey_data: url64(made.response.attestationObject) };
+      }
+      const used = await navigator.credentials.get(\{ publicKey: \{
+        challenge, rpId: location.hostname, userVerification: verify,
+      } });
+      return \{ passkey_id: used.id,
+        passkey_client: url64(used.response.clientDataJSON),
+        passkey_data: url64(used.response.authenticatorData),
+        passkey_signature: url64(used.response.signature) };
+    };
+
     addEventListener("submit", (e) => \{
       const form = e.target;
       const url = new URL(form.action);
       if (e.defaultPrevented || !ours(url)) return;
       e.preventDefault();
       const fields = new FormData(form, e.submitter);
+      const kind = e.submitter && e.submitter.dataset.passkey;
+      if (kind) \{
+        const said = form.querySelector("[data-passkey-said]");
+        passkey(kind, form).then((answer) => \{
+          for (const [k, v] of Object.entries(answer)) fields.set(k, v);
+          sent_form(form, url, fields);
+        }, () => \{
+          if (said) said.textContent = "The passkey was not used. Try again.";
+        });
+        return;
+      }
+      sent_form(form, url, fields);
+    });
+
+    const sent_form = (form, url, fields) => \{
       const data = new URLSearchParams(fields);
       if (form.method === "get") \{
         url.search = data;
@@ -361,7 +417,7 @@ script = """
         const body = multipart ? fields : data;
         visit(url.href, \{ method: "POST", body }, true, form);
       }
-    });
+    };
 
     addEventListener("popstate", () => visit(location.href, \{}, false));
 
