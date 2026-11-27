@@ -1,0 +1,3 @@
+takes salutation first_name family_name town country occupation favourite_food
+p {salutation} {first_name} {family_name} of {town}, {country}
+p A {occupation} who likes {favourite_food}.

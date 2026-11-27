@@ -1,0 +1,19 @@
+import "../../../kata"
+import "./views"
+
+derive kata/views
+
+# A template that takes so many values that the function written for it
+# would not fit on a line. It is written with its values taken by place, and
+# the page and its view render the same markup.
+title = "Dr"
+given = "Ada"
+family = "Lovelace"
+town = "Marylebone"
+land = "England"
+work = "mathematician"
+food = "cake"
+page = views/greeting_view title given family town land work food
+
+print (views/greeting title given family town land work food)
+print (views/rendered page)

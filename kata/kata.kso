@@ -108,7 +108,7 @@ fn written kind head o src
   declared = takes_of rows
   from = if (length declared == 0) 1 2
   w = walk rows from (length rows + 1) declared o (woven [] [])
-  main = emitted "{kind} {head} {params_of declared}" w.units o
+  main = emitted (headed_by "{kind} {head}" declared) w.units o
   # The parameters come from the `takes` line, the template's first.
   headed = if (length declared == 0) main "# from {o.file}:1\n{main}"
   "{text/join (push w.helpers headed) "\n\n"}\n"
@@ -149,6 +149,26 @@ fn remainder s
 
 fn params_of names
   if (length names == 0) "_" (text/join names " ")
+
+# A function head cannot wrap, so one that would pass 80 columns takes a
+# template's values by place, as kata_1, kata_2 and so on, and its body
+# first binds each name the `takes` line gave to its place.
+fn headed_by lead names
+  plain = "{lead} {params_of names}"
+  return plain if length plain <= 80
+  placed = places_of names
+  bound = list/zip names placed
+  lines = list/to_list (list/map bound (p -> "  {p[1]} = {p[2]}"))
+  "{lead} {params_of placed}\n{text/join lines "\n"}"
+
+fn places_of names
+  list/fold names [] (acc _ -> push acc "kata_{length acc + 1}")
+
+# What a view passes the page for each value: its name, or its place when
+# the view's own head took them by place.
+fn passed lead names
+  plain = "{lead} {params_of names}"
+  if (length plain <= 80) names (places_of names)
 
 fn walk rows i stop scope o acc
   return acc if stop <= i or i < 1 or length rows < i
@@ -880,11 +900,12 @@ pub fn viewed name file src number
   declared = takes src
   each = borne_all name file src
   helpers = list/fold each [] (acc b -> list/concat acc b.packers)
-  given = params_of declared
+  lead = "pub fn {name}_view"
+  args = passed lead declared
   fields = list/to_list (list/map declared (d -> "h.{d}"))
-  held = if (length declared == 0) "  kata_held = \"\"" (holding name declared)
+  held = if (length declared == 0) "  kata_held = \"\"" (holding name args)
   made = "  wire/paged kata_held {name}_pack {name}_drawn"
-  view = "pub fn {name}_view {given}\n{held}\n{made}"
+  view = "{lead} {params_of args}\n{held}\n{made}"
   first = "wire/add_count acc {number}"
   body = threaded first (list/to_list (list/map each (b -> b.pack))) fields
   taken = if (length declared == 0) "_" "h"
