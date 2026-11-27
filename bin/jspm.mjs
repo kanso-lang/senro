@@ -220,16 +220,20 @@ const stylesheets = (resolutions, reached, lockedSheets) => {
 // by where it is kept.
 const fetched = async (urls) => {
   const got = new Map();
-  const fetchOne = async (url) => {
+  const fetchOne = async (url, optional = false) => {
     if (got.has(vendored(url))) return;
     const r = await fetch(url);
+    // A source map is for a debugger, and jspm.io does not keep every one
+    // a file names (Bootstrap's stylesheet names one it lacks), so one that
+    // is not there is left out rather than stopping the install.
+    if (!r.ok && optional) return;
     if (!r.ok) refused(`${url} answered ${r.status}`);
     const body = Buffer.from(await r.arrayBuffer());
     got.set(vendored(url), body);
     if (url.endsWith(".map")) return;
     const text = body.toString("utf8");
     const named = text.match(url.endsWith(".css") ? CSS_SOURCE_MAP : SOURCE_MAP);
-    if (named) await fetchOne(new URL(named[1], url).href);
+    if (named) await fetchOne(new URL(named[1], url).href, true);
     if (url.endsWith(".css")) {
       for (const ref of referenced(text)) await fetchOne(new URL(ref, url).href);
     }

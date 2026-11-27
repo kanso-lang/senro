@@ -7,6 +7,7 @@ import "std/text"
 # by name rewritten to the vendored copy, and its import of a stylesheet of
 # its own left as it was. The vendored copy is served where the rewrite
 # points, the other stylesheet as itself, and one that is not there is a 404.
+# A font under public/, whose bytes are not text, comes back byte for byte.
 pub fn index _ _
   asked "/stylesheets/application.css"
     .> (one -> asked vendored .> (two -> more one two))
@@ -20,8 +21,47 @@ fn more one two
 missing = "/stylesheets/none.css"
 
 fn told one two three four
-  answers = [one two three four]
-  effect (http/text_page (text/join answers "\n--\n"))
+  font .> (five -> effect (all_told [one two three four five]))
+
+fn all_told answers
+  http/text_page (text/join answers "\n--\n")
+
+# The font, read as bytes, with how many came after the head and whether
+# they are the file's.
+font = net/dial "127.0.0.1" 24423 .> (c -> font_from c)
+
+fn font_from c
+  ask = "GET /fonts/tiny.woff2 HTTP/1.1\r\nhost: localhost\r\n\r\n"
+  net/write c ask
+    .> (_ -> net/read_bytes c)
+    .> (raw -> net/close_conn c .> (_ -> effect (font_shown raw)))
+
+woff = text/to_bytes [119 79 70 50 0 255 254 16]
+
+fn font_shown raw
+  at = gap raw 1
+  head = decoded (text/slice raw 1 (at - 1))
+  lines = text/split head "\r\n"
+  kind = list/select lines (l -> text/starts_with? l "content-type")
+  body = text/slice raw (at + 4) (length raw)
+  kinds = text/join (list/to_list kind) ""
+  "{lines[1]}\n{kinds}\nsame bytes: {body == woff}"
+
+fn gap raw i
+  return i if text/slice raw i (i + 3) == text/bytes "\r\n\r\n"
+  gap raw (i + 1)
+
+fn decoded none
+  ""
+
+fn decoded bs
+  blank_text (text/utf8 bs)
+
+fn blank_text none
+  ""
+
+fn blank_text s
+  s
 
 fn asked path
   net/dial "127.0.0.1" 24423 .> (c -> sent c path)
