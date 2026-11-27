@@ -1,0 +1,2 @@
+senro js: https://ga.jspm.io/npm:@fontsource-variable/space-grotesk@5.1.1/files/space-grotesk-vietnamese-wght-normal.woff2 answered 404, and node_modules has no @fontsource-variable/space-grotesk@5.1.1 to copy it from. Run: npm install
+status 1
