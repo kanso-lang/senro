@@ -5,8 +5,9 @@ import "std/text"
 # connects to the Postgres the environment names and starts the app with
 # `app/run`, which runs its migrations and serves its routes, with a worker
 # beside the server for its jobs and one for its mail when it has them; a
-# home page; and a layout. Its migrations go in `migrations/`, which starts
-# empty. Each function answers a file's text.
+# home page; a layout; and Bootstrap, with a theme, to style them. Its
+# migrations go in `migrations/`, which starts empty. Each function answers
+# a file's text.
 pub fn entry senro name
   lines = [
     "import \"{senro}/app\""
@@ -36,32 +37,70 @@ pub fn home name
   ]
   "{text/join lines "\n"}\n"
 
-pub layout = text/join layout_lines "\n"
-
-layout_lines = [
-  "takes title body"
-  "doctype html"
-  "html"
-  "  head"
-  "    meta charset=\"utf-8\""
-  "    meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
-  "    title = title"
-  "    script src=\"/senro.js\" defer=\"defer\""
-  "  body"
-  "    main"
-  "      == body"
-  ""
-]
+# The layout every page is drawn in: Bootstrap's navbar with the app's name,
+# and a container for the page.
+pub fn layout name
+  lines = [
+    "takes title body"
+    "doctype html"
+    "html lang=\"en\""
+    "  head"
+    "    meta charset=\"utf-8\""
+    "    meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
+    "    title = title"
+    "    link rel=\"stylesheet\" href=\"/stylesheets/application.css\""
+    "    script src=\"/senro.js\" defer=\"defer\""
+    "  body"
+    "    nav.navbar.mb-5"
+    "      div.container"
+    "        a.navbar-brand href=\"/\" {name}"
+    "    main.container.pb-5"
+    "      == body"
+  ]
+  "{text/join lines "\n"}\n"
 
 pub home_view = text/join home_lines "\n"
 
 home_lines = [
   "takes name"
-  "header"
+  "div.py-4"
   "  h1 = name"
   "  p.lede A senro app. Its resources are listed in main.kso."
   ""
 ]
+
+# The packages the app's stylesheet imports, and jspm's generator, which
+# `senro js install` runs from the app's own node_modules.
+pub fn packages name
+  lines = [
+    "\{"
+    "  \"name\": \"{name}\","
+    "  \"private\": true,"
+    "  \"dependencies\": \{"
+    "    \"@fontsource-variable/inter\": \"5.1.1\","
+    "    \"@fontsource-variable/space-grotesk\": \"5.1.1\","
+    "    \"bootstrap\": \"5.3.3\""
+    "  },"
+    "  \"devDependencies\": \{"
+    "    \"@jspm/generator\": \"2.18.0\""
+    "  }"
+    "}"
+  ]
+  "{text/join lines "\n"}\n"
+
+pub script = text/join script_lines "\n"
+
+script_lines = [
+  "// The app's JavaScript. senro's page script loads this module on every"
+  "// page; the app needs none of its own yet."
+  ""
+]
+
+# The stylesheets `new` copies from senro's tree into the app's, which owns
+# them from then on.
+pub sheets = ["stylesheets/application.css" "stylesheets/theme.css"]
+
+pub sheets_source = "generate"
 
 local = "import \"./"
 

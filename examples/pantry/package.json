@@ -2,6 +2,7 @@
   "name": "pantry",
   "private": true,
   "devDependencies": {
+    "@fontsource-variable/space-grotesk": "5.1.1",
     "@jspm/generator": "2.18.0"
   }
 }

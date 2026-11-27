@@ -47,6 +47,7 @@ senro's command writes an app and its parts, as `rails` does. Put senro's
 senro new notebook
 cd notebook
 kanso install .
+npm install && senro js install
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
 senro generate resource reading title:text minutes:int
@@ -60,6 +61,16 @@ senro routes
 senro migrate
 senro server
 ```
+
+A new app is styled before anyone styles it. Its layout and every view a
+generator writes use Bootstrap 5.3's markup: a navbar and a container,
+`form-control` and `btn` on forms, a list group on an index.
+`stylesheets/application.css` imports Bootstrap and two typefaces, Inter
+and Space Grotesk, from the packages `package.json` names, and
+`stylesheets/theme.css` sets Bootstrap's variables to the palette of
+kanso-lang's site, with a dark half that follows the system. `npm install`
+and `senro js install` vendor the packages; the theme is the app's own to
+change.
 
 An app made outside senro's own repository imports senro by its name,
 `kanso-lang/senro/web`, and `kanso install` fetches the release it pins
@@ -323,7 +334,8 @@ senro js install
 
 ```
       traced  javascript/application.js
-    vendored  2 modules and 1 stylesheet from ga.jspm.io
+    vendored  2 modules and 2 stylesheets from ga.jspm.io
+      copied  3 files jspm.io lacks from node_modules
        wrote  importmap.json
 ```
 
@@ -356,7 +368,10 @@ live in `stylesheets/` and are served at `/stylesheets/`:
 
 The install downloads each stylesheet so named, with its source map and the
 fonts and images it points at, and records where it came from under the
-map's `stylesheets`. senro rewrites the import to the vendored copy as it
+map's `stylesheets`. jspm.io does not serve a package's fonts, so a font
+it lacks is copied from the package npm installed: `npm install
+@fontsource-variable/inter` and an `@import` of its `index.css` is all a
+webfont needs. senro rewrites the import to the vendored copy as it
 serves the app's stylesheet, since a browser reads only a URL there. A
 package's stylesheet takes the version npm installed, or else the version
 its JavaScript has in the map, so `chartist`'s stylesheet and its module
