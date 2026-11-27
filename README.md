@@ -323,7 +323,8 @@ senro js install
 
 ```
       traced  javascript/application.js
-    vendored  2 modules and 1 stylesheet from ga.jspm.io
+    vendored  2 modules and 2 stylesheets from ga.jspm.io
+      copied  3 files jspm.io lacks from node_modules
        wrote  importmap.json
 ```
 
@@ -356,7 +357,10 @@ live in `stylesheets/` and are served at `/stylesheets/`:
 
 The install downloads each stylesheet so named, with its source map and the
 fonts and images it points at, and records where it came from under the
-map's `stylesheets`. senro rewrites the import to the vendored copy as it
+map's `stylesheets`. jspm.io does not serve a package's fonts, so a font
+it lacks is copied from the package npm installed: `npm install
+@fontsource-variable/inter` and an `@import` of its `index.css` is all a
+webfont needs. senro rewrites the import to the vendored copy as it
 serves the app's stylesheet, since a browser reads only a URL there. A
 package's stylesheet takes the version npm installed, or else the version
 its JavaScript has in the map, so `chartist`'s stylesheet and its module
