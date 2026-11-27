@@ -1,0 +1,14 @@
+takes note_id page_id rows number more
+p.mb-2
+  a.text-secondary href=(path_to "pages/show" note_id page_id) Back to the page
+div.d-flex.align-items-end.justify-content-between.mb-4
+  h1.mb-0 Lines
+  a.btn.btn-primary href=(path_to "lines/new" page_id) New line
+div.list-group
+  each rows r ->
+    a.list-group-item.list-group-item-action.py-3 href=(path_to "lines/show" page_id r.id) = r.words
+nav.pages.mt-4.d-flex.gap-3
+  if number > 1
+    a href="?page={number - 1}" Previous page
+  if more
+    a href="?page={number + 1}" Next page

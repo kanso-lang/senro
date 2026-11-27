@@ -80,7 +80,7 @@ home_words = [
 
 # The spec of a resource's pages, as `scaffold` writes them: listed, made,
 # changed and removed through its forms.
-pub fn pages senro singular fields
+pub fn pages senro singular fields grand
   s = subject_of singular fields
   about = [
     "The {s.plural}, asked for as a browser asks. `senro test` runs these"
@@ -95,7 +95,7 @@ pub fn pages senro singular fields
     (example "removed" true (removes s))
     gone
   ]
-  whole senro s about (page_lines s) examples (constants s true)
+  whole senro s about (page_lines s) examples (constants s true) grand
 
 # The spec of a resource's API, as `resource` writes it.
 pub fn api senro singular fields
@@ -111,9 +111,9 @@ pub fn api senro singular fields
     (example "made" true (answers s))
     (example "refused" (length s.numbers > 0) (refuses s))
   ]
-  whole senro s about (api_lines s) examples (constants s false)
+  whole senro s about (api_lines s) examples (constants s false) ""
 
-fn whole senro s about its examples maps
+fn whole senro s about its examples maps grand
   imports = [
     "import \"{senro}/visit\""
     "import \"./given\""
@@ -128,7 +128,7 @@ fn whole senro s about its examples maps
   ]
   described = list/concat (list/concat head its) ["]"]
   parts = list/concat (list/concat imports described) (kept examples)
-  after = list/concat (below s s.parent) maps
+  after = list/concat (below s s.parent grand) maps
   "{text/join (list/concat parts after) "\n"}\n"
 
 fn page_lines s
@@ -228,24 +228,33 @@ fn chain start steps
 
 # A nested resource's parent, made through its model for an example's rows
 # to sit under, and the path to those rows.
-fn below _ none
+fn below _ none _
   []
 
-fn below s parent
+fn below s parent grand
   name = scaffold/parent_name parent
   parents = names/plural name
   about = [
     "A {name} for an example's {s.plural} to sit under, and the path to"
     "them."
   ]
-  made = "{name}/create v.db given/{name}"
   path = "(n -> effect \"/{parents}/\{n.id}/{s.plural}\")"
   [
     ""
     (scaffold/comment (text/join about " "))
     "fn {s.plural}_path v"
-    (chain [made] [path])
+    (chain (parent_made name grand) [path])
   ]
+
+# A parent made through its model, after its own parent when it is nested
+# too, whose id it takes.
+fn parent_made name ""
+  ["{name}/create v.db given/{name}"]
+
+fn parent_made name grand
+  first = worded (list/first (text/split grand "_id"))
+  under = "put given/{name} \"{grand}\" \"\{g.id}\""
+  ["{first}/create v.db given/{first}" "(g -> {name}/create v.db ({under}))"]
 
 # The maps an example sends in place of the model's: one with a text
 # changed, for a spec that changes a row, and one whose number is no number.

@@ -1,6 +1,7 @@
 import "../models"
 import "../names"
 import "std/list"
+import "std/os"
 import "std/text"
 
 # What `generate scaffold` writes for a resource, as Rails' generator writes
@@ -173,12 +174,12 @@ pub fn model senro singular fields
 
 # The resource's module: the seven actions Rails' scaffold writes, each
 # reading and writing through the model.
-pub fn resource senro singular fields
+pub fn resource senro singular fields grand
   plural = names/plural singular
   parts = [
     (imports senro singular (parent_of fields))
     (actions_of singular plural fields (parent_of fields))
-    (helpers_of singular plural fields (parent_of fields))
+    (helpers_of singular plural fields (parent_of fields) grand)
   ]
   "{text/join parts "\n"}\n"
 
@@ -277,11 +278,11 @@ fn actions_of singular plural fields none
 fn actions_of singular plural fields parent
   nested_actions singular plural fields parent
 
-fn helpers_of singular plural fields none
+fn helpers_of singular plural fields none _
   helpers singular plural fields
 
-fn helpers_of singular plural fields parent
-  nested_helpers singular plural fields parent
+fn helpers_of singular plural fields parent grand
+  nested_helpers singular plural fields parent grand
 
 fn actions singular plural fields
   changed_then = ".> (w -> effect (changed req id w))"
@@ -408,8 +409,7 @@ fn nested_actions singular plural fields parent
     "pub fn index req db {k}:int"
     "  number = models/page_number (web/value (web/query req) \"page\")"
     "  asked = {singular}/paged db \"{k}\" {k} number per_page"
-    "  listing_of = (p -> effect (listing req {k} p))"
-    "  within db {k} (asked .> listing_of)"
+    "  {name}/find db {k} .> (found -> listed req found asked)"
     ""
     (comment per_page_about)
     "per_page = 25"
@@ -440,6 +440,13 @@ fn nested_actions singular plural fields parent
     "  under db {k} id"
     "    .> (r -> removing db id r)"
     "    .> (w -> effect (gone {k} w))"
+    ""
+    (comment "A page of the {name}'s rows, or a 404 when it is not there.")
+    "fn listed _ none _"
+    "  effect http/not_found"
+    ""
+    "fn listed req parent asked"
+    "  asked .> (p -> effect (listing req parent p))"
     ""
     (comment "`then` when the {name} is there, and a 404 when it is not.")
     "fn within db id then"
@@ -483,17 +490,18 @@ fn nested_actions singular plural fields parent
   ]
   text/join lines "\n"
 
-fn nested_helpers singular plural fields parent
+fn nested_helpers singular plural fields parent grand
   k = parent.name
+  passed = if (grand == "") "parent.id" "parent.{grand} parent.id"
   title = capitalized singular
   every_title = capitalized plural
   mine = own fields
   lines = [
-    "fn listing req {k} p"
+    "fn listing req parent p"
     "  as_json = {singular}/{singular}_attributes"
     "  mapped = list/to_list (list/map p.rows as_json)"
     "  return web/json 200 mapped if web/wants_json? req"
-    "  page = views/{plural}_index_view {k} p.rows p.number p.more"
+    "  page = views/{plural}_index_view {passed} p.rows p.number p.more"
     "  views/answer req 200 \"{every_title}\" page"
     ""
     "fn shown _ none"
@@ -623,11 +631,28 @@ fn capitalized word
   first = text/uppercase (said (text/slice word 1 1))
   "{first}{said (text/slice word 2 (length word))}"
 
-# The views: a list, a record shown, and the form that makes and changes one.
-pub fn index_view singular fields
-  index_of singular fields (parent_of fields)
+# The key a nested resource's module says its parent sits under, read from
+# the first id its `show` takes, or "" for a resource that is not nested.
+pub fn grandparent_key _:os/file_not_found
+  ""
 
-fn index_of singular fields none
+pub fn grandparent_key text
+  shows = list/to_list (list/select (text/split text "\n") show_line?)
+  return "" if length shows < 1
+  words = text/split (said (list/first shows)) " "
+  return "" if length words != 7
+  said (list/first (text/split words[6] ":"))
+
+fn show_line? l
+  text/starts_with? l "pub fn show req db "
+
+# The views: a list, a record shown, and the form that makes and changes one.
+# A nested list is handed its parent's row, which a parent nested in turn
+# needs for the way back to it.
+pub fn index_view singular fields grand
+  index_of singular fields (parent_of fields) grand
+
+fn index_of singular fields none _
   plural = names/plural singular
   first = (said_field (list/first fields)).name
   lines = [
@@ -642,14 +667,15 @@ fn index_of singular fields none
   lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
 
-fn index_of singular fields parent
+fn index_of singular fields parent grand
   plural = names/plural singular
   k = parent.name
   name = parent_name parent
   first = (said_field (list/first (own fields))).name
-  back = "path_to \"{names/plural name}/show\" {k}"
+  ids = ids_of k grand
+  back = "path_to \"{names/plural name}/show\" {ids}"
   lines = [
-    "takes {k} rows number more"
+    "takes {ids} rows number more"
     "p.mb-2"
     "  a.text-secondary href=({back}) Back to the {name}"
     "div.d-flex.align-items-end.justify-content-between.mb-4"
@@ -661,6 +687,15 @@ fn index_of singular fields parent
   ]
   lines = list/concat lines page_links
   "{text/join lines "\n"}\n"
+
+# The ids a nested list takes: its parent's, and before it the parent's
+# own parent's when that is nested too, which the way back to the parent
+# needs.
+fn ids_of k ""
+  k
+
+fn ids_of k grand
+  "{grand} {k}"
 
 # A row's link in a list: to the row, named by its first field.
 fn row_link plural under first

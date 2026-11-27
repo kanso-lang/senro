@@ -14,8 +14,7 @@ import "std/net/http"
 pub fn index req db note_id:int
   number = models/page_number (web/value (web/query req) "page")
   asked = page/paged db "note_id" note_id number per_page
-  listing_of = (p -> effect (listing req note_id p))
-  within db note_id (asked .> listing_of)
+  note/find db note_id .> (found -> listed req found asked)
 
 # How many rows a page of the list shows.
 per_page = 25
@@ -46,6 +45,13 @@ pub fn destroy _ db note_id:int id:int
   under db note_id id
     .> (r -> removing db id r)
     .> (w -> effect (gone note_id w))
+
+# A page of the note's rows, or a 404 when it is not there.
+fn listed _ none _
+  effect http/not_found
+
+fn listed req parent asked
+  asked .> (p -> effect (listing req parent p))
 
 # `then` when the note is there, and a 404 when it is not.
 fn within db id then
@@ -86,11 +92,11 @@ fn listed_path note_id
 fn shown_path note_id id
   routes/path_to "pages/show" note_id id
 
-fn listing req note_id p
+fn listing req parent p
   as_json = page/page_attributes
   mapped = list/to_list (list/map p.rows as_json)
   return web/json 200 mapped if web/wants_json? req
-  page = views/pages_index_view note_id p.rows p.number p.more
+  page = views/pages_index_view parent.id p.rows p.number p.more
   views/answer req 200 "Pages" page
 
 fn shown _ none

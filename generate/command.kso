@@ -349,15 +349,34 @@ fn parent_there true app singular fields _
   read_main app singular fields
 
 fn read_main app singular fields
-  os/read_file "{app}/main.kso" .> (main -> with_main app singular fields main)
+  grand_of app fields .> (g -> main_with app singular fields g)
 
-fn with_main app _ _ _:os/file_not_found
+fn main_with app singular fields grand
+  os/read_file "{app}/main.kso"
+    .> (main -> with_main app singular fields grand main)
+
+fn with_main app _ _ _ _:os/file_not_found
   refused "{app}/main.kso is not there; make the app with `new` first"
 
-fn with_main app singular fields main
-  migrations_in app .> (names -> wrote app singular fields main names)
+fn with_main app singular fields grand main
+  migrations_in app .> (names -> wrote app singular fields grand main names)
 
-fn wrote app singular fields main names
+# The key of the parent's own parent, `book_id` for a chapter nested under
+# a book, or "" when the parent is not nested or there is none. A nested
+# resource's `show` takes its parent's id before its own, which is where
+# the parent's resource module says it.
+fn grand_of app fields
+  grand_from app (scaffold/parent_of fields)
+
+fn grand_from _ none
+  effect ""
+
+fn grand_from app parent
+  parents = names/plural (scaffold/parent_name parent)
+  os/read_file "{app}/{parents}.kso"
+    .> (text -> effect (scaffold/grandparent_key text))
+
+fn wrote app singular fields grand main names
   plural = names/plural singular
   senro = senro_in main (up_from app)
   entry = with_resource (app/entry_with main singular) plural
@@ -367,11 +386,11 @@ fn wrote app singular fields main names
   return refused bare if entry == none
   return refused "{app}/migrations/{held} is there already" if held != ""
   model = scaffold/model senro singular fields
-  module = scaffold/resource senro singular fields
-  index = scaffold/index_view singular fields
+  module = scaffold/resource senro singular fields grand
+  index = scaffold/index_view singular fields grand
   shown = scaffold/shown_view singular fields
   form = scaffold/form_view singular fields
-  spec = specs/pages senro singular fields
+  spec = specs/pages senro singular fields grand
   views = "{app}/views"
   os/is_dir views
     .> (there -> made_dir there views)

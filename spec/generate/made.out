@@ -28,24 +28,30 @@
   change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180513_create_pages.kso
   change spec/notebook/main.kso
+  create spec/notebook/line.kso
+  create spec/notebook/lines.kso
+  create spec/notebook/views/lines_index.kata
+  create spec/notebook/views/lines_show.kata
+  create spec/notebook/views/lines_form.kata
+  create spec/notebook/lines_test.kso
+  change spec/notebook/given.kso
+  create spec/notebook/migrations/20261111180514_create_lines.kso
+  change spec/notebook/main.kso
   create spec/notebook/account_mailer.kso
   create spec/notebook/confirmations.kso
-  create spec/notebook/credential.kso
   create spec/notebook/registration.kso
   create spec/notebook/resets.kso
   create spec/notebook/session.kso
   create spec/notebook/session_test.kso
   create spec/notebook/unlocks.kso
   create spec/notebook/user.kso
-  create spec/notebook/views/account_made.kata
   create spec/notebook/views/confirm_offered.kata
   create spec/notebook/views/door.kata
   create spec/notebook/views/password_shown.kata
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
   create spec/notebook/views/unlock_offered.kata
-  create spec/notebook/migrations/20261111180514_create_users.kso
-  create spec/notebook/migrations/20261111180515_create_credentials.kso
+  create spec/notebook/migrations/20261111180515_create_users.kso
   change spec/notebook/main.kso
   create spec/notebook/reading.kso
   create spec/notebook/readings.kso

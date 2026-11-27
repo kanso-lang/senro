@@ -1,0 +1,12 @@
+takes row
+p.mb-2
+  a.text-secondary href=(path_to "lines/index" row.page_id) All lines
+h1.mb-4 Line {row.id}
+dl.row.mb-4
+  dt.col-sm-3.text-secondary words
+  dd.col-sm-9 = row.words
+div.d-flex.gap-2
+  a.btn.btn-outline-secondary href=(path_to "lines/edit" row.page_id row.id) Edit
+  form method="post" action=(path_to "lines/destroy" row.page_id row.id)
+    input type="hidden" name="_method" value="DELETE"
+    button.btn.btn-link.text-secondary Delete
