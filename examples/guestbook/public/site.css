@@ -141,3 +141,14 @@ form.out button {
   background: none;
   border: 1px solid var(--rule);
 }
+
+/* A password the guestbook chose, shown once, to be copied whole. */
+code.password {
+  display: inline-block;
+  font-size: 1.25rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #fff;
+  user-select: all;
+}
