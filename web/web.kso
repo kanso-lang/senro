@@ -735,7 +735,7 @@ pub fn page_at routes path
   flat = routes["GET {pattern}"]
   return flat if flat != none or length parts < 4
   fits = list/select (entries routes) (e -> shaped? e.key "GET" parts)
-  fitted (list/first (list/to_list fits))
+  fitted (likeliest (list/to_list fits))
 
 fn fitted none
   none
@@ -746,7 +746,17 @@ fn fitted e
 fn nested_in routes method parts
   return none if length parts < 4
   fits = list/select (entries routes) (e -> shaped? e.key method parts)
-  nested_found (list/first (list/to_list fits)) parts
+  nested_found (likeliest (list/to_list fits)) parts
+
+# Of the routes a path fits, the one with the fewest parameters, so a word
+# the path writes out wins over a parameter that would take any word:
+# /notes/3/pages/new is the `new` page, not the page whose id is "new".
+fn likeliest fits
+  list/first (list/to_list (list/sort_by fits (e -> parameters e.key)))
+
+fn parameters key
+  held = list/select (text/split key "/") (s -> text/starts_with? s ":")
+  length (list/to_list held)
 
 # Whether a route's key reads as this request: the same method, as many
 # segments, and each segment the same word or a parameter.
