@@ -22,6 +22,7 @@ pub copied = [
   "user.kso"
   "views/confirm_offered.kata"
   "views/door.kata"
+  "views/password_shown.kata"
   "views/reset_asked.kata"
   "views/reset_chosen.kata"
   "views/unlock_offered.kata"

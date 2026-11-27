@@ -7,9 +7,10 @@ form method="post" action=path
   input type="email" name="email" placeholder="email" required="required" value=email
   if problems["email"] != none
     p.problem = problems["email"]
-  input type="password" name="password" placeholder="password" required="required"
-  if problems["password"] != none
-    p.problem = problems["password"]
+  if signing_in
+    input type="password" name="password" placeholder="password" required="required"
+    if problems["password"] != none
+      p.problem = problems["password"]
   button = heading
 if signing_in
   p

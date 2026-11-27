@@ -32,6 +32,7 @@
   create spec/notebook/user.kso
   create spec/notebook/views/confirm_offered.kata
   create spec/notebook/views/door.kata
+  create spec/notebook/views/password_shown.kata
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
   create spec/notebook/views/unlock_offered.kata

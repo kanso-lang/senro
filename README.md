@@ -188,6 +188,14 @@ development. senro reads it by its name, and no call takes it. A deployed
 app sets `SENRO_SECRET`, which the server signs with in its place, so the
 real secret stays out of the repository.
 
+Nobody chooses a password. Signing up asks for an address, and the app
+chooses the password and shows it once, on the page that answers:
+`passwords/chosen` gives three words from the EFF's large list, one
+capitalized, joined by two symbols, with a two-digit number after one of
+them, about 54 bits. A reset link opens a page with one button, so a mail
+scanner that follows links changes nothing, and the button sets a new
+password and shows it the same way (kanso#2515).
+
 The sign-in it writes locks an account after five wrong passwords in a row,
 for an hour, as Devise's lockable does. A locked account answers a wrong
 password as it always does, and tells only the holder of the right one that

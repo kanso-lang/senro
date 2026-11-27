@@ -1,6 +1,5 @@
 not signed in: 303 to /session/new
-a short password: 422
-making an account: 303 to /session/new
+making an account: a password is shown, of the chosen shape: yes
 the same address again: That address has an account.
 signing in before confirming: 403 Confirm your address first. We have sent the link again.
 its confirmation page: 200
@@ -49,7 +48,7 @@ the notes then: 303 /session/new
 a wrong password: 422
 asking for a link: 303 to /session/new
 its form: 200 
-choosing a new one: 303 /session/new
+making a new one: a password is shown, of the chosen shape: yes
 the link again: 303 /resets/new
 the old password: 422
 the new one: 303 to /notes
