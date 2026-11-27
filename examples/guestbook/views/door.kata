@@ -11,10 +11,10 @@ form method="post" action=path
     input type="email" name="email" placeholder="email, for a lost password" required="required" value=email
     if problems["email"] != none
       p.problem = problems["email"]
-  input type="password" name="password" placeholder="password" required="required"
-  if problems["password"] != none
-    p.problem = problems["password"]
   if remembers
+    input type="password" name="password" placeholder="password" required="required"
+    if problems["password"] != none
+      p.problem = problems["password"]
     label.remember
       input type="checkbox" name="remember" value="yes"
       | Keep me signed in

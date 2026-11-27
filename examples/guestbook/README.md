@@ -55,14 +55,16 @@ place, rendered on the server.
   columns. Two singular resources work on it, each named for what it does.
   `registration.kso` makes one: `registration/new` and
   `registration/create` answer GET /registration/new and POST
-  /registration. A name or an address already taken, an address with no
-  `@`, or a password under eight characters, brings the form back with a
-  422. Otherwise the password is digested with `passwords/digested`, the
-  account is made through its model, and its address is mailed a link to
-  confirm. `password.kso` changes a password: GET /password/edit lets a
-  signed-in visitor choose a new one, and PATCH /password checks the
-  current one before setting it through `account/update`, ten tries in
-  three minutes, as Devise's registrations do. `session.kso` is a singular
+  /registration. A name or an address already taken, or an address with no
+  `@`, brings the form back with a 422. Nobody chooses a password: the
+  guestbook chooses one with `passwords/chosen`, three words with a number
+  and symbols, and shows it once on the page that answers. It is digested
+  with `passwords/digested`, the account is made through its model, and its
+  address is mailed a link to confirm. `password.kso` changes a password:
+  GET /password/edit asks a signed-in visitor for the current one, and
+  PATCH /password checks it, ten tries in three minutes as Devise's
+  registrations allow, then sets a new chosen password through
+  `account/update` and shows it. `session.kso` is a singular
   resource too: GET /session/new is the sign-in form, POST /session checks
   the password with `passwords/matches?`, and a DELETE signs out. A wrong
   password and a name with no account get the same message, after the same
@@ -75,8 +77,10 @@ place, rendered on the server.
   sign-in form to `resets.kso`. GET /resets/new asks for the address, and
   POST /resets mails a link to it when an account has it, answering the same
   either way. The link is GET /resets/:id/edit, where the id is a token from
-  `passwords/reset_token`, signed over the account and the digest it keeps;
-  PATCH /resets/:id sets the new password. Setting it changes the digest, so
+  `tokens/made`, signed over the account and the digest it keeps.
+  It shows a button, so a mail scanner that opens the link changes nothing,
+  and the button's PATCH /resets/:id sets a new chosen password and shows
+  it. Setting it changes the digest, so
   the link works once, and it stops working after fifteen minutes. Setting a
   password this way also confirms an address that was not yet, since the
   link proves the visitor reads its mail. Every sign-in rests on the digest

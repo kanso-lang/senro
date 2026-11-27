@@ -10,7 +10,4 @@ form method="post" action=path
   input type="password" name="current" placeholder="current password" required="required"
   if problems["current"] != none
     p.problem = problems["current"]
-  input type="password" name="password" placeholder="new password" required="required"
-  if problems["password"] != none
-    p.problem = problems["password"]
-  button Change it
+  button Make me a new password
