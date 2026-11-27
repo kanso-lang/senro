@@ -17,9 +17,9 @@ import "std/time"
 # fifteen minutes.
 pub without_sign_in = ["create" "edit" "new" "update"]
 
-# Asking is limited as signing in is, so the form cannot be used to fill
-# someone's inbox.
-pub rate_limits = { "create":"10 per 3 minutes" }
+# Each request sends a letter, so one client asks at most ten times an
+# hour, and the form cannot be used to fill someone's inbox.
+pub rate_limits = { "create":"10 per hour" }
 
 pub fn new req _
   effect (asked req 200)

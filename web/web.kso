@@ -210,6 +210,12 @@ fn heard_from raw t from secret
 # last of two headers with one name is the one parsed, so a value the client
 # sent under either name is replaced: a session's age is measured by the
 # server's clock alone, and a client cannot name itself another.
+#
+# A request from this machine came through the proxy in front of the app,
+# as every one does behind Caddy, so its client is the last address the
+# proxy wrote in `x-forwarded-for`. Without that, every visitor would be
+# 127.0.0.1 and share one rate limit. A request from anywhere else is its
+# own connection's, whatever it says.
 fn arrived raw t from
   parts = text/split raw "\r\n\r\n"
   return http/parsed raw if length parts < 2
@@ -222,9 +228,29 @@ fn arrived raw t from
   path = list/concat [asked[1] cut[1]] (list/to_list (list/drop asked 2))
   line = text/join path " "
   theirs = list/to_list (list/drop lines 1)
-  ours = ["senro-at: {t}" "senro-peer: {from}" "senro-query: {query}"]
+  client = proxied_for from theirs
+  ours = ["senro-at: {t}" "senro-peer: {client}" "senro-query: {query}"]
   head = list/concat (list/concat [line] theirs) ours
   http/parsed "{text/join head "\r\n"}\r\n\r\n{rest}"
+
+fn proxied_for from lines
+  return from if not loopback? from
+  named_by = list/select lines (l -> text/starts_with? (text/lowercase l) xff)
+  last_hop from (list/last (list/to_list named_by))
+
+xff = "x-forwarded-for:"
+
+fn loopback? from
+  from == "::1" or text/starts_with? from "127."
+
+fn last_hop from none
+  from
+
+fn last_hop from line
+  after = blank_if_none (text/slice line (length xff + 1) (length line))
+  hops = text/split after ","
+  named = text/trim (blank_if_none (list/last hops))
+  if (named == "") from named
 
 # The request an action is handed, carrying the app's secret. Bytes that are
 # no request stay as they are, to be answered 400.

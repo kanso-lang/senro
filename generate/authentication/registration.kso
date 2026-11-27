@@ -14,6 +14,10 @@ import "std/text"
 # registration is a singular resource: /registration/new and /registration.
 pub without_sign_in = ["create" "new"]
 
+# Each account made sends a letter, so one client makes at most ten an hour,
+# told apart by its address (behind a proxy, the one the proxy names).
+pub rate_limits = { "create":"10 per hour" }
+
 # The form offers a passkey first (kanso#2515). `?with=password` offers a
 # password instead, which the app chooses, for a visitor whose device has
 # no authenticator.

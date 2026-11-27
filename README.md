@@ -481,6 +481,11 @@ handed the event's `detail` as text (kata/README.md, Components).
   out, and `web/remembered` says how many it holds. A limit on no action
   of its module, or one that does not read as a count per a window, is
   refused at the declaration. `web/peer req` answers the client's address.
+  A request from this machine came through the proxy in front of the app,
+  as one does behind Caddy, so its client is the last address in
+  `x-forwarded-for`; otherwise every visitor would be 127.0.0.1 and share
+  one limit (`spec/serve/proxied`). A request from elsewhere is its
+  connection's address, whatever it claims.
   The request an action is handed carries the app's secret, `session/secret`
   or `SENRO_SECRET` when the environment sets it, and every session function
   reads it there: `web/session req`, `web/viewer req`, `web/kept req r held`.
