@@ -11,9 +11,11 @@
   create blog/stylesheets/theme.css
   run  kanso install blog
   run  cd blog && npm install && senro js install
+  create ./account.kso
   create ./account_mailer.kso
   create ./confirmations.kso
   create ./credential.kso
+  create ./credentials.kso
   create ./registration.kso
   create ./resets.kso
   create ./session.kso
@@ -21,6 +23,7 @@
   create ./unlocks.kso
   create ./user.kso
   create ./views/account_made.kata
+  create ./views/account_shown.kata
   create ./views/confirm_offered.kata
   create ./views/door.kata
   create ./views/password_shown.kata

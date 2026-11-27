@@ -1,0 +1,61 @@
+import "../../models"
+import "../../passkeys"
+import "../../passwords"
+import "../../web"
+import "./credential"
+import "./user"
+import "./views"
+import "std/list"
+import "std/net/http"
+
+# The signed-in visitor's own account, as Devise's registrations#edit is:
+# the address it signs in with and its passkeys, with a passkey added from
+# this device, one removed, and a new password the app chooses. It is a
+# singular resource, /account, found by the viewer the session names, so
+# nobody reaches another's.
+pub fn show req db
+  user/find_by db "email" (web/viewer req) .> (u -> opened req db u "")
+
+# A new password, chosen by the app and shown once. The session is signed
+# again with it, since a new password ends every sign-in made with the old.
+pub fn update req db
+  user/find_by db "email" (web/viewer req) .> (u -> renewing req db u)
+
+fn renewing _ _ none
+  effect http/not_found
+
+fn renewing req db u
+  passwords/chosen .> (p -> renewed req db u p)
+
+fn renewed req db u password
+  passwords/digested password .> (d -> digest_kept req db u password d)
+
+fn digest_kept req db u password d
+  user/update (models/as_app db) "{u.id}" { "digest":d }
+    .> (_ -> effect (shown req u d password))
+
+fn shown req u digest password
+  heading = "Your new password"
+  page = views/password_shown_view heading password renewed_told
+  answer = views/answer req 200 heading page
+  web/signed_in req answer (web/session req) u.email digest
+
+renewed_told = "Save this password in your password manager: it is shown once."
+
+# The account's page, with a new challenge for adding a passkey, kept in the
+# session for the authenticator's answer to match.
+fn opened _ _ none _
+  effect http/not_found
+
+fn opened req db u told
+  credential/paged db "user_id" u.id 1 key_most
+    .> (p -> passkeys/challenge .> (c -> effect (page req u p.rows c told)))
+
+# More passkeys than anyone holds, so one page reads them all.
+key_most = 100
+
+fn page req u held_keys c told
+  notice = if (told == "") (web/notice req) told
+  view = views/account_shown_view u.email (list/to_list held_keys) c notice
+  s = put (web/session req) "passkey" c
+  web/kept req (views/answer req 200 "Your account" view) s

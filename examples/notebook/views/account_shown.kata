@@ -1,0 +1,26 @@
+takes email held_keys challenge notice
+div.row.justify-content-center
+  div.col-md-8.col-lg-6
+    h1.mb-4 Your account
+    if notice != ""
+      p.notice = notice
+    p.mb-4.text-secondary Signed in as {email}
+    h2.h4.mb-3 Passkeys
+    if length held_keys == 0
+      p.text-secondary No passkeys yet. Add one to sign in without a password.
+    ul.list-group.mb-3
+      each held_keys k ->
+        li.list-group-item.d-flex.align-items-center.justify-content-between
+          span Passkey {k.id}
+          form method="post" action=(path_to "credentials/destroy" k.id)
+            input type="hidden" name="_method" value="DELETE"
+            button.btn.btn-link.text-secondary Remove
+    form.mb-5 method="post" action=(path_to "credentials/create") data-challenge=challenge
+      input type="hidden" name="email" value=email
+      button.btn.btn-primary data-passkey="create" Add a passkey on this device
+      p.problem data-passkey-said="said"
+    h2.h4.mb-3 Password
+    p.text-secondary A new password is chosen for you and shown once.
+    form method="post" action=(path_to "account/update")
+      input type="hidden" name="_method" value="PATCH"
+      button.btn.btn-outline-secondary Get a new password
