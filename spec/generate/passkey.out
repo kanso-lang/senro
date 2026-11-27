@@ -1,3 +1,5 @@
+/registration/new, using a password instead, asks for: email
+/session/new, using a password instead, asks for: email, password
 the sign-up form asks for: email
 making the account: Your account is made; We have mailed you a link to confirm your address. Follow it, then sign in with your passkey.
 the authenticator holds: 1 key, resident: true

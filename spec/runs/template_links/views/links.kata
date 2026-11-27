@@ -4,3 +4,5 @@ nav
   a href=(path_to "notes/show" note_id) the note
   a href=(path_to "pages/index" note_id) its pages
   a href=(path_to "pages/show" note_id id) one page
+  a href="{path_to "notes/index"}?sort=new" newest first
+  span title="{"quoted"}" a hole that holds a string

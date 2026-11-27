@@ -48,7 +48,8 @@ ol.entries
 - `tag.class#id` is shorthand, and a bare `.class` or `#id` means a `div`. A
   `class` attribute is joined onto the shorthand's classes.
 - Attributes are `name="text"`, where the text may hold `{expr}`, or
-  `name=expr` for a value.
+  `name=expr` for a value. A hole is kanso, so its own strings may hold
+  quotes: `title="{text/upcase "new"}"`.
 - A link names its route as an action does: `a href=(path_to "notes/show"
   r.id)`. kata writes the path while it derives the view, here
   `href="/notes/{r.id}"`, spelling it by the convention the routes are
@@ -63,6 +64,10 @@ ol.entries
   `spec/errors/a_template_link_by_another_name`). A stored file is
   `src=(blob_path e.photo)`. A link to another page of the same list names
   only its query, `href="?page={number + 1}"`, which keeps the page's path.
+- A path with more after it is a `{path_to ...}` hole in a quoted value:
+  `a href="{path_to "session/new"}?with=password"` is written
+  `href="/session/new?with=password"`, and is held to the routes the same
+  way.
 - `= expr` writes a value escaped and `== expr` writes it raw. Text after a
   tag or a `|` may hold `{expr}`, also escaped. `\{` is a brace. A value
   that may be none, such as a map's entry, writes nothing under `=`.
