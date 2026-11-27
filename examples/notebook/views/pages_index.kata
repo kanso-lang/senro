@@ -1,14 +1,13 @@
 takes note_id rows number more
-header
-  h1 Pages
-  p.lede
-    a href=(path_to "pages/new" note_id) New page
-    a href=(path_to "notes/show" note_id) Back to the note
-ul.pages
+p.mb-2
+  a.text-secondary href=(path_to "notes/show" note_id) Back to the note
+div.d-flex.align-items-end.justify-content-between.mb-4
+  h1.mb-0 Pages
+  a.btn.btn-primary href=(path_to "pages/new" note_id) New page
+div.list-group
   each rows r ->
-    li
-      a href=(path_to "pages/show" note_id r.id) = r.body
-nav.pages
+    a.list-group-item.list-group-item-action.py-3 href=(path_to "pages/show" note_id r.id) = r.body
+nav.pages.mt-4.d-flex.gap-3
   if number > 1
     a href="?page={number - 1}" Previous page
   if more

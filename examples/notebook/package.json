@@ -1,0 +1,12 @@
+{
+  "name": "notebook",
+  "private": true,
+  "dependencies": {
+    "@fontsource-variable/inter": "5.1.1",
+    "@fontsource-variable/space-grotesk": "5.1.1",
+    "bootstrap": "5.3.3"
+  },
+  "devDependencies": {
+    "@jspm/generator": "2.18.0"
+  }
+}

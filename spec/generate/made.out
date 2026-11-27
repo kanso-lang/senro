@@ -4,6 +4,12 @@
   create spec/notebook/migrations/.keep
   create spec/notebook/views/layout.kata
   create spec/notebook/views/home.kata
+  create spec/notebook/.gitignore
+  create spec/notebook/package.json
+  create spec/notebook/javascript/application.js
+  create spec/notebook/stylesheets/application.css
+  create spec/notebook/stylesheets/theme.css
+  run  cd spec/notebook && npm install && senro js install
   create spec/notebook/note.kso
   create spec/notebook/notes.kso
   create spec/notebook/views/notes_index.kata

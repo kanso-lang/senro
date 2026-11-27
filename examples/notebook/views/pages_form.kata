@@ -1,13 +1,14 @@
 takes path method fields problems
-header
-  h1 Page
-  p.lede
-    a href=path Back
-form method="post" action=path
-  input type="hidden" name="_method" value=method
-  label
-    | body
-    input name="body" value=fields["body"]
-  if problems["body"] != none
-    p.problem = problems["body"]
-  button Save
+div.row
+  div.col-lg-7
+    p.mb-2
+      a.text-secondary href=path Back
+    h1.mb-4 Page
+    form method="post" action=path
+      input type="hidden" name="_method" value=method
+      div.mb-3
+        label.form-label for="body" body
+        input.form-control id="body" name="body" value=fields["body"]
+        if problems["body"] != none
+          p.problem = problems["body"]
+      button.btn.btn-primary Save

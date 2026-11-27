@@ -156,7 +156,10 @@ fn new_app true app
 # senro by its name, `kanso-lang/senro`, which `kanso install` fetches.
 fn new_app false app
   os/env "SENRO_HOME"
-    .> (home -> os/env "PWD" .> (here -> laid app (senro_from home here app)))
+    .> (home -> os/env "PWD" .> (here -> placed app home here))
+
+fn placed app home here
+  laid app home (senro_from home here app)
 
 fn senro_from none _ app
   up_from app
@@ -195,12 +198,25 @@ fn shared from to n
   return n if from[n + 1] != to[n + 1]
   shared from to (n + 1)
 
-fn laid app senro
+# After the files, what to run: `kanso install` for an app that imports
+# senro by name, and npm and `senro js install` for the packages its
+# stylesheet imports.
+fn laid app home senro
   name = last_of app
-  told = if (senro == by_name) "  run  kanso install {app}\n" ""
-  made_app app senro name .> (_ -> io/write told)
+  installed = if (senro == by_name) "  run  kanso install {app}\n" ""
+  told = "{installed}  run  cd {app} && npm install && senro js install\n"
+  made_app app (home_of home app senro) senro name .> (_ -> io/write told)
 
-fn made_app app senro name
+# Where senro's own files are, which `new` and `authentication` copy from:
+# SENRO_HOME, as the `senro` command sets it, or else the path the app
+# imports senro by, which is where senro is when the app is in its tree.
+fn home_of none app senro
+  "{app}/{senro}"
+
+fn home_of home _ _
+  home
+
+fn made_app app home senro name
   os/make_dir app
     .> (_ -> os/make_dir "{app}/views")
     .> (_ -> written "{app}/main.kso" (app/entry senro name))
@@ -208,8 +224,20 @@ fn made_app app senro name
     .> (_ -> written "{app}/home_test.kso" (specs/home senro))
     .> (_ -> os/make_dir "{app}/migrations")
     .> (_ -> written "{app}/migrations/.keep" "")
-    .> (_ -> written "{app}/views/layout.kata" app/layout)
+    .> (_ -> written "{app}/views/layout.kata" (app/layout name))
     .> (_ -> written "{app}/views/home.kata" app/home_view)
+    .> (_ -> written "{app}/.gitignore" "/node_modules/\n")
+    .> (_ -> written "{app}/package.json" (app/packages name))
+    .> (_ -> os/make_dir "{app}/javascript")
+    .> (_ -> written "{app}/javascript/application.js" app/script)
+    .> (_ -> os/make_dir "{app}/stylesheets")
+    .> (_ -> list/fold app/sheets (effect "") (sheet_then app home))
+
+fn sheet_then app home
+  (acc f -> acc .> (_ -> sheet_copied app home f))
+
+fn sheet_copied app home f
+  os/read_file "{home}/{app/sheets_source}/{f}" .> (t -> written "{app}/{f}" t)
 
 # Where an app that is there already keeps senro: the path its entry
 # imports `pg` by. An entry that imports none falls back to the way up from
@@ -605,11 +633,12 @@ fn copied app senro secret
   views = "{app}/views"
   os/is_dir views
     .> (there -> made_dir there views)
-    .> (_ -> list/fold auth/copied (effect "") (later app senro secret))
+    .> (_ -> os/env "SENRO_HOME")
+    .> (h -> list/fold auth/copied (effect "") (later app h senro secret))
 
-fn later app senro secret
-  (acc f -> acc .> (_ -> copy app senro secret f))
+fn later app h senro secret
+  (acc f -> acc .> (_ -> copy app (home_of h app senro) senro secret f))
 
-fn copy app senro secret f
-  os/read_file "{app}/{senro}/{auth/source}/{f}"
+fn copy app home senro secret f
+  os/read_file "{home}/{auth/source}/{f}"
     .> (t -> written "{app}/{f}" (auth/localized t senro secret))

@@ -1,0 +1,148 @@
+/* Bootstrap's variables, set to the palette of kanso-lang's site: warm
+   paper, near-black ink, one vermilion accent, and hairline borders. Space
+   Grotesk sets the headings and Inter the text. The dark half follows the
+   system's setting. The app owns this file; change a color here and every
+   page follows. */
+:root {
+  --paper: #fcfbf7;
+  --surface: #ffffff;
+  --ink: #17161b;
+  --muted: #6a6871;
+  --line: #e7e4dc;
+  --accent: #f03a00;
+  --accent-hover: #c93000;
+  --accent-rgb: 240, 58, 0;
+  --accent-soft: rgba(240, 58, 0, 0.08);
+  --display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, sans-serif;
+
+  --bs-body-font-family: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --bs-body-font-size: 1rem;
+  --bs-body-line-height: 1.6;
+  --bs-body-bg: var(--paper);
+  --bs-body-color: var(--ink);
+  --bs-emphasis-color: var(--ink);
+  --bs-secondary-color: var(--muted);
+  --bs-tertiary-bg: var(--surface);
+  --bs-border-color: var(--line);
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-lg: 0.75rem;
+  --bs-primary: var(--accent);
+  --bs-primary-rgb: var(--accent-rgb);
+  --bs-link-color: var(--ink);
+  --bs-link-color-rgb: 23, 22, 27;
+  --bs-link-hover-color: var(--accent);
+  --bs-link-hover-color-rgb: var(--accent-rgb);
+  --bs-focus-ring-color: var(--accent-soft);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #0c0c0f;
+    --surface: #121217;
+    --ink: #eceae3;
+    --muted: #94929c;
+    --line: #232229;
+    --accent: #ff5a2e;
+    --accent-hover: #ff7a52;
+    --accent-rgb: 255, 90, 46;
+    --accent-soft: rgba(255, 90, 46, 0.12);
+    --bs-link-color-rgb: 236, 234, 227;
+  }
+}
+
+h1, h2, h3, h4, .navbar-brand {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+.navbar {
+  --bs-navbar-brand-color: var(--ink);
+  --bs-navbar-brand-hover-color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.navbar-brand {
+  font-size: 1.35rem;
+}
+
+.card {
+  --bs-card-bg: var(--surface);
+  --bs-card-border-color: var(--line);
+  box-shadow: 0 1px 2px rgba(23, 22, 27, 0.04);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+  padding: 0.65rem 0.85rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.25rem var(--accent-soft);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-bg: var(--accent-hover);
+  --bs-btn-active-border-color: var(--accent-hover);
+  --bs-btn-focus-shadow-rgb: var(--accent-rgb);
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.problem {
+  color: var(--accent);
+  font-size: 0.9rem;
+  margin-top: 0.35rem;
+}
+
+.notice {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.list-group {
+  --bs-list-group-bg: var(--surface);
+  --bs-list-group-border-color: var(--line);
+  --bs-list-group-action-hover-bg: var(--accent-soft);
+}
+
+/* A password the app chose, shown once. It stays on one line, since a
+   break at one of its hyphens would read as a line's end, and scrolls on a
+   screen too narrow for it. */
+.password {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 1.25rem;
+  color: var(--ink);
+  user-select: all;
+}

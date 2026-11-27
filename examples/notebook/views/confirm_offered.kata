@@ -1,7 +1,10 @@
 takes path email
-header
-  h1 Confirm your address
-form method="post" action=path
-  input type="hidden" name="_method" value="PATCH"
-  p.lede = email
-  button Confirm it
+div.row.justify-content-center
+  div.col-md-7.col-lg-5
+    h1.mb-4 Confirm your address
+    div.card
+      div.card-body.p-4
+        form method="post" action=path
+          input type="hidden" name="_method" value="PATCH"
+          p.lede = email
+          button.btn.btn-primary.w-100 Confirm it
