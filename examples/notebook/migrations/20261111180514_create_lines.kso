@@ -1,0 +1,11 @@
+import "../../../models"
+
+pub create_lines = [
+  lines_table
+  (models/add_foreign_key "lines" "page_id" "pages")
+]
+
+lines_table = models/create_table "lines" [
+  (models/column "words" "text")
+  (models/column "page_id" "integer not null")
+]

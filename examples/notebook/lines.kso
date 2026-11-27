@@ -1,0 +1,161 @@
+import "../../models"
+import "../../routes"
+import "../../web"
+import "./line"
+import "./page"
+import "./views"
+import "std/list"
+import "std/net/http"
+
+# A row of `lines` belongs to a page, so each action takes the page's id and
+# the routes nest under it: `index` answers GET /pages/:page_id/lines. A row
+# is found only under its own page, and a page that is not there has none to
+# list or make.
+pub fn index req db page_id:int
+  number = models/page_number (web/value (web/query req) "page")
+  asked = line/paged db "page_id" page_id number per_page
+  page/find db page_id .> (found -> listed req found asked)
+
+# How many rows a page of the list shows.
+per_page = 25
+
+pub fn show req db page_id:int id:int
+  under db page_id id .> (r -> effect (shown req r))
+
+pub fn new req db page_id:int
+  path = listed_path page_id
+  within db page_id (effect (form req path "POST" blank {} 200))
+
+pub fn create req db page_id:int
+  given = put (picked (web/input req)) "page_id" "{page_id}"
+  making = line/create db given
+  made_of = (w -> effect (made req page_id w))
+  within db page_id (making .> made_of)
+
+pub fn edit req db page_id:int id:int
+  under db page_id id .> (r -> effect (editing req page_id id r))
+
+pub fn update req db page_id:int id:int
+  given = picked (web/input req)
+  under db page_id id
+    .> (r -> updating db id given r)
+    .> (w -> effect (changed req page_id id w))
+
+pub fn destroy _ db page_id:int id:int
+  under db page_id id
+    .> (r -> removing db id r)
+    .> (w -> effect (gone page_id w))
+
+# A page of the page's rows, or a 404 when it is not there.
+fn listed _ none _
+  effect http/not_found
+
+fn listed req parent asked
+  asked .> (p -> effect (listing req parent p))
+
+# `then` when the page is there, and a 404 when it is not.
+fn within db id then
+  page/find db id .> (found -> held found then)
+
+fn held none _
+  effect http/not_found
+
+fn held _ then
+  then
+
+# The row with this id under this page, or none.
+fn under db page_id id
+  line/find db id .> (r -> effect (owned page_id r))
+
+fn owned _ none
+  none
+
+fn owned page_id r
+  if ("{r.page_id}" == "{page_id}") r none
+
+# A write to a row under another page finds nothing.
+fn updating _ _ _ none
+  effect web/absent
+
+fn updating db id given _
+  line/update db id given
+
+fn removing _ _ none
+  effect web/absent
+
+fn removing db id _
+  line/destroy db id
+
+fn listed_path page_id
+  routes/path_to "lines/index" page_id
+
+fn shown_path page_id id
+  routes/path_to "lines/show" page_id id
+
+fn listing req parent p
+  as_json = line/line_attributes
+  mapped = list/to_list (list/map p.rows as_json)
+  return web/json 200 mapped if web/wants_json? req
+  page = views/lines_index_view parent.note_id parent.id p.rows p.number p.more
+  views/answer req 200 "Lines" page
+
+fn shown _ none
+  http/not_found
+
+fn shown req record
+  attributes = line/line_attributes record
+  return web/json 200 attributes if web/wants_json? req
+  page = views/lines_show_view record
+  views/answer req 200 "Line" page
+
+fn editing _ _ _ none
+  http/not_found
+
+fn editing req page_id id record
+  form req (shown_path page_id id) "PATCH" (filled record) {} 200
+
+fn made req page_id w:models/invalid
+  path = listed_path page_id
+  form req path "POST" (filled w.record) w.problems 422
+
+fn made _ _ w:web/denied
+  web/refusal w
+
+fn made _ page_id w
+  web/redirect (shown_path page_id w.id)
+
+fn changed req page_id id w:models/invalid
+  path = shown_path page_id id
+  form req path "PATCH" (filled w.record) w.problems 422
+
+fn changed _ _ _ w:web/denied
+  web/refusal w
+
+fn changed _ _ _ w:web/absent
+  web/refusal w
+
+fn changed _ page_id id _
+  web/redirect (shown_path page_id id)
+
+fn gone _ w:web/denied
+  web/refusal w
+
+fn gone _ w:web/absent
+  web/refusal w
+
+fn gone page_id _
+  web/redirect (listed_path page_id)
+
+# The form a line is made and changed with: its fields as typed, and the
+# problem with each, if any.
+fn form req path method fields problems code
+  page = views/lines_form_view path method fields problems
+  views/answer req code "Line" page
+
+blank = { "words":"" }
+
+fn filled r
+  { "words":"{r.words}" }
+
+fn picked f
+  { "words":(web/value f "words") }

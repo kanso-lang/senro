@@ -28,6 +28,15 @@
   change spec/notebook/given.kso
   create spec/notebook/migrations/20261111180513_create_pages.kso
   change spec/notebook/main.kso
+  create spec/notebook/line.kso
+  create spec/notebook/lines.kso
+  create spec/notebook/views/lines_index.kata
+  create spec/notebook/views/lines_show.kata
+  create spec/notebook/views/lines_form.kata
+  create spec/notebook/lines_test.kso
+  change spec/notebook/given.kso
+  create spec/notebook/migrations/20261111180514_create_lines.kso
+  change spec/notebook/main.kso
   create spec/notebook/account_mailer.kso
   create spec/notebook/confirmations.kso
   create spec/notebook/registration.kso
@@ -42,13 +51,13 @@
   create spec/notebook/views/reset_asked.kata
   create spec/notebook/views/reset_chosen.kata
   create spec/notebook/views/unlock_offered.kata
-  create spec/notebook/migrations/20261111180514_create_users.kso
+  create spec/notebook/migrations/20261111180515_create_users.kso
   change spec/notebook/main.kso
   create spec/notebook/reading.kso
   create spec/notebook/readings.kso
   create spec/notebook/readings_test.kso
   change spec/notebook/given.kso
-  create spec/notebook/migrations/20261111180515_create_readings.kso
+  create spec/notebook/migrations/20261111180516_create_readings.kso
   change spec/notebook/main.kso
 generate: spec/notebook/readings.kso is there already
 generate: cannot make a resource of that: `cover` is an attachment, which `scaffold` writes; a resource's fields are text and int
