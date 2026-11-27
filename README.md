@@ -230,6 +230,16 @@ is counted and stamped with its time and address, as Devise's trackable
 does. `locks_after` and `locked_minutes` in `session.kso` set the two
 numbers, and the `users` migration holds the columns (`accounts/columns`).
 
+Sign-up and the reset form each send a letter, so they are where a program
+making accounts by the thousand does harm. Each lets one client in ten
+times an hour and every client together a hundred times a day
+(`rate_limits` and `everyone_limits`). The sign-up form holds a field a
+person never sees, `website`; a program that fills every field fills it,
+and is answered as if its account were made, with nothing made and nothing
+mailed. With Cloudflare Turnstile's keys set, both forms also show its
+widget, and an answer Cloudflare does not take for a person's is asked
+again (`bots`).
+
 The files are copied from `generate/authentication`, which
 holds them as an app two directories below senro would.
 
@@ -473,8 +483,11 @@ handed the event's `detail` as text (kata/README.md, Components).
   route is refused at the call. `web/moved_to`
   answers where a request `web/matched` found is redirected. A module that
   lets one client call an action only so often declares `pub rate_limits`,
-  as in `{ "create":"10 per 3 minutes" }`. The server counts each client's
-  calls by its address, in memory, and answers a call past the limit with
+  as in `{ "create":"10 per 3 minutes" }`, and one that caps every client
+  together declares `pub everyone_limits` the same way, as in
+  `{ "create":"100 per day" }` (`spec/serve/everyone_limited`). The server
+  counts each client's calls by its address, in memory, and answers a call
+  past the limit with
   429 Too Many Requests before it reaches the action, or with what the
   module's `over_limit req` answers when it writes one. Once it holds more
   than `web/sweep_past` clients it forgets those whose calls have all aged
@@ -860,6 +873,20 @@ handed the event's `detail` as text (kata/README.md, Components).
   Attestation is neither asked for nor checked. `spec/runs/passkeys` holds
   a registration and a sign-in made with a real key by
   `spec/runs/passkeys/cases.py`, and each with one thing wrong.
+- `bots`: Cloudflare Turnstile, for a form a program could fill by the
+  thousand. `bots/site_key` is the key from `TURNSTILE_SITE_KEY`, or "",
+  for a widget written as `div.cf-turnstile` with `data-sitekey` and
+  `data-owned-by="turnstile"`; senro's page script loads Cloudflare's
+  script when a page has one and draws each widget, which puts a token in
+  its form as `cf-turnstile-response`, and draws it again after the form
+  is sent, since a token answers one check. `bots/verified req form`
+  posts the token, the client's address and `TURNSTILE_SECRET_KEY` to
+  Cloudflare's siteverify and answers whether it said success. Without a
+  secret key every form passes, as in development and in an app's specs.
+  `TURNSTILE_VERIFY`, as `host:port/path`, names another server to ask in
+  the clear: `spec/serve/bot_checked` answers with a stand-in, and
+  `spec/generate/turnstile.mjs` drives the generated app's forms in
+  Chromium with Cloudflare stood in for.
 - `cbor`: CBOR (RFC 8949) read, as much as WebAuthn writes: integers, byte
   strings as `cbor/octets`, text, arrays, maps, booleans and null.
   `cbor/decoded bytes` answers the one value the bytes hold, or none. Tags,

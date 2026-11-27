@@ -1,4 +1,4 @@
-takes path email problems notice signing_in challenge by_password
+takes path email problems notice signing_in challenge by_password bot_key
 div.row.justify-content-center
   div.col-md-7.col-lg-5
     if signing_in
@@ -16,6 +16,14 @@ div.row.justify-content-center
               input.form-control id="email" type="email" name="email" required="required" value=email
               if problems["email"] != none
                 p.problem = problems["email"]
+            if not signing_in
+              div.honey aria-hidden="true"
+                label for="website" Website
+                input id="website" name="website" tabindex="-1" autocomplete="off"
+              if bot_key != ""
+                div.cf-turnstile.mb-3 data-sitekey=bot_key data-owned-by="turnstile"
+              if problems["bot"] != none
+                p.problem = problems["bot"]
             if signing_in
               div.mb-4
                 label.form-label for="password" Password
@@ -34,6 +42,13 @@ div.row.justify-content-center
                 input.form-control id="email" type="email" name="email" required="required" value=email
                 if problems["email"] != none
                   p.problem = problems["email"]
+                div.honey aria-hidden="true"
+                  label for="website" Website
+                  input id="website" name="website" tabindex="-1" autocomplete="off"
+                if bot_key != ""
+                  div.cf-turnstile.mb-3 data-sitekey=bot_key data-owned-by="turnstile"
+                if problems["bot"] != none
+                  p.problem = problems["bot"]
               button.btn.btn-primary.w-100 data-passkey="create" Make it with a passkey
             if signing_in
               button.btn.btn-primary.w-100 data-passkey="get" Sign in with a passkey

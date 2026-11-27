@@ -1,3 +1,4 @@
+import "../../bots"
 import "../../models"
 import "../../passkeys"
 import "../../passwords"
@@ -18,6 +19,10 @@ pub without_sign_in = ["create" "new"]
 # told apart by its address (behind a proxy, the one the proxy names).
 pub rate_limits = { "create":"10 per hour" }
 
+# And every client together makes at most a hundred a day, so a swarm of
+# addresses cannot send more letters than the mail account takes.
+pub everyone_limits = { "create":"100 per day" }
+
 # The form offers a passkey first (kanso#2515). `?with=password` offers a
 # password instead, which the app chooses, for a visitor whose device has
 # no authenticator.
@@ -29,11 +34,25 @@ pub fn new req _
 # answered, when the answer checks. Otherwise the app chooses a password,
 # three words with a number and symbols, and shows it once. The address is
 # looked up first, so a sign-up that cannot succeed costs no hashing.
+#
+# The form holds a field a person never sees, `website`. A program that
+# fills every field fills it too, and is answered as if its account were
+# made, with nothing made and nothing mailed. A program that leaves it
+# alone still has to pass Turnstile (`bots`), when the app has its keys.
 pub fn create req db
   f = web/input req
+  return effect (made_with_key req) if web/value f "website" != ""
   email = text/lowercase (text/trim (web/value f "email"))
+  bots/verified req f .> (person -> checked req db email f person)
+
+fn checked req _ email _ false
+  opened req email { "bot":not_a_person } 422
+
+fn checked req db email f true
   user/find_by db "email" email
     .> (held -> joined req db email (held != none) f)
+
+not_a_person = "We could not tell that a person sent this. Try again."
 
 fn joined req db email taken f
   found = models/problems [
@@ -137,12 +156,12 @@ fn said s
 # field, if any. A password is never sent back. Each showing makes a new
 # challenge for a passkey, kept in the session for the answer to match.
 fn opened req email problems code
-  by_password = web/value (web/query req) "with" == "password"
   passkeys/challenge
-    .> (c -> effect (offered req email problems code c by_password))
+    .> (c -> bots/site_key .> (k -> offered req email problems code c k))
 
-fn offered req email problems code c pw
+fn offered req email problems code c key
+  pw = web/value (web/query req) "with" == "password"
   to = routes/path_to "registration/create"
-  page = views/door_view to email problems "" false c pw
+  page = views/door_view to email problems "" false c pw key
   s = put (web/session req) "passkey" c
-  web/kept req (views/answer req code "Make an account" page) s
+  effect (web/kept req (views/answer req code "Make an account" page) s)

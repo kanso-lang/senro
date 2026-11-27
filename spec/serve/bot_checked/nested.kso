@@ -1,0 +1,31 @@
+import "std/list"
+import "std/net"
+import "std/net/http"
+import "std/text"
+
+# Three forms sent to a door that asks Turnstile, through the stand-in in
+# checks.kso, whether a person sent each: one with the token a person's
+# widget made, one with a token the check refuses, and one with none.
+pub fn index _ _
+  sent "cf-turnstile-response=person"
+    .> (a -> sent "cf-turnstile-response=robot" .> (b -> effect [a b]))
+    .> (xs -> sent "" .> (c -> said (push xs c)))
+
+fn sent body
+  net/dial "127.0.0.1" 24426 .> (c -> sending c body)
+
+fn sending c body
+  kind = "content-type: application/x-www-form-urlencoded"
+  head = "POST /door HTTP/1.1\r\nhost: localhost\r\n{kind}"
+  size = "content-length: {length (text/bytes body)}"
+  net/write c "{head}\r\n{size}\r\n\r\n{body}"
+    .> (_ -> net/read c)
+    .> (raw -> net/close_conn c .> (_ -> effect (heard raw)))
+
+fn said answers
+  effect (http/text_page (text/join (list/to_list answers) "\n"))
+
+fn heard raw
+  parts = text/split raw "\r\n\r\n"
+  return "" if length parts < 2
+  text/trim parts[2]

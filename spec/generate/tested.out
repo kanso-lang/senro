@@ -41,12 +41,13 @@ test_readings ... ok
 signing in
   is asked of a stranger
   waits for the address to be confirmed
+  is not begun by a program that fills every field
   with an account
     opens the app
     is over once the visitor signs out
     takes the address and password again
     refuses a wrong password
 
-6 examples, 0 failed
+7 examples, 0 failed
 test_signing_in ... ok
 6 passed, 0 failed

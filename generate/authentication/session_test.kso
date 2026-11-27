@@ -22,6 +22,7 @@ test_signing_in = describe "signing in" [
   around (visit/within signed connected)
   it "is asked of a stranger" turned_back
   it "waits for the address to be confirmed" held_back
+  it "is not begun by a program that fills every field" trapped
   context "with an account" [
     before joined
     it "opens the app" opened
@@ -33,6 +34,13 @@ test_signing_in = describe "signing in" [
 
 fn turned_back v
   visit/get v "/" .> (v -> effect (expect (visit/location v) . to (equal door)))
+
+# The sign-up form's hidden field, filled as a program fills every field:
+# no account is made, so nothing is mailed.
+fn trapped v
+  visit/post v "/registration" { "email":address "website":"spam.example" }
+    .> (v -> visit/mailed v)
+    .> (letters -> effect (expect (length letters) . to (equal 0)))
 
 fn held_back v
   signed_up v address
