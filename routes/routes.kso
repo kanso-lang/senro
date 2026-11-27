@@ -73,7 +73,7 @@ pub type old_path
 # A module that lets one client call an action only so often declares
 # `rate_limits`, a map from the action's name to a count per a window, as
 # Rails' `rate_limit` reads: `{ "create": "10 per 3 minutes" }`. The window
-# is a number of seconds, minutes or hours, and "per minute" means one. A
+# is a number of seconds, minutes, hours or days, and "per minute" means one. A
 # limit names an action of its own module and reads as a count per a window,
 # or it is refused at the declaration. The table carries the count and the
 # window in milliseconds beside the action. A call past the limit is answered
@@ -382,7 +382,8 @@ fn bounded base found
   put base "limit" found
 
 fn limits_in acc m
-  limits_from acc m m.constants["rate_limits"]
+  own = limits_from acc m m.constants["rate_limits"]
+  everyone_from own m m.constants["everyone_limits"]
 
 fn limits_from acc _ none
   acc
@@ -390,8 +391,47 @@ fn limits_from acc _ none
 fn limits_from acc m given
   list/fold (entries given) acc (a e -> limit_of a m e.key e.value)
 
+# `everyone_limits` counts an action's calls from every client together, as
+# a site-wide cap: `{ "create":"100 per day" }`. It is read as `rate_limits`
+# is, and kept beside the action's limit for one client, if any.
+fn everyone_from acc _ none
+  acc
+
+fn everyone_from acc m given
+  list/fold (entries given) acc (a e -> everyone_of a m e.key e.value)
+
+fn everyone_of acc m name said
+  read = limit_named (limits {} []) m name said "everyone_limits"
+  key = "{m.name}/{name}"
+  return limits acc.by (list/concat acc.refused read.refused) if not ok? read
+  merged acc key read.by[key]
+
+fn ok? read
+  length read.refused == 0
+
+fn merged acc _ none
+  acc
+
+fn merged acc key one
+  base = or_keyed acc.by[key] key
+  all = put (put base "all_count" one["count"]) "all_within" one["within"]
+  limits (put acc.by key (over_kept all one)) acc.refused
+
+fn or_keyed none key
+  { "key":key }
+
+fn or_keyed l _
+  l
+
+fn over_kept l one
+  return l if one["over"] == none
+  put l "over" one["over"]
+
 fn limit_of acc m name said
-  origin = "{m.name}/rate_limits"
+  limit_named acc m name said "rate_limits"
+
+fn limit_named acc m name said constant
+  origin = "{m.name}/{constant}"
   acts = list/any? m.functions (f -> acting? m f name)
   stray = "`{name}` is not an action of `{m.name}`"
   return limit_refused acc origin stray if not acts
@@ -438,6 +478,12 @@ fn unit_ms "hour"
 
 fn unit_ms "hours"
   3600000
+
+fn unit_ms "day"
+  86400000
+
+fn unit_ms "days"
+  86400000
 
 fn unit_ms _
   0
