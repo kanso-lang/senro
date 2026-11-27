@@ -1,0 +1,21 @@
+import "../../../passwords"
+import "std/list"
+import "std/text"
+
+# `n` passwords from the system's source, and what they show.
+pub fn many n
+  times = list/take (list/repeat 0) n
+  step = (acc _ -> acc .> (got -> one got))
+  list/fold times (effect []) step .> (all -> print (told all))
+
+fn one got
+  passwords/chosen .> (p -> effect (push got p))
+
+fn told all
+  distinct = length (keys (list/fold all {} (acc p -> put acc p true)))
+  capital = list/to_list (list/select all (p -> capitals p == 1))
+  "{length all} drawn, {distinct} distinct, {length capital} with one capital"
+
+fn capitals p
+  upper = list/to_list (list/select (text/chars p) (c -> c != text/lowercase c))
+  length upper
