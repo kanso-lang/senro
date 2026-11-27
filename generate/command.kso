@@ -617,17 +617,28 @@ fn signing app main names
   senro = senro_in main (up_from app)
   entry = auth/entry_signed main
   held = migration/holding names "create_users"
+  passkeys_held = migration/holding names "create_credentials"
   odd = "{app}/main.kso no longer serves as `new` wrote it"
   return refused odd if entry == none
   return refused "{app}/migrations/{held} is there already" if held != ""
+  there = "{app}/migrations/{passkeys_held} is there already"
+  return refused there if passkeys_held != ""
   os/random_bytes 32
     .> (b -> copied app senro (auth/secret_of b))
     .> (_ -> stamped app names "create_users" (users_made senro))
+    .> (_ -> migrations_in app)
+    .> (now -> stamped app now "create_credentials" (credentials_made senro))
     .> (_ -> changed "{app}/main.kso" (said entry))
 
 fn users_made senro
   fields = scaffold/fields_of auth/fields
   migration/create_with senro "users" fields accounts/columns
+
+# An account's passkeys, each its credential id and its public key's two
+# coordinates in hex, with the count of signatures it last reported.
+fn credentials_made senro
+  fields = scaffold/fields_of auth/credential_fields
+  migration/create_with senro "credentials" fields []
 
 fn copied app senro secret
   views = "{app}/views"

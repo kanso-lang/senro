@@ -55,6 +55,51 @@ type head
 pub fn expecting asked origin rp_id
   expected asked origin rp_id
 
+# What a ceremony answering `asked` must match for the request it came
+# with: the origin SENRO_URL names, as mail links use, or else the one the
+# request was sent to, its Host with https when the proxy in front says so;
+# and that origin's host as the relying party's id. WebAuthn takes a host
+# name and not an address, so an app tried on its own machine is visited
+# at localhost.
+pub fn expected_for req asked
+  os/env "SENRO_URL" .> (u -> effect (at_origin (origin_of u req) asked))
+
+fn origin_of none req
+  host = header req "host"
+  scheme = if (header req "x-forwarded-proto" == "https") "https" "http"
+  "{scheme}://{host}"
+
+fn origin_of "" req
+  origin_of none req
+
+fn origin_of u _
+  u
+
+fn header req name
+  said req.headers[name]
+
+fn said none
+  ""
+
+fn said s
+  s
+
+fn at_origin origin asked
+  expected asked origin (host_of origin)
+
+# The host an origin names: what follows the scheme, up to a port.
+fn host_of origin
+  rest = after_scheme (text/split origin "://")
+  first_of (text/split rest ":")
+
+fn after_scheme parts
+  return "" if length parts < 2
+  parts[2]
+
+fn first_of parts
+  return "" if length parts < 1
+  parts[1]
+
 # A credential as the app kept it: its id, its key's coordinates, and the
 # count its last sign-in reported.
 pub fn kept id x y counter

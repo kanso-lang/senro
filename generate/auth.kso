@@ -14,12 +14,14 @@ import "std/text"
 pub copied = [
   "account_mailer.kso"
   "confirmations.kso"
+  "credential.kso"
   "registration.kso"
   "resets.kso"
   "session.kso"
   "session_test.kso"
   "unlocks.kso"
   "user.kso"
+  "views/account_made.kata"
   "views/confirm_offered.kata"
   "views/door.kata"
   "views/password_shown.kata"
@@ -30,7 +32,15 @@ pub copied = [
 
 # The modules of those the entry imports: the five resources, and the
 # model, which a derivation reads only when the entry names it.
-imported = ["confirmations" "registration" "resets" "session" "unlocks" "user"]
+imported = [
+  "confirmations"
+  "credential"
+  "registration"
+  "resets"
+  "session"
+  "unlocks"
+  "user"
+]
 
 pub source = "generate/authentication"
 
@@ -49,6 +59,15 @@ pub fn secret_of bytes
 
 # The fields of the `users` table, as `scaffold` reads them.
 pub fields = ["email:text:uniq" "digest:text"]
+
+# The fields of the `credentials` table, an account's passkeys.
+pub credential_fields = [
+  "user:references"
+  "key_id:text:uniq"
+  "x:text"
+  "y:text"
+  "counter:int"
+]
 
 # The entry `generate new` wrote, signed: every action asks for a sign-in
 # unless its module says otherwise. None when the entry no longer reads as

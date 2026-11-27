@@ -487,11 +487,22 @@ else
       tries=$((tries + 1))
     done
     got=$(sh spec/generate/drive.sh 3000 "$outbox" 2>&1)
+    # A passkey made, confirmed and signed in with in Chromium, whose
+    # virtual authenticator stands in for a device's
+    # (spec/generate/passkey.mjs), as spec/generate/passkey.out says.
+    keyed=$(node spec/generate/passkey.mjs 3000 "$outbox" 2>&1)
     pkill -P "$server" 2>/dev/null
     kill "$server" 2>/dev/null
     wait "$server" 2>/dev/null
     if [ "${SPEC_WRITE:-}" = 1 ] && [ "$engine" = native ]; then
       printf '%s\n' "$got" > spec/generate/served.out
+      printf '%s\n' "$keyed" > spec/generate/passkey.out
+    fi
+    if printf '%s\n' "$keyed" | diff spec/generate/passkey.out - >/dev/null; then
+      note "ok: a passkey signs in to the generated app ($engine)"
+    else
+      bad "a passkey signs in to the generated app ($engine)"
+      printf '%s\n' "$keyed" | diff spec/generate/passkey.out -
     fi
     if printf '%s\n' "$got" | diff spec/generate/served.out - >/dev/null; then
       note "ok: the generated app serves ($engine)"
