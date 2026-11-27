@@ -1,0 +1,19 @@
+import "../../../passwords"
+import "./drawn"
+import "std/list"
+
+# The list is the EFF's whole large list. Bytes of the spec's own spell one
+# password exactly: all zeros give the first word three times, the first
+# capitalized and numbered 10, joined by the first symbol. Then two hundred
+# passwords drawn from the system all differ, and each has one capital
+# letter, since every word on the list is lower case.
+zeros = list/to_list (list/take (list/repeat 0) 38)
+
+words = passwords/listed
+
+ones = list/to_list (list/take (list/repeat 1) 38)
+
+print "{length words} words, {words[1]} to {words[7776]}"
+print (passwords/chosen_from zeros)
+print (passwords/chosen_from ones)
+drawn/many 200

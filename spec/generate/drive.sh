@@ -52,17 +52,28 @@ jsonned() { sed -E 's/"(id|note_id)":[0-9]+/"\1":N/g; s/"(created|updated)_at":"
 # there.
 told() { c "$at/session/new" | grep -o '<p class="notice">[^<]*' | sed 's/.*>//'; }
 sent() { c -o /dev/null -w "%{http_code} to %{redirect_url}\n" -d "$2" "$at$1" | sed "s|$at||" | ids; }
+# The password a page shows once, which the app chose (kanso#2515), and
+# whether it has the shape the app gives one: three words, one capitalized,
+# joined by symbols, with a number after one.
+shown() { grep -o '<code class="password">[^<]*' | sed 's/.*>//'; }
+shaped() {
+  echo "$1" | grep -qE '^[a-zA-Z-]+[0-9]*[-.!#+=?@][a-zA-Z-]+[0-9]*[-.!#+=?@][a-zA-Z-]+[0-9]*$' &&
+    echo "$1" | grep -qE '[A-Z]' && echo "$1" | grep -qE '[0-9]{2}' && echo yes || echo no
+}
+# A sign-in with the address and the password `$1`, which may hold symbols
+# a form encodes.
+signed() { c -o /dev/null -w "%{http_code} to %{redirect_url}\n" -d "email=$email" --data-urlencode "password=$1" "$at/session" | sed "s|$at||" | ids; }
 echo "not signed in: $(curl -s -o /dev/null -w "%{http_code} to %{redirect_url}" "$at/notes" | sed "s|$at||")"
-echo "a short password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=short" "$at/registration")"
-echo "making an account: $(sent /registration "email=$email&password=first-password")"
-echo "the same address again: $(curl -s -d "email=$email&password=first-password" "$at/registration" | grep -o 'That address has an account.')"
-early=$(c -w "\n%{http_code}" -d "email=$email&password=first-password" "$at/session")
+first=$(c -d "email=$email" "$at/registration" | shown)
+echo "making an account: a password is shown, of the chosen shape: $(shaped "$first")"
+echo "the same address again: $(curl -s -d "email=$email" "$at/registration" | grep -o 'That address has an account.')"
+early=$(c -w "\n%{http_code}" -d "email=$email" --data-urlencode "password=$first" "$at/session")
 echo "signing in before confirming: $(echo "$early" | tail -1) $(echo "$early" | grep -o 'Confirm your address first[^<]*')"
 confirm=$(linked "Confirm your address")
 echo "its confirmation page: $(c -o /dev/null -w "%{http_code}" "$at$confirm")"
 echo "confirming: $(sent "${confirm%/edit}" "_method=PATCH") $(told)"
 echo "the link again: $(sent "${confirm%/edit}" "_method=PATCH") $(told)"
-echo "signing in: $(sent /session "email=$email&password=first-password")"
+echo "signing in: $(signed "$first")"
 echo "the list: $(page /notes)"
 refused=$(c -w "\n%{http_code}" -d "title=First&pages=twelve" "$at/notes")
 echo "pages of twelve: $(echo "$refused" | tail -1) $(echo "$refused" | grep -o 'Give a whole number.')"
@@ -149,17 +160,18 @@ echo "a wrong password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&pass
 echo "asking for a link: $(sent /resets "email=$email")"
 link=$(linked "Reset your password")
 echo "its form: $(asked "$at$link")"
-echo "choosing a new one: $(asked -d "_method=PATCH&password=second-password" "$at${link%/edit}")"
+second=$(c -d "_method=PATCH" "$at${link%/edit}" | shown)
+echo "making a new one: a password is shown, of the chosen shape: $(shaped "$second")"
 echo "the link again: $(asked "$at$link")"
-echo "the old password: $(c -o /dev/null -w "%{http_code}" -d "email=$email&password=first-password" "$at/session")"
-echo "the new one: $(sent /session "email=$email&password=second-password")"
+echo "the old password: $(c -o /dev/null -w "%{http_code}" -d "email=$email" --data-urlencode "password=$first" "$at/session")"
+echo "the new one: $(signed "$second")"
 
 # Runs of wrong passwords. The sign-in above ended the run before it, so
 # four more leave the account open. Five in a row lock it: the right
 # password is then told so, and a wrong one is answered as ever. One
 # address may try ten times in three minutes, so each run here comes from
 # an address of its own.
-tried() { c --interface "$1" -o /dev/null -w "%{http_code}" -d "email=$email&password=$2" "$at/session"; }
+tried() { c --interface "$1" -o /dev/null -w "%{http_code}" -d "email=$email" --data-urlencode "password=$2" "$at/session"; }
 wrongs() {
   n=0
   while [ $n -lt "$2" ]; do
@@ -169,14 +181,14 @@ wrongs() {
 }
 c -o /dev/null -d "_method=DELETE" "$at/session"
 echo "four wrong passwords:$(wrongs 127.0.0.2 4)"
-echo "the right one then: $(tried 127.0.0.2 second-password)"
+echo "the right one then: $(tried 127.0.0.2 "$second")"
 c -o /dev/null -d "_method=DELETE" "$at/session"
 echo "five wrong passwords:$(wrongs 127.0.0.3 5)"
-shut=$(c --interface 127.0.0.3 -w "\n%{http_code}" -d "email=$email&password=second-password" "$at/session")
+shut=$(c --interface 127.0.0.3 -w "\n%{http_code}" -d "email=$email" --data-urlencode "password=$second" "$at/session")
 echo "the right one then: $(echo "$shut" | tail -1) $(echo "$shut" | grep -o 'This account is locked[^<]*')"
 echo "a wrong one then: $(tried 127.0.0.3 wrong)"
 unlock=$(linked "Unlock your account")
 echo "its unlock page: $(c -o /dev/null -w "%{http_code}" "$at$unlock")"
 echo "unlocking: $(sent "${unlock%/edit}" "_method=PATCH") $(told)"
-echo "the right one after: $(c --interface 127.0.0.3 -o /dev/null -w "%{http_code} to %{redirect_url}" -d "email=$email&password=second-password" "$at/session" | sed "s|$at||")"
+echo "the right one after: $(c --interface 127.0.0.3 -o /dev/null -w "%{http_code} to %{redirect_url}" -d "email=$email" --data-urlencode "password=$second" "$at/session" | sed "s|$at||")"
 rm -f "$jar"
