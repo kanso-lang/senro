@@ -1,0 +1,51 @@
+import "../../visit"
+import "./given"
+import "std/expect"
+import "std/spec"
+
+# The lines, asked for as a browser asks. `senro test` runs these against
+# the test database, and each example runs in a transaction that is rolled
+# back, so none of them sees what another wrote.
+test_lines = describe "lines" [
+  around (visit/within routes connected)
+  it "are listed" listed
+  it "are made from the form and shown" made
+  it "are changed from the form" changed
+  it "are gone once removed" removed
+]
+
+fn listed v
+  lines_path v
+    .> (at -> visit/get v at)
+    .> (v -> effect (expect v.status . to (equal 200)))
+
+fn made v
+  lines_path v
+    .> (at -> visit/post v at given/line)
+    .> (v -> visit/followed v)
+    .> (v -> effect (expect v.body . to (contain "milk")))
+
+fn changed v
+  lines_path v
+    .> (at -> visit/post v at given/line)
+    .> (v -> visit/patch v (visit/location v) edited)
+    .> (v -> visit/followed v)
+    .> (v -> effect (expect v.body . to (contain "bread")))
+
+fn removed v
+  lines_path v
+    .> (at -> visit/post v at given/line)
+    .> (v -> gone v (visit/location v))
+
+fn gone v at
+  visit/remove v at
+    .> (v -> visit/get v at)
+    .> (v -> effect (expect v.status . to (equal 404)))
+
+# A page for an example's lines to sit under, and the path to them.
+fn lines_path v
+  note/create v.db given/note
+    .> (g -> page/create v.db (put given/page "note_id" "{g.id}"))
+    .> (n -> effect "/pages/{n.id}/lines")
+
+edited = put given/line "words" "bread"

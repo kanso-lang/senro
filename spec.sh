@@ -290,7 +290,8 @@ fi
 
 note "== the generator writes examples/notebook, which checks and serves"
 # `generate new`, `generate scaffold` and `generate authentication` write an
-# app at spec/notebook, made afresh each run, and refuse a resource that is
+# app at spec/notebook, made afresh each run, with lines under pages under
+# notes, a resource nested two deep, and refuse a resource that is
 # there, a name or field they cannot read, a parent the app does not have,
 # and authentication twice or for no app. What they write must be
 # examples/notebook byte for byte, once the secret authentication made at
@@ -311,6 +312,7 @@ made=$({
   "$KANSO" run generate -- scaffold "$gen" note title:text pages:int \
     cover:attachment
   "$KANSO" run generate -- scaffold "$gen" page body:text note:references
+  "$KANSO" run generate -- scaffold "$gen" line words:text page:references
   "$KANSO" run generate -- authentication "$gen"
   "$KANSO" run generate -- resource "$gen" reading title:text minutes:int
   "$KANSO" run generate -- resource "$gen" reading title:text

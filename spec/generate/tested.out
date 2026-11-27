@@ -3,6 +3,14 @@ the home page
 
 1 example, 0 failed
 test_home ... ok
+lines
+  are listed
+  are made from the form and shown
+  are changed from the form
+  are gone once removed
+
+4 examples, 0 failed
+test_lines ... ok
 notes
   are listed
   are made from the form and shown
@@ -38,4 +46,4 @@ signing in
 
 6 examples, 0 failed
 test_signing_in ... ok
-5 passed, 0 failed
+6 passed, 0 failed

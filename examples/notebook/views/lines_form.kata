@@ -1,0 +1,14 @@
+takes path method fields problems
+div.row
+  div.col-lg-7
+    p.mb-2
+      a.text-secondary href=path Back
+    h1.mb-4 Line
+    form method="post" action=path
+      input type="hidden" name="_method" value=method
+      div.mb-3
+        label.form-label for="words" words
+        input.form-control id="words" name="words" value=fields["words"]
+        if problems["words"] != none
+          p.problem = problems["words"]
+      button.btn.btn-primary Save
