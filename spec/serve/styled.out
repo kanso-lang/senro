@@ -17,3 +17,8 @@ body { font-family: serif; }
 HTTP/1.1 404 Not Found
 
 not found
+
+--
+HTTP/1.1 200 OK
+content-type: font/woff2
+same bytes: true
