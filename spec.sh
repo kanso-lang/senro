@@ -361,17 +361,22 @@ fi
 # the list of generators with one the app ships, that generator, the app's
 # routes, and each thing the command refuses, ending with a job asked of an
 # entry that no longer finds jobs. The app must check as `new` leaves it
-# and with everything written. An app imports senro by the path from
-# wherever it is, so what is compared is what the command prints.
+# and with everything written. An app made outside senro imports senro by
+# its name, so the checks read a hako cache whose `kanso-lang/senro` is this
+# checkout, and they check the senro under test rather than a release.
 case "$KANSO" in
   */*) kanso_at=$(cd "$(dirname "$KANSO")" && pwd)/$(basename "$KANSO") ;;
   *) kanso_at=$(command -v "$KANSO") ;;
 esac
 senro="$PWD/bin/senro"
 cmd=$(mktemp -d)
+hako=$(mktemp -d)
+mkdir -p "$hako/kanso-lang"
+ln -s "$PWD" "$hako/kanso-lang/senro"
 ran=$(
   cd "$cmd"
   export KANSO="$kanso_at"
+  export KANSO_HAKO="$hako"
   {
     "$senro" new blog
     cd blog
@@ -422,7 +427,7 @@ ran=$(
     "$senro" g job sweep
   } 2>&1
 )
-rm -rf "$cmd"
+rm -rf "$cmd" "$hako"
 if [ "${SPEC_WRITE:-}" = 1 ]; then
   mkdir -p spec/command
   printf '%s\n' "$ran" > spec/command/ran.out

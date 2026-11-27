@@ -4,6 +4,7 @@
   create blog/migrations/.keep
   create blog/views/layout.kata
   create blog/views/home.kata
+  run  kanso install blog
 main.kso: ok
   create ./pages.kso
   create ./views/pages_index.kata

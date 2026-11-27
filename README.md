@@ -46,6 +46,7 @@ senro's command writes an app and its parts, as `rails` does. Put senro's
 ```
 senro new notebook
 cd notebook
+kanso install .
 senro generate scaffold note title:text pages:int cover:attachment
 senro generate scaffold page body:text note:references
 senro generate resource reading title:text minutes:int
@@ -59,6 +60,12 @@ senro routes
 senro migrate
 senro server
 ```
+
+An app made outside senro's own repository imports senro by its name,
+`kanso-lang/senro/web`, and `kanso install` fetches the release it pins
+into `hako.lock`. One made inside the repository, as `examples/notebook`
+is, imports senro by the path up to it. Every file a generator writes or
+changes keeps its imports in the order the formatter asks for.
 
 `senro generate` with nothing after it lists the generators. `g` is short
 for `generate` and `s` for `server`. `routes` lists every route the app
