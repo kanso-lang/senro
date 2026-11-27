@@ -6,7 +6,8 @@
 // with its cookies gone, signs in again, which moves the key's signature count. A passkey
 // the app does not know is refused. WebAuthn takes a host name and not an
 // address, so the page is visited at localhost. Prints what the visitor
-// sees, for spec.sh to compare with spec/generate/passkey.out. Run as:
+// sees, for spec.sh to compare with spec/generate/passkey.out. Each door
+// also offers a password to a visitor who asks for one. Run as:
 //
 //   node spec/generate/passkey.mjs <port> <outbox>
 import { createRequire } from "node:module";
@@ -56,9 +57,22 @@ async function mailTo(to, since) {
 const email = `passkey-${Date.now()}@example.test`;
 const { page, cdp, authenticatorId } = await visitor();
 
+const asks = (p) => p.evaluate(() =>
+  [...document.querySelectorAll("form input:not([type=hidden])")].map((i) => i.name).join(", "));
+
+// Each door offers a password, chosen by the app, to a visitor who follows
+// "Use a password instead".
+async function insteadOf(door) {
+  await page.goto(at(door));
+  await page.click("text=Use a password instead");
+  await page.waitForURL((u) => u.search === "?with=password");
+  console.log(`${door}, using a password instead, asks for: ${await asks(page) || "nothing"}`);
+}
+await insteadOf("/registration/new");
+await insteadOf("/session/new");
+
 await page.goto(at("/registration/new"));
-console.log(`the sign-up form asks for: ${await page.evaluate(() =>
-  [...document.querySelectorAll("form input:not([type=hidden])")].map((i) => i.name).join(", "))}`);
+console.log(`the sign-up form asks for: ${await asks(page)}`);
 await page.fill("input[name=email]", email);
 const since = mails().length;
 await page.click("button[data-passkey=create]");

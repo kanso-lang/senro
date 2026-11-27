@@ -7,6 +7,7 @@ import "./views"
 derive routes/rest
 derive kata/views
 
-# A template's links, written from the routes: a list, a row, and the two
-# beneath a note, whose paths take the note's id first.
+# A template's links, written from the routes: a list, a row, the two
+# beneath a note, whose paths take the note's id first, and a path with a
+# query after it, written inside a quoted value.
 print (views/links 3 4)

@@ -516,13 +516,28 @@ fn has? xs x
 pub fn takes src
   takes_of (rows_of src)
 
-# A quoted value is text, with `{expr}` holes like any other.
+# A quoted value is text, with `{expr}` holes like any other. It ends at
+# the first quote outside a hole, since a hole is kanso and its strings
+# hold quotes of their own: `href="{path_to "notes/index"}?sort=new"`.
 fn lettered value classes acc at o
-  pieces = text/split (after value 1) "\""
-  return acc if length pieces < 1
-  shut = lit (texted acc pieces[1] at) "\"" at
-  tail = text/join (list/to_list (list/drop pieces 1)) "\""
+  cs = text/chars (after value 1)
+  end = value_close cs 1 0 false
+  inside = text/join (list/to_list (list/take cs (end - 1))) ""
+  tail = text/join (list/to_list (list/drop cs end)) ""
+  shut = lit (texted acc inside at) "\"" at
   attributes tail classes shut at o
+
+# Where a quoted value closes, counting `{` and `}` outside the strings
+# inside its holes. Past the end when it never closes.
+fn value_close cs i depth inner
+  return i if i > length cs
+  c = cs[i]
+  return i if c == "\"" and depth == 0
+  return value_close cs (i + 2) depth inner if c == "\\"
+  return value_close cs (i + 1) depth (not inner) if c == "\""
+  return value_close cs (i + 1) (depth + 1) inner if c == "\{" and not inner
+  return value_close cs (i + 1) (depth - 1) inner if c == "}" and not inner
+  value_close cs (i + 1) depth inner
 
 fn first_word s
   ws = text/split s " "

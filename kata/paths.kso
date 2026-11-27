@@ -64,13 +64,50 @@ fn paths_of_lines lines i f acc
   next = pathed (push acc.source l.source) (list/concat acc.refused l.refused)
   paths_of_lines lines (i + 1) f next
 
-# A line's `=(path_to ...)` and `=(blob_path ...)` values. Any other value in
-# parentheses is left as it was written.
+# A line's `=(path_to ...)` and `=(blob_path ...)` values, and its
+# `{path_to ...}` holes. Any other value in parentheses is left as it was
+# written.
 fn line_paths line at
-  pieces = text/split line "=("
+  h = hole_paths line at
+  pieces = text/split h.source "=("
+  return h if length pieces < 2
+  start = pathed pieces[1] h.refused
+  list/fold (list/drop pieces 1) start (acc p -> path_piece acc p at)
+
+# A `{path_to ...}` hole in a quoted value is written out as the path it
+# stands for, so a path can carry more after it:
+# `href="{path_to "session/new"}?with=password"` is
+# `href="/session/new?with=password"`.
+fn hole_paths line at
+  pieces = text/split line "\{path_to "
   return pathed line [] if length pieces < 2
   start = pathed pieces[1] []
-  list/fold (list/drop pieces 1) start (acc p -> path_piece acc p at)
+  list/fold (list/drop pieces 1) start (acc p -> hole_piece acc p at)
+
+fn hole_piece acc p at
+  close = hole_end (text/chars p) 1 0 false
+  return pathed "{acc.source}\{path_to {p}" acc.refused if close == 0
+  w = route_text (hole_words p close) at
+  rest = or_blank (text/slice p (close + 1) (length p))
+  pathed "{acc.source}{w.source}{rest}" (list/concat acc.refused w.refused)
+
+# The words of the call a hole holds, `path_to` first.
+fn hole_words p close
+  inner = or_blank (text/slice p 1 (close - 1))
+  call_words (text/chars "path_to {inner}") 1 0 false "" []
+
+# Where the brace that opened a hole closes, outside any string, or 0 when
+# it does not.
+fn hole_end cs i depth in_string
+  return 0 if length cs < i
+  c = cs[i]
+  return hole_end cs (i + 2) depth in_string if in_string and c == "\\"
+  return hole_end cs (i + 1) depth (not in_string) if c == "\""
+  return hole_end cs (i + 1) depth in_string if in_string
+  return i if c == "}" and depth == 0
+  return hole_end cs (i + 1) (depth - 1) in_string if c == "}"
+  return hole_end cs (i + 1) (depth + 1) in_string if c == "\{"
+  hole_end cs (i + 1) depth in_string
 
 fn path_piece acc p at
   cs = text/chars p
@@ -164,7 +201,15 @@ pub fn links src
 fn links_on line i
   pieces = list/to_list (list/drop (text/split line "=(") 1)
   routed = list/select pieces (p -> text/starts_with? p "path_to ")
-  list/to_list (list/map routed (p -> link_of p i))
+  held = list/to_list (list/drop (text/split line "\{path_to ") 1)
+  by_value = list/to_list (list/map routed (p -> link_of p i))
+  list/concat by_value (list/to_list (list/map held (p -> hole_link p i)))
+
+fn hole_link p i
+  ws = hole_words p (hole_end (text/chars p) 1 0 false)
+  first = or_blank ws[2]
+  name = or_blank (text/slice first 2 (length first - 1))
+  link name (list/to_list (list/drop ws 2)) i
 
 fn link_of p i
   close = value_end (text/chars p) 1 0 false
