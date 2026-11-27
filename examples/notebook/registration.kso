@@ -15,42 +15,51 @@ pub without_sign_in = ["create" "new"]
 pub fn new req _
   effect (opened req "" {} 200)
 
-# An account needs an address nobody holds and a password of eight
-# characters or more. The address is looked up before the password is
-# stretched, so a sign-up that cannot succeed costs no hashing.
+# An account needs an address nobody holds. Nobody chooses a password: the
+# app chooses one, three words with a number and symbols, and shows it once
+# (kanso#2515). The address is looked up before the password is stretched,
+# so a sign-up that cannot succeed costs no hashing.
 pub fn create req db
   f = web/input req
   email = text/lowercase (text/trim (web/value f "email"))
-  password = web/value f "password"
-  user/find_by db "email" email
-    .> (held -> joined req db email password (held != none))
+  user/find_by db "email" email .> (held -> joined req db email (held != none))
 
-fn joined req db email password taken
-  short = "Use eight characters or more."
+fn joined req db email taken
   found = models/problems [
     (models/email_address "email" email)
     (models/rule "email" taken "That address has an account.")
-    (models/rule "password" (length password < 8) short)
   ]
   return effect (opened req email found 422) if models/problems? found
+  passwords/chosen .> (p -> kept req db email p)
+
+fn kept req db email password
   passwords/digested password
     .> (d -> user/create db (fields_of email d))
-    .> (w -> made req db w)
+    .> (w -> made req db w password)
 
 fn fields_of email digest
   { "digest":digest "email":email }
 
 # A new account is mailed a link to confirm its address, and signs in once
-# it has followed it, as Devise's confirmable asks.
-fn made req db kept:user/user
-  account_mailer/confirmation req db "{kept.id}" kept.email
+# it has followed it, as Devise's confirmable asks. The page that answers
+# shows the password the app chose, the only time it is shown.
+fn made req db made:user/user password
+  account_mailer/confirmation req db "{made.id}" made.email
     .? (u -> io/write_err "no confirmation mail: {u.reason}\n")
-    .> (_ -> effect (web/redirect (routes/path_to "session/new") sent))
+    .> (_ -> effect (shown req password))
 
-fn made _ _ _
+fn made _ _ _ _
   effect web/denied
 
-sent = "Welcome. We have mailed you a link to confirm your address."
+fn shown req password
+  heading = "Your account is made"
+  page = views/password_shown_view heading password sent
+  views/answer req 200 heading page
+
+sent = """
+  Save this password in your password manager: it is shown once. We have
+  mailed you a link to confirm your address; follow it, then sign in.
+"""
 
 # The sign-up form shows the address as typed and the problem with each
 # field, if any. A password is never sent back.

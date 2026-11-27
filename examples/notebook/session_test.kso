@@ -4,11 +4,20 @@ import "std/list"
 import "std/spec"
 import "std/text"
 
+# A visit just after making an account: the address, and the password the
+# page showed.
+type made
+  visit
+  email
+  password
+
 # Signing in, asked for as a browser asks. `signed` is the app as the entry
 # serves it, with the sign-in requirement around its routes, so an example
 # meets the door a visitor meets. A visit keeps the cookies the app sets:
 # the examples under "with an account" begin signed in, since `joined` makes
 # the account, follows the link mailed to confirm its address, and signs in.
+# The app chooses each password and shows it once, so an example reads it
+# from the page that made the account.
 test_signing_in = describe "signing in" [
   around (visit/within signed connected)
   it "is asked of a stranger" turned_back
@@ -26,14 +35,35 @@ fn turned_back v
   visit/get v "/" .> (v -> effect (expect (visit/location v) . to (equal door)))
 
 fn held_back v
-  visit/post v "/registration" account
-    .> (v -> visit/post v "/session" account)
+  signed_up v address
+    .> (m -> visit/post m.visit "/session" (account_of m))
     .> (v -> effect (expect v.status . to (equal 403)))
 
 fn joined v
-  visit/post v "/registration" account
-    .> (v -> visit/mailed v .> (letters -> confirmed v (list/first letters)))
-    .> (v -> visit/post v "/session" account)
+  signed_up v address .> signed_in
+
+fn signed_up v email
+  visit/post v "/registration" { "email":email }
+    .> (v -> effect (made v email (shown_password v.body)))
+
+fn signed_in m
+  visit/mailed m.visit
+    .> (letters -> confirmed m.visit (list/find letters (l -> l.to == m.email)))
+    .> (v -> visit/post v "/session" (account_of m))
+
+fn account_of m
+  { "email":m.email "password":m.password }
+
+fn shown_password body
+  after = text/split body "<code class=\"password\">"
+  return "" if length after < 2
+  blank (list/first (text/split after[2] "</code>"))
+
+fn blank none
+  ""
+
+fn blank s
+  s
 
 # The link opens a page with a button, and the button's form sends a PATCH
 # to the same path without `/edit`.
@@ -51,19 +81,28 @@ fn over v
     .> (v -> visit/get v "/")
     .> (v -> effect (expect (visit/location v) . to (equal door)))
 
+# A second account, made, confirmed and signed in, then signed out and in
+# again with the password its page showed.
 fn returned v
   visit/remove v "/session"
-    .> (v -> visit/post v "/session" account)
+    .> (v -> signed_up v other)
+    .> (m -> signed_in m .> (v -> out_and_in v m))
     .> (v -> visit/get v "/")
     .> (v -> effect (expect v.status . to (equal 200)))
+
+fn out_and_in v m
+  visit/remove v "/session"
+    .> (v -> visit/post v "/session" (account_of (made v m.email m.password)))
 
 fn refused v
   visit/remove v "/session"
     .> (v -> visit/post v "/session" mistaken)
     .> (v -> effect (expect v.status . to (equal 422)))
 
-account = { "email":"ada@example.test" "password":"a long password" }
+address = "ada@example.test"
 
-mistaken = put account "password" "another password"
+other = "grace@example.test"
+
+mistaken = { "email":address "password":"another password" }
 
 door = "/session/new"

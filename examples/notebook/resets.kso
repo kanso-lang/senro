@@ -49,32 +49,39 @@ pub fn edit req db id
   checked req db id .> (good -> offered req id good)
 
 fn offered req token true
-  effect (chosen req token {} 200)
+  effect (chosen req token 200)
 
 fn offered _ _ false
   effect (web/redirect (routes/path_to "resets/new") expired)
 
 expired = "That link has expired or was used. Ask for another."
 
-# A new password of eight characters or more, set through a link that is
-# still good. Setting it changes the digest, which is what retires the link
-# and ends every sign-in made with the old password.
+# A new password, which the app chooses and shows once (kanso#2515), set
+# through a link that is still good. Following the link only shows a button,
+# so a mail scanner that opens links changes nothing. Setting the password
+# changes the digest, which is what retires the link and ends every sign-in
+# made with the old password.
 pub fn update req db id
-  password = web/value (web/input req) "password"
-  checked req db id .> (good -> chose req db id password good)
+  checked req db id .> (good -> chose req db id good)
 
-fn chose _ _ _ _ false
+fn chose _ _ _ false
   effect (web/redirect (routes/path_to "resets/new") expired)
 
-fn chose req db token password true
-  short = { "password":"Use eight characters or more." }
-  return effect (chosen req token short 422) if length password < 8
+fn chose req db token true
   id = id_text (tokens/id_of token)
+  passwords/chosen .> (p -> renewed req db id p)
+
+fn renewed req db id password
   passwords/digested password
     .> (d -> user/update (models/as_app db) id { "digest":d })
-    .> (_ -> effect (web/redirect (routes/path_to "session/new") changed))
+    .> (_ -> effect (shown req password))
 
-changed = "Your password is changed. Sign in with it."
+fn shown req password
+  heading = "Your new password"
+  page = views/password_shown_view heading password changed
+  views/answer req 200 heading page
+
+changed = "Save this password in your password manager: it is shown once."
 
 # Whether `token` is good now for the account it names.
 fn checked req db token
@@ -97,6 +104,6 @@ fn asked req code
   page = views/reset_asked_view (web/notice req) {}
   views/answer req code "Forgot your password" page
 
-fn chosen req token problems code
-  page = views/reset_chosen_view (routes/path_to "resets/update" token) problems
+fn chosen req token code
+  page = views/reset_chosen_view (routes/path_to "resets/update" token)
   views/answer req code "A new password" page
